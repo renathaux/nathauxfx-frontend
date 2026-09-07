@@ -46,11 +46,14 @@
   <script>
     (function(){
       'use strict';
-      const BACKEND='https://api.nathauxfx.com';
+      const IS_LOCAL=location.hostname==='localhost'||location.hostname==='127.0.0.1';
+      const BACKEND=IS_LOCAL?'http://127.0.0.1:8001':`${location.origin}/api/proxy`;
       const PUBLIC_HOME_KEY='flowsignal_public_home_mode';
       const TAB_SIGNED_OUT_KEY='flowsignal_tab_signed_out';
       const USER_SESSION_KEY='flowsignal_user_session_token';
       const PERSISTED_USER_SESSION_KEY='flowsignal_user_session_persist';
+      const COOKIE_SESSION_SENTINEL='__flowsignal_cookie_session__';
+      const LOGIN_HINT_COOKIE='flowsignal_login_hint';
       const TAB_WINDOW_PREFIX='flowsignal-tab:';
       function ensureTabId(){
         const current=String(window.name||'');
@@ -58,6 +61,15 @@
         const id=(crypto.randomUUID?.()||`${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
         window.name=TAB_WINDOW_PREFIX+id;
         return id;
+      }
+      function hasLoginHint(){
+        try{return document.cookie.split(';').some(part=>part.trim()===`${LOGIN_HINT_COOKIE}=1`);}catch(_error){return false;}
+      }
+      function setLoginHint(){
+        try{document.cookie=`${LOGIN_HINT_COOKIE}=1; Max-Age=315360000; Path=/; Secure; SameSite=Lax`;}catch(_error){}
+      }
+      function clearLoginHint(){
+        try{document.cookie=`${LOGIN_HINT_COOKIE}=; Max-Age=0; Path=/; Secure; SameSite=Lax`;}catch(_error){}
       }
       const params=new URLSearchParams(location.search);
       let signup=params.get('mode')==='signup';
@@ -98,15 +110,26 @@
         sessionStorage.setItem(USER_SESSION_KEY,String(data.session_token));
         localStorage.setItem(`flowsignal_tab_user_session:${tabId}`,JSON.stringify({token:String(data.session_token),csrf:String(data.csrf_token||'')}));
         localStorage.setItem(PERSISTED_USER_SESSION_KEY,JSON.stringify({token:String(data.session_token),csrf:String(data.csrf_token||''),saved_at:savedAt}));
-        // Keep the legacy mobile bootstrap in sync until mobile.html is fully
-        // migrated to the persistent customer-session key.
         localStorage.setItem('flowsignal_role','user');
         localStorage.setItem('flowsignal_access',JSON.stringify({granted:true,time:savedAt}));
+        setLoginHint();
         sessionStorage.removeItem(PUBLIC_HOME_KEY);
         sessionStorage.removeItem(TAB_SIGNED_OUT_KEY);
         sessionStorage.setItem('flowsignal_user_portal_intent','1');
         sessionStorage.setItem('flowsignal_tab_role','user');
         if(data.csrf_token)sessionStorage.setItem('flowsignal_csrf_token',String(data.csrf_token));
+        location.replace('/app?user=1');
+      }
+      function finishCookieSession(data){
+        const savedAt=Date.now();
+        sessionStorage.setItem(USER_SESSION_KEY,COOKIE_SESSION_SENTINEL);
+        sessionStorage.setItem('flowsignal_tab_role','user');
+        sessionStorage.removeItem(PUBLIC_HOME_KEY);
+        sessionStorage.removeItem(TAB_SIGNED_OUT_KEY);
+        if(data?.csrf_token)sessionStorage.setItem('flowsignal_csrf_token',String(data.csrf_token));
+        localStorage.setItem('flowsignal_role','user');
+        localStorage.setItem('flowsignal_access',JSON.stringify({granted:true,time:savedAt}));
+        setLoginHint();
         location.replace('/app?user=1');
       }
       function render(){
@@ -144,25 +167,30 @@
       async function resumeExistingSession(){
         let saved=null;
         try{saved=JSON.parse(localStorage.getItem(PERSISTED_USER_SESSION_KEY)||'null');}catch(_error){}
-        if(!saved?.token)return false;
+        if(!saved?.token&&!hasLoginHint())return false;
         try{
-          const response=await fetch(`${BACKEND}/auth/session`,{
-            cache:'no-store',
-            headers:{'Authorization':`FlowSignalUser ${String(saved.token)}`}
-          });
+          const headers={};
+          if(saved?.token)headers.Authorization=`FlowSignalUser ${String(saved.token)}`;
+          const response=await fetch(`${BACKEND}/auth/session`,{cache:'no-store',headers});
           if(!response.ok){
-            if(response.status<500&&response.status!==408&&response.status!==429)localStorage.removeItem(PERSISTED_USER_SESSION_KEY);
+            if(response.status<500&&response.status!==408&&response.status!==429){
+              localStorage.removeItem(PERSISTED_USER_SESSION_KEY);
+              clearLoginHint();
+            }
             return false;
           }
           const data=await response.json().catch(()=>null);
           if(data?.authenticated&&data?.user){
-            finishSession({session_token:String(saved.token),csrf_token:String(data.csrf_token||saved.csrf||'')});
+            if(saved?.token)finishSession({session_token:String(saved.token),csrf_token:String(data.csrf_token||saved.csrf||'')});
+            else finishCookieSession(data);
             return true;
           }
-          if(data&&data.authenticated===false)localStorage.removeItem(PERSISTED_USER_SESSION_KEY);
+          if(data&&data.authenticated===false){
+            localStorage.removeItem(PERSISTED_USER_SESSION_KEY);
+            clearLoginHint();
+          }
         }catch(_error){
-          // Keep the saved token on transient network failures. A later app boot
-          // can validate it; network trouble is not a logout action.
+          // Keep the saved login on transient network failures.
         }
         return false;
       }
