@@ -164,6 +164,7 @@
     const response=await nativeFetch(url,options);
     if(response.status===401&&token&&customerRequest&&logicalBackendPath(raw)!=='/auth/session'){
       sessionStorage.removeItem(USER_SESSION_KEY);sessionStorage.removeItem(CSRF_KEY);sessionStorage.removeItem(TAB_ROLE_KEY);
+      clearDeviceSession();
       window.setTimeout(()=>location.replace('/account.html?expired=1'),0);
     }
     return response;
@@ -202,6 +203,24 @@
     document.dispatchEvent(new CustomEvent('flowsignal:authenticated',{detail:{user}}));
     enterFullUserDashboard(user);
   }
+  let sessionRetryTimer=null;
+  function scheduleSessionRetry(){
+    if(sessionRetryTimer)return;
+    sessionRetryTimer=window.setTimeout(()=>{
+      sessionRetryTimer=null;
+      if(userSessionToken()&&!tabSignedOut())session();
+    },3000);
+  }
+  function preserveSessionDuringBackendOutage(){
+    // A temporary network/backend failure must never behave like logout.
+    // Keep the persistent token and dashboard shell; protected API calls still
+    // require server validation and will recover when the backend is reachable.
+    sessionUser=null;
+    csrfToken=sessionStorage.getItem(CSRF_KEY)||csrfToken||'';
+    if(location.pathname.startsWith('/app'))showApp();
+    scheduleSessionRetry();
+    return null;
+  }
   async function session(){
     if(legacyOwner()){
       sessionUser=null;
@@ -221,11 +240,33 @@
       else showLanding();
       return null;
     }
+    let response;
     try{
-      const response=await nativeFetch(`${AUTH_BACKEND}/auth/session`,{cache:'no-store',headers:{'Authorization':`FlowSignalUser ${token}`}});
-      const data=await response.json().catch(()=>({}));
-      if(data?.authenticated&&data?.user){csrfToken=String(data.csrf_token||'');sessionStorage.setItem(CSRF_KEY,csrfToken);saveDeviceSession(token,csrfToken);applyUser(data.user);return data.user;}
-    }catch(_error){}
+      response=await nativeFetch(`${AUTH_BACKEND}/auth/session`,{cache:'no-store',headers:{'Authorization':`FlowSignalUser ${token}`}});
+    }catch(_error){
+      return preserveSessionDuringBackendOutage();
+    }
+    if(!response.ok){
+      if(response.status>=500||response.status===408||response.status===429)return preserveSessionDuringBackendOutage();
+      sessionStorage.removeItem(USER_SESSION_KEY);
+      sessionStorage.removeItem(TAB_ROLE_KEY);
+      clearDeviceSession();
+      sessionUser=null;csrfToken='';sessionStorage.removeItem(CSRF_KEY);
+      if(location.pathname.startsWith('/app')) location.replace('/account.html?expired=1');
+      else showLanding();
+      return null;
+    }
+    const data=await response.json().catch(()=>null);
+    if(!data)return preserveSessionDuringBackendOutage();
+    if(data.authenticated&&data.user){
+      csrfToken=String(data.csrf_token||'');
+      sessionStorage.setItem(CSRF_KEY,csrfToken);
+      saveDeviceSession(token,csrfToken);
+      applyUser(data.user);
+      return data.user;
+    }
+    // Only a successful authoritative response saying the session is no longer
+    // authenticated is allowed to remove the persistent login.
     sessionStorage.removeItem(USER_SESSION_KEY);
     sessionStorage.removeItem(TAB_ROLE_KEY);
     clearDeviceSession();
