@@ -5,7 +5,9 @@
   const DIRECT_BACKEND='https://api.nathauxfx.com';
   const IS_LOCAL=location.hostname==='localhost'||location.hostname==='127.0.0.1';
   const BACKEND=IS_LOCAL?LOCAL_BACKEND:`${location.origin}/api/proxy`;
-  const AUTH_BACKEND=IS_LOCAL?LOCAL_BACKEND:DIRECT_BACKEND;
+  // Customer auth uses the same-origin proxy in production so the secure
+  // HttpOnly session cookie belongs to the site the user actually opened.
+  const AUTH_BACKEND=BACKEND;
   const CSRF_KEY='flowsignal_csrf_token';
   const USER_SESSION_KEY='flowsignal_user_session_token';
   const PERSISTED_USER_SESSION_KEY='flowsignal_user_session_persist';
@@ -14,6 +16,8 @@
   const TAB_SIGNED_OUT_KEY='flowsignal_tab_signed_out';
   const TAB_ROLE_KEY='flowsignal_tab_role';
   const TAB_WINDOW_PREFIX='flowsignal-tab:';
+  const COOKIE_SESSION_SENTINEL='__flowsignal_cookie_session__';
+  const LOGIN_HINT_COOKIE='flowsignal_login_hint';
   function currentTabId(){
     const current=String(window.name||'');
     return current.startsWith(TAB_WINDOW_PREFIX)?current.slice(TAB_WINDOW_PREFIX.length):'';
@@ -21,6 +25,18 @@
   function savedDeviceSession(){try{return JSON.parse(localStorage.getItem(PERSISTED_USER_SESSION_KEY)||'null');}catch(_error){return null;}}
   function saveDeviceSession(token,csrf=''){if(!token)return;localStorage.setItem(PERSISTED_USER_SESSION_KEY,JSON.stringify({token:String(token),csrf:String(csrf||''),saved_at:Date.now()}));}
   function clearDeviceSession(){localStorage.removeItem(PERSISTED_USER_SESSION_KEY);}
+  function rawUserSessionToken(){return String(sessionStorage.getItem(USER_SESSION_KEY)||'').trim();}
+  function userSessionToken(){const raw=rawUserSessionToken();return raw===COOKIE_SESSION_SENTINEL?'':raw;}
+  function hasLoginHint(){
+    try{return document.cookie.split(';').some(part=>part.trim()===`${LOGIN_HINT_COOKIE}=1`);}catch(_error){return false;}
+  }
+  function setLoginHint(){
+    try{document.cookie=`${LOGIN_HINT_COOKIE}=1; Max-Age=315360000; Path=/; Secure; SameSite=Lax`;}catch(_error){}
+  }
+  function clearLoginHint(){
+    try{document.cookie=`${LOGIN_HINT_COOKIE}=; Max-Age=0; Path=/; Secure; SameSite=Lax`;}catch(_error){}
+  }
+  function hasCookieSessionMarker(){return rawUserSessionToken()===COOKIE_SESSION_SENTINEL||hasLoginHint();}
   function recoverTabAuth(){
     const id=currentTabId();
     if(!sessionStorage.getItem(USER_SESSION_KEY)){
@@ -55,6 +71,15 @@
         sessionStorage.setItem(TAB_ROLE_KEY,'user');
         sessionStorage.removeItem(PUBLIC_HOME_KEY);
         sessionStorage.removeItem(TAB_SIGNED_OUT_KEY);
+        return;
+      }
+      // If JavaScript storage was cleared but the secure server cookie remains,
+      // use a non-secret marker so /auth/session can restore the customer.
+      if(hasLoginHint()){
+        sessionStorage.setItem(USER_SESSION_KEY,COOKIE_SESSION_SENTINEL);
+        sessionStorage.setItem(TAB_ROLE_KEY,'user');
+        sessionStorage.removeItem(PUBLIC_HOME_KEY);
+        sessionStorage.removeItem(TAB_SIGNED_OUT_KEY);
       }
     }
   }
@@ -75,15 +100,14 @@
   let csrfToken=sessionStorage.getItem(CSRF_KEY)||'';
   const nativeFetch=window.fetch.bind(window);
 
-  function userSessionToken(){return String(sessionStorage.getItem(USER_SESSION_KEY)||'').trim();}
   function publicHome(){return sessionStorage.getItem(PUBLIC_HOME_KEY)==='1';}
   function tabSignedOut(){return sessionStorage.getItem(TAB_SIGNED_OUT_KEY)==='1';}
   function adminToken(){return String(localStorage.getItem(LEGACY_SESSION_TOKEN_KEY)||'').trim();}
   function tabRole(){return String(sessionStorage.getItem(TAB_ROLE_KEY)||'').toLowerCase();}
 
-  // /app is an authenticated surface. A real tab token always wins over a stale
-  // public-home marker left by older navigation code.
-  if(location.pathname.startsWith('/app')&&userSessionToken()){
+  // /app is an authenticated surface. A real tab token or a secure-cookie
+  // recovery marker wins over stale public-home state.
+  if(location.pathname.startsWith('/app')&&(userSessionToken()||hasCookieSessionMarker())){
     sessionStorage.removeItem(PUBLIC_HOME_KEY);
     sessionStorage.removeItem(TAB_SIGNED_OUT_KEY);
   }
@@ -101,7 +125,7 @@
   }
 
   function legacyOwner(){
-    if(userSessionToken())return false;
+    if(userSessionToken()||hasCookieSessionMarker())return false;
     return tabRole()==='admin'&&Boolean(adminToken());
   }
   function isBackend(input){
@@ -147,7 +171,7 @@
     const raw=typeof input==='string'?input:input.url;
     const token=userSessionToken();
     const customerRequest=isCustomerRequest(raw);
-    if((tabSignedOut()||!token)&&customerRequest&&logicalBackendPath(raw)!=='/auth/session'&&!legacyOwner()){
+    if(tabSignedOut()&&customerRequest&&logicalBackendPath(raw)!=='/auth/session'&&!legacyOwner()){
       return new Response(JSON.stringify({detail:'TAB_SIGNED_OUT'}),{status:401,headers:{'Content-Type':'application/json'}});
     }
     const url=customerUrl(raw);
@@ -155,16 +179,17 @@
     options.headers=new Headers(init.headers||{});
     const method=String(options.method||'GET').toUpperCase();
     if(token&&customerRequest)options.headers.set('Authorization',`FlowSignalUser ${token}`);
-    if(token&&sessionUser?.id&&!['GET','HEAD','OPTIONS'].includes(method)&&csrfToken)options.headers.set('X-FlowSignal-CSRF',csrfToken);
-    if(!token&&legacyOwner()&&!options.headers.has('Authorization')){
+    if(sessionUser?.id&&!['GET','HEAD','OPTIONS'].includes(method)&&csrfToken)options.headers.set('X-FlowSignal-CSRF',csrfToken);
+    if(!token&&!hasCookieSessionMarker()&&legacyOwner()&&!options.headers.has('Authorization')){
       const ownerToken=adminToken();
       if(ownerToken)options.headers.set('Authorization',`Bearer ${ownerToken}`);
     }
     if(options.body)options.body=cleanBody(options.body);
     const response=await nativeFetch(url,options);
-    if(response.status===401&&token&&customerRequest&&logicalBackendPath(raw)!=='/auth/session'){
+    if(response.status===401&&customerRequest&&logicalBackendPath(raw)!=='/auth/session'&&(token||hasCookieSessionMarker())){
       sessionStorage.removeItem(USER_SESSION_KEY);sessionStorage.removeItem(CSRF_KEY);sessionStorage.removeItem(TAB_ROLE_KEY);
       clearDeviceSession();
+      clearLoginHint();
       localStorage.removeItem('flowsignal_access');
       localStorage.removeItem('flowsignal_role');
       window.setTimeout(()=>location.replace('/account.html?expired=1'),0);
@@ -210,13 +235,13 @@
     if(sessionRetryTimer)return;
     sessionRetryTimer=window.setTimeout(()=>{
       sessionRetryTimer=null;
-      if(userSessionToken()&&!tabSignedOut())session();
+      if((userSessionToken()||hasCookieSessionMarker())&&!tabSignedOut())session();
     },3000);
   }
   function preserveSessionDuringBackendOutage(){
     // A temporary network/backend failure must never behave like logout.
-    // Keep the persistent token and dashboard shell; protected API calls still
-    // require server validation and will recover when the backend is reachable.
+    // Keep the persistent token/cookie and dashboard shell; protected API calls
+    // will recover when the backend is reachable.
     sessionUser=null;
     csrfToken=sessionStorage.getItem(CSRF_KEY)||csrfToken||'';
     if(location.pathname.startsWith('/app'))showApp();
@@ -234,7 +259,8 @@
       return null;
     }
     const token=userSessionToken();
-    if(publicHome()||tabSignedOut()||!token){
+    const cookieSession=hasCookieSessionMarker();
+    if(publicHome()||tabSignedOut()||(!token&&!cookieSession)){
       sessionUser=null;
       csrfToken='';
       sessionStorage.removeItem(CSRF_KEY);
@@ -244,7 +270,9 @@
     }
     let response;
     try{
-      response=await nativeFetch(`${AUTH_BACKEND}/auth/session`,{cache:'no-store',headers:{'Authorization':`FlowSignalUser ${token}`}});
+      const headers={};
+      if(token)headers.Authorization=`FlowSignalUser ${token}`;
+      response=await nativeFetch(`${AUTH_BACKEND}/auth/session`,{cache:'no-store',headers});
     }catch(_error){
       return preserveSessionDuringBackendOutage();
     }
@@ -253,6 +281,7 @@
       sessionStorage.removeItem(USER_SESSION_KEY);
       sessionStorage.removeItem(TAB_ROLE_KEY);
       clearDeviceSession();
+      clearLoginHint();
       localStorage.removeItem('flowsignal_access');
       localStorage.removeItem('flowsignal_role');
       sessionUser=null;csrfToken='';sessionStorage.removeItem(CSRF_KEY);
@@ -265,7 +294,9 @@
     if(data.authenticated&&data.user){
       csrfToken=String(data.csrf_token||'');
       sessionStorage.setItem(CSRF_KEY,csrfToken);
-      saveDeviceSession(token,csrfToken);
+      if(token)saveDeviceSession(token,csrfToken);
+      else sessionStorage.setItem(USER_SESSION_KEY,COOKIE_SESSION_SENTINEL);
+      setLoginHint();
       localStorage.setItem('flowsignal_role','user');
       localStorage.setItem('flowsignal_access',JSON.stringify({granted:true,time:Date.now()}));
       applyUser(data.user);
@@ -276,6 +307,7 @@
     sessionStorage.removeItem(USER_SESSION_KEY);
     sessionStorage.removeItem(TAB_ROLE_KEY);
     clearDeviceSession();
+    clearLoginHint();
     localStorage.removeItem('flowsignal_access');
     localStorage.removeItem('flowsignal_role');
     sessionUser=null;csrfToken='';sessionStorage.removeItem(CSRF_KEY);
@@ -286,12 +318,17 @@
   async function logoutUser(){
     const token=userSessionToken();
     const csrf=csrfToken;
-    if(token&&csrf){
-      try{await nativeFetch(`${AUTH_BACKEND}/auth/logout`,{method:'POST',headers:{'Authorization':`FlowSignalUser ${token}`,'X-FlowSignal-CSRF':csrf}});}catch(_error){}
+    if(csrf&&(token||hasCookieSessionMarker())){
+      try{
+        const headers={'X-FlowSignal-CSRF':csrf};
+        if(token)headers.Authorization=`FlowSignalUser ${token}`;
+        await nativeFetch(`${AUTH_BACKEND}/auth/logout`,{method:'POST',headers});
+      }catch(_error){}
     }
     const tabId=currentTabId();
     if(tabId)localStorage.removeItem(`flowsignal_tab_user_session:${tabId}`);
     clearDeviceSession();
+    clearLoginHint();
     localStorage.removeItem('flowsignal_access');
     localStorage.removeItem('flowsignal_role');
     window.name='';
