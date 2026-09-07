@@ -4,18 +4,36 @@
       "source": "/app",
       "has": [
         { "type": "query", "key": "brokerAccounts", "value": "1" },
-        { "type": "query", "key": "ctrader" }
+        { "type": "query", "key": "ctrader", "value": "connected" }
       ],
-      "destination": "/account.html?mode=login",
+      "destination": "/ctrader-return.html?ctrader=connected",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        { "type": "query", "key": "brokerAccounts", "value": "1" },
+        { "type": "query", "key": "ctrader", "value": "error" }
+      ],
+      "destination": "/ctrader-return.html?ctrader=error",
       "permanent": false
     },
     {
       "source": "/app/",
       "has": [
         { "type": "query", "key": "brokerAccounts", "value": "1" },
-        { "type": "query", "key": "ctrader" }
+        { "type": "query", "key": "ctrader", "value": "connected" }
       ],
-      "destination": "/account.html?mode=login",
+      "destination": "/ctrader-return.html?ctrader=connected",
+      "permanent": false
+    },
+    {
+      "source": "/app/",
+      "has": [
+        { "type": "query", "key": "brokerAccounts", "value": "1" },
+        { "type": "query", "key": "ctrader", "value": "error" }
+      ],
+      "destination": "/ctrader-return.html?ctrader=error",
       "permanent": false
     },
     { "source": "/app", "destination": "/app.html", "permanent": false },
@@ -27,6 +45,12 @@
   "headers": [
     {
       "source": "/app.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    },
+    {
+      "source": "/ctrader-return.html",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
