@@ -2,11 +2,46 @@
   'use strict';
 
   const TAB_ROLE_KEY = 'flowsignal_tab_role';
+  const OWNER_TOKEN_KEY = 'flowsignal_session_token';
+  const LEGACY_ROLE_KEY = 'flowsignal_role';
+  const TAB_WINDOW_PREFIX = 'flowsignal-tab:';
 
   function normalizeRole(value) {
     const role = String(value || '').toLowerCase();
     return role === 'admin' || role === 'user' ? role : '';
   }
+
+  function restorePersistentOwnerRole() {
+    try {
+      if (sessionStorage.getItem('flowsignal_user_session_token')) return false;
+      if (normalizeRole(sessionStorage.getItem(TAB_ROLE_KEY)) === 'user') return false;
+
+      const role = normalizeRole(localStorage.getItem(LEGACY_ROLE_KEY));
+      const token = String(localStorage.getItem(OWNER_TOKEN_KEY) || '').trim();
+      if (role !== 'admin' || !token) return false;
+
+      sessionStorage.setItem(TAB_ROLE_KEY, 'admin');
+      sessionStorage.removeItem('flowsignal_tab_signed_out');
+      sessionStorage.removeItem('flowsignal_public_home_mode');
+      sessionStorage.removeItem('flowsignal_binary_user_id');
+
+      let current = String(window.name || '');
+      let tabId = current.startsWith(TAB_WINDOW_PREFIX)
+        ? current.slice(TAB_WINDOW_PREFIX.length)
+        : '';
+      if (!tabId) {
+        tabId = crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        window.name = `${TAB_WINDOW_PREFIX}${tabId}`;
+      }
+      localStorage.setItem(`flowsignal_tab_admin_session:${tabId}`, JSON.stringify({ token }));
+      localStorage.setItem('flowsignal_access', JSON.stringify({ granted: true, time: Date.now() }));
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  restorePersistentOwnerRole();
 
   function authenticatedRole() {
     return normalizeRole(window.FlowSignalAuth?.user?.role);
