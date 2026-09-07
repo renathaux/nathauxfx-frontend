@@ -2,7 +2,35 @@
   'use strict';
 
   const THEME_KEY = 'nathauxfx_theme';
+  const OWNER_TOKEN_KEY = 'flowsignal_session_token';
+  const ROLE_KEY = 'flowsignal_role';
+  const TAB_ROLE_KEY = 'flowsignal_tab_role';
   const systemTheme = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+
+  function resumePersistentOwnerFromHome() {
+    if (!/^\/$/.test(window.location.pathname)) return false;
+    try {
+      const role = String(localStorage.getItem(ROLE_KEY) || '').toLowerCase();
+      const token = String(localStorage.getItem(OWNER_TOKEN_KEY) || '').trim();
+      if (role !== 'admin' || !token) return false;
+
+      sessionStorage.removeItem('flowsignal_user_session_token');
+      sessionStorage.removeItem('flowsignal_binary_user_id');
+      sessionStorage.removeItem('flowsignal_tab_signed_out');
+      sessionStorage.removeItem('flowsignal_public_home_mode');
+      sessionStorage.setItem(TAB_ROLE_KEY, 'admin');
+      localStorage.setItem('flowsignal_access', JSON.stringify({
+        granted: true,
+        time: Date.now()
+      }));
+      window.location.replace('/app');
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  if (resumePersistentOwnerFromHome()) return;
 
   function getSavedTheme() {
     try {
