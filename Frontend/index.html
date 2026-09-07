@@ -139,6 +139,21 @@
   <script>
     (function(){
       'use strict';
+      const USER_SESSION_KEY='flowsignal_user_session_token';
+      const CSRF_KEY='flowsignal_csrf_token';
+      const PERSISTED_USER_SESSION_KEY='flowsignal_user_session_persist';
+      try{
+        const saved=JSON.parse(localStorage.getItem(PERSISTED_USER_SESSION_KEY)||'null');
+        if(saved?.token){
+          sessionStorage.setItem(USER_SESSION_KEY,String(saved.token));
+          if(saved.csrf)sessionStorage.setItem(CSRF_KEY,String(saved.csrf));
+          sessionStorage.setItem('flowsignal_tab_role','user');
+          sessionStorage.removeItem('flowsignal_tab_signed_out');
+          sessionStorage.removeItem('flowsignal_public_home_mode');
+          location.replace('/app?user=1');
+          return;
+        }
+      }catch(_error){}
       try{window.speechSynthesis?.cancel?.();}catch(_error){}
       sessionStorage.removeItem('flowsignal_public_home_mode');
       document.getElementById('loginBtn').onclick=()=>location.href='/account.html?mode=login';
