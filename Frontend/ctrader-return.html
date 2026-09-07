@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Returning to NathauxFX</title>
+  <style>
+    :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#020812;color:#eaf3ff;font-family:Inter,Arial,sans-serif}.card{width:min(420px,calc(100vw - 32px));padding:28px;border:1px solid #1c4f7f;border-radius:18px;background:#061321;text-align:center}.brand{font-weight:800;font-size:22px}.status{margin-top:16px;color:#9bb0c7;line-height:1.5}.error{color:#ff7b7b}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">NathauxFX</div>
+    <div id="status" class="status">Restoring your session and broker connection…</div>
+  </main>
+  <script>
+  (async function(){
+    'use strict';
+
+    const TAB_WINDOW_PREFIX='flowsignal-tab:';
+    const USER_SESSION_KEY='flowsignal_user_session_token';
+    const PERSISTED_USER_SESSION_KEY='flowsignal_user_session_persist';
+    const CSRF_KEY='flowsignal_csrf_token';
+    const COOKIE_SESSION_SENTINEL='__flowsignal_cookie_session__';
+    const OWNER_TOKEN_KEY='flowsignal_session_token';
+    const ROLE_KEY='flowsignal_role';
+    const statusEl=document.getElementById('status');
+    const params=new URLSearchParams(location.search);
+    const ctraderStatus=params.get('ctrader')==='error'?'error':'connected';
+    const target=`/app.html?brokerAccounts=1&ctrader=${encodeURIComponent(ctraderStatus)}`;
+
+    function ensureTabId(){
+      const current=String(window.name||'');
+      if(current.startsWith(TAB_WINDOW_PREFIX)&&current.length>TAB_WINDOW_PREFIX.length){
+        return current.slice(TAB_WINDOW_PREFIX.length);
+      }
+      const id=crypto.randomUUID?.()||`${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      window.name=TAB_WINDOW_PREFIX+id;
+      return id;
+    }
+
+    function markCommonRole(role){
+      sessionStorage.setItem('flowsignal_tab_role',role);
+      sessionStorage.removeItem('flowsignal_public_home_mode');
+      sessionStorage.removeItem('flowsignal_tab_signed_out');
+      localStorage.setItem(ROLE_KEY,role);
+      localStorage.setItem('flowsignal_access',JSON.stringify({granted:true,time:Date.now()}));
+    }
+
+    function restoreOwner(){
+      try{
+        const role=String(localStorage.getItem(ROLE_KEY)||'').toLowerCase();
+        const token=String(localStorage.getItem(OWNER_TOKEN_KEY)||'').trim();
+        if(role!=='admin'||!token)return false;
+        const tabId=ensureTabId();
+        sessionStorage.removeItem(USER_SESSION_KEY);
+        sessionStorage.removeItem('flowsignal_binary_user_id');
+        markCommonRole('admin');
+        localStorage.setItem(`flowsignal_tab_admin_session:${tabId}`,JSON.stringify({token}));
+        location.replace(target);
+        return true;
+      }catch(_error){
+        return false;
+      }
+    }
+
+    async function restoreCustomer(){
+      let saved=null;
+      try{saved=JSON.parse(localStorage.getItem(PERSISTED_USER_SESSION_KEY)||'null');}catch(_error){}
+      const headers={};
+      if(saved?.token)headers.Authorization=`FlowSignalUser ${String(saved.token)}`;
+
+      const response=await fetch(`${location.origin}/api/proxy/auth/session`,{
+        method:'GET',
+        cache:'no-store',
+        credentials:'same-origin',
+        headers
+      });
+      if(!response.ok)return false;
+      const data=await response.json().catch(()=>null);
+      if(!data?.authenticated||!data?.user)return false;
+
+      const tabId=ensureTabId();
+      const csrf=String(data.csrf_token||saved?.csrf||'');
+      if(saved?.token){
+        const token=String(saved.token);
+        sessionStorage.setItem(USER_SESSION_KEY,token);
+        localStorage.setItem(`flowsignal_tab_user_session:${tabId}`,JSON.stringify({token,csrf}));
+        localStorage.setItem(PERSISTED_USER_SESSION_KEY,JSON.stringify({token,csrf,saved_at:Date.now()}));
+      }else{
+        sessionStorage.setItem(USER_SESSION_KEY,COOKIE_SESSION_SENTINEL);
+      }
+      if(csrf)sessionStorage.setItem(CSRF_KEY,csrf);
+      sessionStorage.setItem('flowsignal_user_portal_intent','1');
+      markCommonRole('user');
+      location.replace(target);
+      return true;
+    }
+
+    if(restoreOwner())return;
+
+    try{
+      if(await restoreCustomer())return;
+    }catch(_error){}
+
+    statusEl.textContent='Your NathauxFX session could not be restored. Opening login…';
+    statusEl.classList.add('error');
+    location.replace('/account.html?mode=login');
+  })();
+  </script>
+</body>
+</html>
