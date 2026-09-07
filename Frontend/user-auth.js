@@ -165,6 +165,8 @@
     if(response.status===401&&token&&customerRequest&&logicalBackendPath(raw)!=='/auth/session'){
       sessionStorage.removeItem(USER_SESSION_KEY);sessionStorage.removeItem(CSRF_KEY);sessionStorage.removeItem(TAB_ROLE_KEY);
       clearDeviceSession();
+      localStorage.removeItem('flowsignal_access');
+      localStorage.removeItem('flowsignal_role');
       window.setTimeout(()=>location.replace('/account.html?expired=1'),0);
     }
     return response;
@@ -251,6 +253,8 @@
       sessionStorage.removeItem(USER_SESSION_KEY);
       sessionStorage.removeItem(TAB_ROLE_KEY);
       clearDeviceSession();
+      localStorage.removeItem('flowsignal_access');
+      localStorage.removeItem('flowsignal_role');
       sessionUser=null;csrfToken='';sessionStorage.removeItem(CSRF_KEY);
       if(location.pathname.startsWith('/app')) location.replace('/account.html?expired=1');
       else showLanding();
@@ -262,6 +266,8 @@
       csrfToken=String(data.csrf_token||'');
       sessionStorage.setItem(CSRF_KEY,csrfToken);
       saveDeviceSession(token,csrfToken);
+      localStorage.setItem('flowsignal_role','user');
+      localStorage.setItem('flowsignal_access',JSON.stringify({granted:true,time:Date.now()}));
       applyUser(data.user);
       return data.user;
     }
@@ -270,6 +276,8 @@
     sessionStorage.removeItem(USER_SESSION_KEY);
     sessionStorage.removeItem(TAB_ROLE_KEY);
     clearDeviceSession();
+    localStorage.removeItem('flowsignal_access');
+    localStorage.removeItem('flowsignal_role');
     sessionUser=null;csrfToken='';sessionStorage.removeItem(CSRF_KEY);
     if(location.pathname.startsWith('/app')) location.replace('/account.html?expired=1');
     else showLanding();
@@ -284,6 +292,8 @@
     const tabId=currentTabId();
     if(tabId)localStorage.removeItem(`flowsignal_tab_user_session:${tabId}`);
     clearDeviceSession();
+    localStorage.removeItem('flowsignal_access');
+    localStorage.removeItem('flowsignal_role');
     window.name='';
     sessionStorage.setItem(TAB_SIGNED_OUT_KEY,'1');
     sessionStorage.removeItem(USER_SESSION_KEY);
