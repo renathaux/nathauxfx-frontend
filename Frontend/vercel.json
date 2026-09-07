@@ -1,5 +1,23 @@
 {
   "redirects": [
+    {
+      "source": "/app",
+      "has": [
+        { "type": "query", "key": "brokerAccounts", "value": "1" },
+        { "type": "query", "key": "ctrader" }
+      ],
+      "destination": "/account.html?mode=login",
+      "permanent": false
+    },
+    {
+      "source": "/app/",
+      "has": [
+        { "type": "query", "key": "brokerAccounts", "value": "1" },
+        { "type": "query", "key": "ctrader" }
+      ],
+      "destination": "/account.html?mode=login",
+      "permanent": false
+    },
     { "source": "/app", "destination": "/app.html", "permanent": false },
     { "source": "/app/", "destination": "/app.html", "permanent": false }
   ],
