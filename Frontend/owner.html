@@ -27,6 +27,8 @@
       try{window.speechSynthesis?.cancel?.();}catch(_error){}
       const BACKEND='https://api.nathauxfx.com';
       const TAB_WINDOW_PREFIX='flowsignal-tab:';
+      const OWNER_TOKEN_KEY='flowsignal_session_token';
+      const ROLE_KEY='flowsignal_role';
       function ensureTabId(){
         const current=String(window.name||'');
         if(current.startsWith(TAB_WINDOW_PREFIX)&&current.length>TAB_WINDOW_PREFIX.length)return current.slice(TAB_WINDOW_PREFIX.length);
@@ -34,6 +36,33 @@
         window.name=TAB_WINDOW_PREFIX+id;
         return id;
       }
+      function enterOwnerSession(token){
+        const value=String(token||'').trim();
+        if(!value)return false;
+        sessionStorage.removeItem('flowsignal_user_session_token');
+        sessionStorage.removeItem('flowsignal_binary_user_id');
+        sessionStorage.removeItem('flowsignal_tab_signed_out');
+        sessionStorage.removeItem('flowsignal_public_home_mode');
+        const tabId=ensureTabId();
+        sessionStorage.setItem('flowsignal_tab_role','admin');
+        localStorage.setItem(`flowsignal_tab_admin_session:${tabId}`,JSON.stringify({token:value}));
+        localStorage.setItem('flowsignal_access',JSON.stringify({granted:true,time:Date.now()}));
+        localStorage.setItem(ROLE_KEY,'admin');
+        localStorage.setItem(OWNER_TOKEN_KEY,value);
+        location.replace('/app');
+        return true;
+      }
+      function resumeExistingOwner(){
+        try{
+          const role=String(localStorage.getItem(ROLE_KEY)||'').toLowerCase();
+          const token=String(localStorage.getItem(OWNER_TOKEN_KEY)||'').trim();
+          if(role==='admin'&&token)return enterOwnerSession(token);
+        }catch(_error){}
+        return false;
+      }
+
+      if(resumeExistingOwner())return;
+
       const form=document.getElementById('form');
       const email=document.getElementById('email');
       const password=document.getElementById('password');
@@ -51,17 +80,8 @@
             body:JSON.stringify({email:email.value.trim(),password:password.value})
           });
           const data=await res.json().catch(()=>({}));
-          if(!res.ok||!data.ok||data.role!=='admin'||!data.token) throw new Error(data.detail||'Invalid admin login');
-          sessionStorage.removeItem('flowsignal_user_session_token');
-          sessionStorage.removeItem('flowsignal_binary_user_id');
-          sessionStorage.removeItem('flowsignal_tab_signed_out');
-          const tabId=ensureTabId();
-          sessionStorage.setItem('flowsignal_tab_role','admin');
-          localStorage.setItem(`flowsignal_tab_admin_session:${tabId}`,JSON.stringify({token:String(data.token)}));
-          localStorage.setItem('flowsignal_access',JSON.stringify({granted:true,time:Date.now()}));
-          localStorage.setItem('flowsignal_role','admin');
-          localStorage.setItem('flowsignal_session_token',String(data.token));
-          location.replace('/app');
+          if(!res.ok||!data.ok||data.role!=='admin'||!data.token) throw new Error(data.detail||data.message||'Invalid admin login');
+          enterOwnerSession(data.token);
         }catch(err){error.textContent=String(err.message||'Login failed').replaceAll('_',' ');}finally{submit.disabled=false;}
       });
     })();
