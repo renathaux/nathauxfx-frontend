@@ -145,11 +145,14 @@
       try{
         const saved=JSON.parse(localStorage.getItem(PERSISTED_USER_SESSION_KEY)||'null');
         if(saved?.token){
+          const restoredAt=Date.now();
           sessionStorage.setItem(USER_SESSION_KEY,String(saved.token));
           if(saved.csrf)sessionStorage.setItem(CSRF_KEY,String(saved.csrf));
           sessionStorage.setItem('flowsignal_tab_role','user');
           sessionStorage.removeItem('flowsignal_tab_signed_out');
           sessionStorage.removeItem('flowsignal_public_home_mode');
+          localStorage.setItem('flowsignal_role','user');
+          localStorage.setItem('flowsignal_access',JSON.stringify({granted:true,time:restoredAt}));
           location.replace('/app?user=1');
           return;
         }
