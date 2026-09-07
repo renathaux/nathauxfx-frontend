@@ -94,12 +94,18 @@
       function finishSession(data){
         if(!data.session_token)throw new Error('SESSION_TOKEN_MISSING');
         const tabId=ensureTabId();
+        const savedAt=Date.now();
         sessionStorage.setItem(USER_SESSION_KEY,String(data.session_token));
         localStorage.setItem(`flowsignal_tab_user_session:${tabId}`,JSON.stringify({token:String(data.session_token),csrf:String(data.csrf_token||'')}));
-        localStorage.setItem(PERSISTED_USER_SESSION_KEY,JSON.stringify({token:String(data.session_token),csrf:String(data.csrf_token||''),saved_at:Date.now()}));
+        localStorage.setItem(PERSISTED_USER_SESSION_KEY,JSON.stringify({token:String(data.session_token),csrf:String(data.csrf_token||''),saved_at:savedAt}));
+        // Keep the legacy mobile bootstrap in sync until mobile.html is fully
+        // migrated to the persistent customer-session key.
+        localStorage.setItem('flowsignal_role','user');
+        localStorage.setItem('flowsignal_access',JSON.stringify({granted:true,time:savedAt}));
         sessionStorage.removeItem(PUBLIC_HOME_KEY);
         sessionStorage.removeItem(TAB_SIGNED_OUT_KEY);
         sessionStorage.setItem('flowsignal_user_portal_intent','1');
+        sessionStorage.setItem('flowsignal_tab_role','user');
         if(data.csrf_token)sessionStorage.setItem('flowsignal_csrf_token',String(data.csrf_token));
         location.replace('/app?user=1');
       }
@@ -134,6 +140,31 @@
         clearMessages();
         startResendCountdown(resendAfter);
         setTimeout(()=>otpCode.focus(),50);
+      }
+      async function resumeExistingSession(){
+        let saved=null;
+        try{saved=JSON.parse(localStorage.getItem(PERSISTED_USER_SESSION_KEY)||'null');}catch(_error){}
+        if(!saved?.token)return false;
+        try{
+          const response=await fetch(`${BACKEND}/auth/session`,{
+            cache:'no-store',
+            headers:{'Authorization':`FlowSignalUser ${String(saved.token)}`}
+          });
+          if(!response.ok){
+            if(response.status<500&&response.status!==408&&response.status!==429)localStorage.removeItem(PERSISTED_USER_SESSION_KEY);
+            return false;
+          }
+          const data=await response.json().catch(()=>null);
+          if(data?.authenticated&&data?.user){
+            finishSession({session_token:String(saved.token),csrf_token:String(data.csrf_token||saved.csrf||'')});
+            return true;
+          }
+          if(data&&data.authenticated===false)localStorage.removeItem(PERSISTED_USER_SESSION_KEY);
+        }catch(_error){
+          // Keep the saved token on transient network failures. A later app boot
+          // can validate it; network trouble is not a logout action.
+        }
+        return false;
       }
 
       switchBtn.addEventListener('click',()=>{signup=!signup;history.replaceState(null,'',`/account.html?mode=${signup?'signup':'login'}`);render();});
@@ -207,6 +238,7 @@
 
       otpCode.addEventListener('input',()=>{otpCode.value=otpCode.value.replace(/\D/g,'').slice(0,6);});
       render();
+      resumeExistingSession();
     })();
   </script>
 </body>
