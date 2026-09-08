@@ -1,5 +1,76 @@
 /* NathauxFX public light/dark theme.
-   IMPORTANT: this file does not reposition, scale, or resize the original hero/navbar. */
+   Includes responsive public-header layout; hero geometry stays in the base styles. */
+
+/* Public homepage header: keep each group in flow and wrap before controls collide. */
+#landingPage.landing-pro > .landing-nav {
+  box-sizing: border-box;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  align-self: stretch !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 0 24px !important;
+  padding: 0 0 16px !important;
+  gap: 16px 24px !important;
+  overflow: visible !important;
+}
+#landingPage.landing-pro .landing-logo {
+  flex: 0 0 auto !important;
+  margin-right: auto !important;
+  min-width: 0 !important;
+  white-space: nowrap;
+}
+#landingPage.landing-pro .landing-links,
+#landingPage.landing-pro .landing-nav-actions {
+  display: flex !important;
+  flex: 0 1 auto !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  gap: 12px 16px !important;
+}
+#landingPage.landing-pro .landing-links a,
+#landingPage.landing-pro .landing-nav-actions > * {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+#landingPage.landing-pro .landing-links a { text-decoration: none; }
+#landingPage.landing-pro .landing-links a:hover { text-decoration: underline; }
+#landingPage.landing-pro .landing-nav-actions > button:not(.theme-toggle) {
+  width: auto !important;
+  min-width: 0 !important;
+  padding: 0 20px !important;
+}
+#landingPage.landing-pro #landingLang {
+  width: 52px !important;
+  min-width: 52px !important;
+  height: 36px !important;
+}
+@media (max-width: 1000px) {
+  #landingPage.landing-pro .landing-nav-actions { flex-basis: 100% !important; }
+}
+@media (max-width: 700px) {
+  #landingPage.landing-pro > .landing-nav {
+    gap: 16px !important;
+    margin-bottom: 24px !important;
+  }
+  #landingPage.landing-pro .landing-logo {
+    font-size: 26px !important;
+    line-height: 1.2 !important;
+  }
+  #landingPage.landing-pro .landing-links { flex-basis: 100% !important; }
+  #landingPage.landing-pro .landing-nav-actions { gap: 10px !important; }
+  #landingPage.landing-pro .landing-nav-actions > button:not(.theme-toggle) {
+    padding: 0 12px !important;
+    height: 36px !important;
+  }
+}
+
 
 :root,
 html[data-theme="dark"] { color-scheme: dark; }
@@ -28,6 +99,23 @@ body.fit-mode:has(#landingPage:not(.hidden)) {
   height: auto !important;
   min-height: 100vh !important;
   overflow: visible !important;
+}
+
+/* Keep the theme switch visible despite legacy phone rules that hide button spans. */
+#landingPage.landing-pro .theme-toggle > span,
+#landingPage.landing-pro .theme-toggle-knob {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex-shrink: 0;
+}
+@media (max-width: 700px) {
+  #landingPage.landing-pro > .landing-nav {
+    width: calc(100% + 84px) !important;
+    max-width: calc(100vw - 32px) !important;
+    margin-left: -42px !important;
+    margin-right: -42px !important;
+  }
 }
 
 /* Theme switch */
