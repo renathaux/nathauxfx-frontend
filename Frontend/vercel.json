@@ -1,6 +1,22 @@
 {
   "redirects": [
     {
+      "source": "/:path*",
+      "has": [
+        { "type": "host", "value": "flowsignalfx.com" }
+      ],
+      "destination": "https://www.nathauxfx.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        { "type": "host", "value": "www.flowsignalfx.com" }
+      ],
+      "destination": "https://www.nathauxfx.com/:path*",
+      "permanent": true
+    },
+    {
       "source": "/app",
       "has": [
         { "type": "query", "key": "brokerAccounts", "value": "1" },
