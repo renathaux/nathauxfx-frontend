@@ -214,7 +214,6 @@
     if(app){app.classList.remove('hidden');app.classList.remove('locked');app.style.display='flex';}
   }
   function openAccount(mode){setPublicHome(false);location.href=`/account.html?mode=${mode==='signup'?'signup':'login'}`;}
-  function openOwnerAccess(event){event?.preventDefault?.();location.href='/owner.html';}
   function enterFullUserDashboard(user){
     if(!user||String(user.role||'user').toLowerCase()!=='user')return;
     showApp();
@@ -363,10 +362,7 @@
     if(started){started.removeAttribute('onclick');started.removeAttribute('data-open-access');started.textContent='Get Started';started.addEventListener('click',event=>{event.preventDefault();openAccount('signup');});}
     const hero=document.getElementById('openAccessBtnHero');
     if(hero){hero.removeAttribute('onclick');hero.removeAttribute('data-open-access');hero.textContent='Create Account →';hero.addEventListener('click',event=>{event.preventDefault();openAccount('signup');});}
-    const nav=document.querySelector('.landing-nav-actions');
-    if(nav&&!document.getElementById('landingOwnerBtn')){
-      const owner=document.createElement('button');owner.id='landingOwnerBtn';owner.className='landing-login-btn';owner.type='button';owner.textContent='Owner';owner.title='Owner / Admin access';owner.addEventListener('click',openOwnerAccess);nav.appendChild(owner);
-    }
+
   }
 
   document.addEventListener('click',event=>{

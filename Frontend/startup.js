@@ -193,16 +193,7 @@
         hero.textContent = 'Start Trading Now →';
         hero.onclick = (event) => { event?.preventDefault?.(); window.location.href = '/account.html?mode=signup'; };
       }
-      const nav = document.querySelector('.landing-nav-actions');
-      if (nav && !document.getElementById('landingOwnerBtn') && !document.getElementById('ownerBtn')) {
-        const owner = document.createElement('button');
-        owner.id = 'landingOwnerBtn';
-        owner.className = 'landing-login-btn';
-        owner.type = 'button';
-        owner.textContent = 'Owner';
-        owner.onclick = () => { window.location.href = '/owner.html'; };
-        nav.appendChild(owner);
-      }
+
     };
 
     wirePublicButtons();
@@ -576,3 +567,4 @@
   record("smc_overlay_module_ready", { observationOnly: true, affectsStrategy: false, singleInstance: true });
   attachMenu();
 })();
+
