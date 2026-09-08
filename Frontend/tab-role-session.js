@@ -209,11 +209,6 @@
     if (!supportedDesktop) return;
     const grid = document.querySelector('.dashboard-grid');
     const history = document.querySelector('.history-section');
-    const chartPanel = grid?.querySelector(':scope > .chart-panel');
-    const chartWrap = chartPanel?.querySelector('.chart-wrap');
-    const chartSection = chartPanel?.querySelector('.chart-section');
-    const newsPanel = chartPanel?.querySelector('.news-impact-panel');
-    const fundamental = document.getElementById('fundamental-insight-card');
     if (!grid || !history) return;
 
     if (history.parentElement !== grid) {
@@ -229,42 +224,6 @@
     history.style.setProperty('width', '100%', 'important');
     history.style.setProperty('margin', '0', 'important');
     history.style.setProperty('align-self', 'start', 'important');
-
-    if (chartPanel) {
-      chartPanel.style.setProperty('grid-column', '3', 'important');
-      chartPanel.style.setProperty('grid-row', '1', 'important');
-      chartPanel.style.setProperty('align-self', 'stretch', 'important');
-      chartPanel.style.setProperty('height', '100%', 'important');
-      chartPanel.style.setProperty('min-height', '0', 'important');
-    }
-    if (chartWrap) {
-      chartWrap.style.setProperty('display', 'flex', 'important');
-      chartWrap.style.setProperty('flex-direction', 'column', 'important');
-      chartWrap.style.setProperty('height', '100%', 'important');
-      chartWrap.style.setProperty('min-height', '0', 'important');
-    }
-    if (chartSection) {
-      chartSection.style.setProperty('display', 'flex', 'important');
-      chartSection.style.setProperty('flex-direction', 'column', 'important');
-      chartSection.style.setProperty('height', '100%', 'important');
-      chartSection.style.setProperty('min-height', '0', 'important');
-      chartSection.style.setProperty('flex', '1 1 auto', 'important');
-    }
-    if (newsPanel) {
-      newsPanel.style.setProperty('display', 'flex', 'important');
-      newsPanel.style.setProperty('flex-direction', 'column', 'important');
-      newsPanel.style.setProperty('flex', '1 1 auto', 'important');
-      newsPanel.style.setProperty('height', 'auto', 'important');
-      newsPanel.style.setProperty('min-height', '0', 'important');
-    }
-    if (fundamental) {
-      fundamental.style.setProperty('display', 'flex', 'important');
-      fundamental.style.setProperty('flex-direction', 'column', 'important');
-      fundamental.style.setProperty('flex', '1 1 auto', 'important');
-      fundamental.style.setProperty('height', '100%', 'important');
-      fundamental.style.setProperty('min-height', '0', 'important');
-      fundamental.style.setProperty('max-height', 'none', 'important');
-    }
   }
 
   function clearExpiredEntryChecks() {
