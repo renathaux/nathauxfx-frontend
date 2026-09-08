@@ -226,6 +226,57 @@
     history.style.setProperty('align-self', 'start', 'important');
   }
 
+  function renderExpiredSmcWaitingList() {
+    const list = document.getElementById('main-smc-waiting-list');
+    if (!list) return;
+    const labels = [
+      'Fresh 15m BOS/CHOCH',
+      'Structure break level',
+      '15m close confirmation',
+      '5m confirmation close',
+      'Estimated SL found',
+    ];
+    const current = Array.from(list.children).map((item) => ({
+      state: item.className,
+      text: String(item.querySelector('span')?.textContent || '').trim(),
+    }));
+    const alreadyReset = current.length === labels.length
+      && current.every((item, index) => item.state === 'missing' && item.text === labels[index]);
+    if (alreadyReset) return;
+
+    list.replaceChildren();
+    labels.forEach((label) => {
+      const li = document.createElement('li');
+      li.className = 'missing';
+      const mark = document.createElement('b');
+      mark.textContent = '✗';
+      const text = document.createElement('span');
+      text.textContent = label;
+      li.append(mark, text);
+      list.appendChild(li);
+    });
+  }
+
+  function resetExpiredSmcPlan() {
+    if (!supportedDesktop || currentStrategyHasFreshSignal()) return;
+
+    const waitReason = currentWaitReason();
+    ['main-plan-type', 'main-bias', 'main-entry', 'main-sl', 'main-tp1', 'main-tp2'].forEach((id) => setText(id, '--'));
+    setText('main-rr', waitReason);
+
+    const intel = document.getElementById('main-smc-plan-intel');
+    intel?.classList.remove('is-ready');
+    setText('main-smc-structure', 'NEUTRAL');
+    setText('main-smc-trigger', 'Fresh 15m BOS/CHOCH');
+    setText('main-smc-entry-zone', '--');
+    setText('main-smc-estimated-sl', '--');
+    setText('main-smc-estimated-tp', '--');
+    setText('main-smc-progress-label', '0%');
+    const progressBar = document.getElementById('main-smc-progress-bar');
+    if (progressBar && progressBar.style.width !== '0%') progressBar.style.width = '0%';
+    renderExpiredSmcWaitingList();
+  }
+
   function clearExpiredEntryChecks() {
     if (!supportedDesktop || currentStrategyHasFreshSignal()) return;
     keepAnalysisCardsVisible();
@@ -239,7 +290,37 @@
     keepAnalysisCardsVisible();
     ensureDesktopAnalysisLayout();
     applyChromeReadability();
-    if (!currentStrategyHasFreshSignal()) clearExpiredEntryChecks();
+    if (!currentStrategyHasFreshSignal()) {
+      clearExpiredEntryChecks();
+      resetExpiredSmcPlan();
+    }
+  }
+
+  function installSmcFreshnessGuard() {
+    if (!supportedDesktop || window.__flowSignalSmcFreshnessObserver) return;
+    const root = document.querySelector('.main-trade-card');
+    if (!root) {
+      setTimeout(installSmcFreshnessGuard, 250);
+      return;
+    }
+
+    let scheduled = false;
+    const sync = () => {
+      if (scheduled) return;
+      scheduled = true;
+      queueMicrotask(() => {
+        scheduled = false;
+        if (!currentStrategyHasFreshSignal()) {
+          clearExpiredEntryChecks();
+          resetExpiredSmcPlan();
+        }
+      });
+    };
+
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { subtree: true, childList: true, characterData: true });
+    window.__flowSignalSmcFreshnessObserver = observer;
+    sync();
   }
 
   function ensureUserAnalysisVisibility() {
@@ -271,6 +352,7 @@
     ensureSafariInsightVisibility();
     ensureDesktopAnalysisLayout();
     ensureDesktopHistoryPlacement();
+    installSmcFreshnessGuard();
     if (supportedDesktop) ensureUserAnalysisVisibility();
   }
 
@@ -284,6 +366,7 @@
     setTimeout(refreshRoleUi, 0);
     setTimeout(refreshRoleUi, 300);
     setTimeout(ensureDesktopHistoryPlacement, 700);
+    setTimeout(installSmcFreshnessGuard, 700);
   }, { once: true });
 
   refreshRoleUi();
