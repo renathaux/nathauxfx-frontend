@@ -205,6 +205,27 @@
     }
   }
 
+  function ensureDesktopHistoryPlacement() {
+    if (!supportedDesktop) return;
+    const grid = document.querySelector('.dashboard-grid');
+    const history = document.querySelector('.history-section');
+    if (!grid || !history) return;
+
+    if (history.parentElement !== grid) {
+      grid.appendChild(history);
+    }
+
+    history.style.setProperty('grid-column', '1 / 3', 'important');
+    history.style.setProperty('grid-row', '2', 'important');
+    history.style.setProperty('position', 'relative', 'important');
+    history.style.setProperty('left', 'auto', 'important');
+    history.style.setProperty('right', 'auto', 'important');
+    history.style.setProperty('bottom', 'auto', 'important');
+    history.style.setProperty('width', '100%', 'important');
+    history.style.setProperty('margin', '0', 'important');
+    history.style.setProperty('align-self', 'start', 'important');
+  }
+
   function clearExpiredEntryChecks() {
     if (!supportedDesktop || currentStrategyHasFreshSignal()) return;
     keepAnalysisCardsVisible();
@@ -249,6 +270,7 @@
     applyChromeReadability();
     ensureSafariInsightVisibility();
     ensureDesktopAnalysisLayout();
+    ensureDesktopHistoryPlacement();
     if (supportedDesktop) ensureUserAnalysisVisibility();
   }
 
@@ -261,6 +283,7 @@
   window.addEventListener('load', () => {
     setTimeout(refreshRoleUi, 0);
     setTimeout(refreshRoleUi, 300);
+    setTimeout(ensureDesktopHistoryPlacement, 700);
   }, { once: true });
 
   refreshRoleUi();
