@@ -19,3 +19,5 @@ table { width: 100%; border-collapse: collapse; min-width: 850px; }
 th, td { padding: 13px 15px; text-align: left; border-bottom: 1px solid #20324b; font-size: 13px; }
 th { color: #8fa2bd; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 @media (max-width: 820px) { .lab-shell header { display: block; } .lab-controls { grid-template-columns: 1fr 1fr; } .lab-summary { grid-template-columns: repeat(2, 1fr); } }
+.positive-r{color:#57d68d}.negative-r{color:#ff6b7a}.neutral-r{color:#aebed0}
+.result-unresolved-open td:nth-last-child(-n+2){color:#f4c95d}.result-ambiguous-intrabar td:nth-last-child(-n+2){color:#d8a4ff}

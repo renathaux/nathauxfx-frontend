@@ -12,12 +12,22 @@
     ["Max drawdown", "max_drawdown_r", "R"],
   ];
   const price = value => Number.isFinite(Number(value)) ? Number(value).toFixed(5) : "—";
+  const rValue = value => {
+    if (!Number.isFinite(Number(value))) return "—";
+    const numeric = Number(value);
+    return `<span class="${numeric < 0 ? "negative-r" : numeric > 0 ? "positive-r" : "neutral-r"}">${numeric.toFixed(2)}R</span>`;
+  };
+  const authenticatedHeaders = () => {
+    const token = String(sessionStorage.getItem("flowsignal_user_session_token") || "").trim();
+    return token ? { Authorization: `FlowSignalUser ${token}` } : {};
+  };
   document.querySelector("#run-replay").addEventListener("click", async () => {
     status.textContent = "Running deterministic replay…";
     rows.innerHTML = '<tr><td colspan="9">Loading…</td></tr>';
     try {
       const response = await fetch(`${backend}/strategy-lab/replay`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", ...authenticatedHeaders() },
         body: JSON.stringify({
           symbol: document.querySelector("#symbol").value,
           strategy: document.querySelector("#strategy").value,
@@ -27,13 +37,20 @@
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Replay failed");
-      summary.innerHTML = metrics.map(([label, key, suffix=""]) =>
-        `<div class="metric"><span>${label}</span><strong>${data.summary[key]}${suffix}</strong></div>`).join("");
-      rows.innerHTML = data.trades.length ? data.trades.map(trade => `<tr>
+      const replaySummary = data?.summary || {};
+      const trades = Array.isArray(data?.trades) ? data.trades : [];
+      summary.innerHTML = metrics.map(([label, key, suffix=""]) => {
+        const value = replaySummary[key];
+        const shown = key === "total_r" || key === "max_drawdown_r"
+          ? rValue(value)
+          : `${value ?? "—"}${value == null ? "" : suffix}`;
+        return `<div class="metric"><span>${label}</span><strong>${shown}</strong></div>`;
+      }).join("");
+      rows.innerHTML = trades.length ? trades.map(trade => `<tr class="result-${String(trade.result || "unknown").toLowerCase().replaceAll("_", "-")}">
         <td>${new Date(trade.entry_timestamp).toLocaleString()}</td><td>${trade.event_type}</td>
         <td>${trade.side}</td><td>${price(trade.entry)}</td><td>${price(trade.sl)}</td>
         <td>${price(trade.tp1)}</td><td>${price(trade.tp2)}</td><td>${trade.result}</td>
-        <td>${trade.r_result == null ? "—" : Number(trade.r_result).toFixed(2)}</td></tr>`).join("")
+        <td>${rValue(trade.r_result)}</td></tr>`).join("")
         : '<tr><td colspan="9">No simulated trades in this range.</td></tr>';
       status.textContent = `${data.candle_counts["15m"]} M15 and ${data.candle_counts["5m"]} M5 candles replayed. No broker execution.`;
     } catch (error) {
