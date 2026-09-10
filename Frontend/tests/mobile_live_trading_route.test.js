@@ -7,6 +7,7 @@ const root = path.join(__dirname, '..');
 const app = fs.readFileSync(path.join(root, 'app.html'), 'utf8');
 const mobile = fs.readFileSync(path.join(root, 'mobile.html'), 'utf8');
 const startup = fs.readFileSync(path.join(root, 'startup.js'), 'utf8');
+const vercel = fs.readFileSync(path.join(root, 'vercel.json'), 'utf8');
 
 test('explicit desktop mode is not redirected back to mobile dashboard', () => {
   assert.match(app, /params\.get\(["']desktop["']\)\s*!==\s*["']1["']/);
@@ -22,4 +23,12 @@ test('startup supports requested desktop panel and Live Trading target', () => {
   assert.match(startup, /params\.get\(["']desktop["']\)\s*===\s*["']1["']/);
   assert.match(startup, /menuPaperBtn/);
   assert.match(startup, /openRequestedDesktopPanel/);
+});
+
+test('legacy cached mobile Live Trading URL is redirected server-side to authenticated app', () => {
+  assert.match(vercel, /"source"\s*:\s*"\/index\.html"[\s\S]*?"desktop"[\s\S]*?"value"\s*:\s*"1"[\s\S]*?"open"[\s\S]*?"menuPaperBtn"[\s\S]*?"destination"\s*:\s*"\/app\.html\?desktop=1&open=menuPaperBtn"/);
+});
+
+test('mobile dashboard HTML is no-store so stale menu links do not persist', () => {
+  assert.match(vercel, /"source"\s*:\s*"\/mobile\.html"[\s\S]*?"Cache-Control"[\s\S]*?"no-store, max-age=0"/);
 });

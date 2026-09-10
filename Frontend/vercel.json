@@ -17,6 +17,15 @@
       "permanent": true
     },
     {
+      "source": "/index.html",
+      "has": [
+        { "type": "query", "key": "desktop", "value": "1" },
+        { "type": "query", "key": "open", "value": "menuPaperBtn" }
+      ],
+      "destination": "/app.html?desktop=1&open=menuPaperBtn",
+      "permanent": false
+    },
+    {
       "source": "/app",
       "has": [
         { "type": "query", "key": "brokerAccounts", "value": "1" },
@@ -61,6 +70,12 @@
   "headers": [
     {
       "source": "/app.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    },
+    {
+      "source": "/mobile.html",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
