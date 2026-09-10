@@ -405,7 +405,15 @@
 
   function openRequestedDesktopPanel() {
     let requested = "";
-    try { requested = new URLSearchParams(window.location.search).get("open") || ""; } catch (_error) { return; }
+    let mobilePanelRoute = false;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      requested = params.get("open") || "";
+      mobilePanelRoute =
+        window.matchMedia("(max-width: 700px)").matches &&
+        params.get("desktop") === "1" &&
+        params.get("from") === "mobile";
+    } catch (_error) { return; }
     if (!requested) return;
     const allowed = new Set(["menuDashboardBtn","menuAssistantBtn","menuPaperBtn","menuFeedbackBtn","menuHistoryBtn","menuStatsBtn","menuGeneralSettingsBtn","menuRiskSettingsBtn","menuBrokerAccountsBtn","menuNotificationsSettingsBtn","menuStrategySettingsBtn"]);
     if (!allowed.has(requested)) return;
@@ -414,16 +422,50 @@
       attempts += 1;
       const target = document.getElementById(requested);
       if (target && typeof target.click === "function") {
+        const mobilePanelModalMap = {
+          menuAssistantBtn: "assistantModal",
+          menuPaperBtn: "paperModal",
+          menuFeedbackBtn: "feedbackModal",
+          menuStatsBtn: "statsModal",
+          menuGeneralSettingsBtn: "settingsModal",
+          menuRiskSettingsBtn: "settingsModal",
+          menuBrokerAccountsBtn: "brokerAccountsModal",
+          menuNotificationsSettingsBtn: "settingsModal",
+          menuStrategySettingsBtn: "settingsModal",
+        };
+        const modal = mobilePanelRoute
+          ? document.getElementById(mobilePanelModalMap[requested] || "")
+          : null;
+        let modalWasOpen = Boolean(modal && !modal.classList.contains("hidden"));
+        let modalObserver = null;
+
+        if (mobilePanelRoute && modal) {
+          modalObserver = new MutationObserver(() => {
+            const visible = !modal.classList.contains("hidden") && modal.style.display !== "none";
+            if (visible) modalWasOpen = true;
+            if (modalWasOpen && !visible) {
+              modalObserver?.disconnect();
+              window.location.replace("/mobile.html?from=panel");
+            }
+          });
+          modalObserver.observe(modal, { attributes: true, attributeFilter: ["class", "style"] });
+        }
+
         target.click();
-        record("requested_desktop_panel_opened", { requested });
+        if (mobilePanelRoute && modal && !modal.classList.contains("hidden")) modalWasOpen = true;
+        record("requested_desktop_panel_opened", { requested, mobilePanelRoute });
         try {
           const url = new URL(window.location.href);
-          url.searchParams.delete("open");
+          if (!mobilePanelRoute) url.searchParams.delete("open");
           history.replaceState(null, "", url.toString());
         } catch (_error) {}
         return;
       }
-      if (attempts < 30) window.setTimeout(tryOpen, 100);
+      if (attempts < 30) {
+        window.setTimeout(tryOpen, 100);
+      } else if (mobilePanelRoute) {
+        window.location.replace("/mobile.html?from=panel-error");
+      }
     };
     window.setTimeout(tryOpen, 150);
   }

@@ -218,6 +218,20 @@
 
   loadStoredCache();
 
+  try {
+    const requestedPanel = new URLSearchParams(window.location.search).get("panel") || "";
+    if (requestedPanel && actions[requestedPanel]) {
+      window.setTimeout(() => {
+        actions[requestedPanel]();
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("panel");
+          history.replaceState(null, "", url.toString());
+        } catch (_error) {}
+      }, 50);
+    }
+  } catch (_error) {}
+
   // Do not duplicate the main dashboard's 5-second /panel-data polling here.
   // Menu panels refresh only when opened. Fundamentals are prefetched later,
   // after the dashboard has already established its main connection.
