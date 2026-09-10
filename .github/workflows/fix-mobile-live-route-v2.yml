@@ -1,0 +1,84 @@
+name: Fix mobile Live Trading route v2
+
+on:
+  push:
+    branches:
+      - fix/mobile-live-trading-route-v2
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/mobile-live-trading-route-v2
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Patch direct app route and mobile cache busting
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          mobile = Path('Frontend/mobile.html')
+          text = mobile.read_text()
+          old = 'href="/app?desktop=1&open=menuPaperBtn"'
+          new = 'href="app.html?desktop=1&open=menuPaperBtn"'
+          if old not in text:
+              raise SystemExit('expected Live Trading link not found')
+          mobile.write_text(text.replace(old, new, 1))
+
+          app = Path('Frontend/app.html')
+          text = app.read_text()
+          old = 'window.location.replace("mobile.html?from=dashboard");'
+          new = 'window.location.replace("mobile.html?from=dashboard&v=9");'
+          if old not in text:
+              raise SystemExit('expected app mobile redirect not found')
+          app.write_text(text.replace(old, new, 1))
+
+          vercel = Path('Frontend/vercel.json')
+          text = vercel.read_text()
+          anchor = '''    {
+      "source": "/app.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    },'''
+          addition = anchor + '''
+    {
+      "source": "/mobile.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    },'''
+          if '"source": "/mobile.html"' not in text:
+              if anchor not in text:
+                  raise SystemExit('expected app.html header block not found')
+              text = text.replace(anchor, addition, 1)
+          vercel.write_text(text)
+
+          test = Path('Frontend/tests/mobile_live_trading_route.test.js')
+          text = test.read_text()
+          text = text.replace('href="\\/app\\?desktop=1&open=menuPaperBtn"', 'href="app\\.html\\?desktop=1&open=menuPaperBtn"')
+          text = text.replace('href="index\\.html\\?desktop=1&open=menuPaperBtn"', 'href="\\/app\\?desktop=1&open=menuPaperBtn"')
+          if 'app\\.html\\?desktop=1&open=menuPaperBtn' not in text:
+              raise SystemExit('test replacement failed')
+          extra = '''\n\ntest('mobile dashboard is served no-store and app redirects to a versioned mobile URL', () => {\n  const vercel = fs.readFileSync(path.join(root, 'vercel.json'), 'utf8');\n  assert.match(vercel, /"source"\\s*:\\s*"\\/mobile\\.html"[\\s\\S]*?no-store/);\n  assert.match(app, /mobile\\.html\\?from=dashboard&v=9/);\n});\n'''
+          if 'mobile dashboard is served no-store' not in text:
+              text += extra
+          test.write_text(text)
+          PY
+      - name: Run focused regression test
+        run: node --test Frontend/tests/mobile_live_trading_route.test.js
+      - name: Commit tested patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Frontend/mobile.html Frontend/app.html Frontend/vercel.json Frontend/tests/mobile_live_trading_route.test.js
+          git commit -m "fix: harden mobile Live Trading navigation"
+          git push origin HEAD:fix/mobile-live-trading-route-v2
