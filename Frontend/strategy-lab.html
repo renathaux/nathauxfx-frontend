@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FlowSignal Strategy Lab</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/strategy-lab.css">
+</head>
+<body class="lab-page">
+  <main class="lab-shell">
+    <header>
+      <div><span class="eyebrow">ANALYSIS ONLY</span><h1>Strategy Lab</h1></div>
+      <p>Historical replay is isolated from PAPER, LIVE, and broker execution.</p>
+    </header>
+    <section class="lab-controls" aria-label="Replay controls">
+      <label>Strategy<select id="strategy"><option value="baseline_v1">Baseline v1</option></select></label>
+      <label>Symbol<select id="symbol"><option value="EURUSD">EURUSD</option></select></label>
+      <label>Start<input id="start" type="date" value="2026-08-22"></label>
+      <label>End<input id="end" type="date"></label>
+      <button id="run-replay" type="button">Run Replay</button>
+    </section>
+    <p id="lab-status" role="status">Ready.</p>
+    <section id="summary" class="lab-summary" aria-label="Replay summary"></section>
+    <section class="lab-table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th>Side</th><th>Entry</th><th>SL</th><th>TP1</th><th>TP2</th><th>Result</th><th>R</th></tr></thead>
+        <tbody id="trades"><tr><td colspan="9">Run a replay to see simulated trades.</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+  <script src="/apiClient.js"></script>
+  <script src="/strategy-lab.js"></script>
+</body>
+</html>
