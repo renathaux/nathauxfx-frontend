@@ -92,6 +92,7 @@
 
   function isOwnerMutation(url, method) {
     if (!url) return false;
+    if (url.pathname.startsWith("/strategy-lab/")) return true;
     if (OWNER_MUTATION_PATHS.has(url.pathname)) return true;
     const writeMethod = ["POST", "PUT", "PATCH", "DELETE"].includes(String(method || "GET").toUpperCase());
     return writeMethod && (
