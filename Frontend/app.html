@@ -8,7 +8,30 @@
   <script>
     (function () {
       const params = new URLSearchParams(window.location.search);
-      if (window.innerWidth <= 700 && params.get("desktop") !== "1") {
+      const mobilePanelRoute =
+        window.innerWidth <= 700 &&
+        params.get("desktop") === "1" &&
+        params.get("from") === "mobile" &&
+        Boolean(params.get("open"));
+
+      if (mobilePanelRoute) {
+        document.documentElement.classList.add("flowsignal-mobile-panel-route");
+        const style = document.createElement("style");
+        style.id = "flowsignalMobilePanelRouteStyle";
+        style.textContent = `
+          html.flowsignal-mobile-panel-route body {
+            margin: 0 !important;
+            min-height: 100dvh;
+            overflow: hidden !important;
+            background: #06101b !important;
+          }
+          html.flowsignal-mobile-panel-route #landingPage,
+          html.flowsignal-mobile-panel-route #mainApp {
+            display: none !important;
+          }
+        `;
+        document.head.appendChild(style);
+      } else if (window.innerWidth <= 700 && params.get("desktop") !== "1") {
         window.location.replace("mobile.html?from=dashboard");
       }
     })();
