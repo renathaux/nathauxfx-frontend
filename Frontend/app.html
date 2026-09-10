@@ -7,7 +7,8 @@
   <meta name="description" content="NathauxFX is a trading analysis and automated trading platform for EURUSD and Gold, with market structure, technical signals, fundamental insights, risk management, cTrader integration, and email signal sharing.">
   <script>
     (function () {
-      if (window.innerWidth <= 700) {
+      const params = new URLSearchParams(window.location.search);
+      if (window.innerWidth <= 700 && params.get("desktop") !== "1") {
         window.location.replace("mobile.html?from=dashboard");
       }
     })();
