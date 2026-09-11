@@ -1087,6 +1087,11 @@ const menuFeedbackBtn = document.getElementById("menuFeedbackBtn");
 const menuAdminBtn = document.getElementById("menuAdminBtn");
 const menuViewBtn = document.getElementById("menuViewBtn");
 const menuStatsBtn = document.getElementById("menuStatsBtn");
+const menuAccessRequestsBtn = document.getElementById("menuAccessRequestsBtn");
+const accessRequestsModal = document.getElementById("accessRequestsModal");
+const closeAccessRequestsBtn = document.getElementById("closeAccessRequestsBtn");
+const accessRequestsBody = document.getElementById("accessRequestsBody");
+const accessRequestsStatus = document.getElementById("accessRequestsStatus");
 const menuHistoryBtn = document.getElementById("menuHistoryBtn");
 const menuSettingsBtn = document.getElementById("menuSettingsBtn");
 const settingsSubmenu = document.getElementById("settingsSubmenu");
@@ -2399,6 +2404,7 @@ function applyRoleVisibility() {
   }
 
   setAdminOnlyVisible(menuStatsBtn, admin);
+  setAdminOnlyVisible(menuAccessRequestsBtn, admin);
   setAdminOnlyVisible(menuRiskSettingsBtn, admin);
   setAdminOnlyVisible(menuBrokerAccountsBtn, admin);
   setAdminOnlyVisible(livePageBtn, admin);
@@ -13940,6 +13946,80 @@ menuDashboardBtn?.addEventListener("click", () => {
   closeAllOverlays();
   setMainMenuOpen(false);
   window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+function accessStatusLabel(value) {
+  return String(value || "PENDING_EMAIL").replaceAll("_", " ").toLowerCase().replace(/^./, (char) => char.toUpperCase());
+}
+
+async function loadAccessRequests() {
+  if (!isAdminAccount() || !accessRequestsBody || !accessRequestsStatus) return;
+  accessRequestsStatus.textContent = "Loading account requests…";
+  try {
+    const response = await fetch(`${BASE_URL}/admin/access/requests`, { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.detail || "ACCESS_REQUESTS_UNAVAILABLE");
+    accessRequestsBody.replaceChildren();
+    const requests = Array.isArray(data.requests) ? data.requests : [];
+    requests.forEach((request) => {
+      const row = document.createElement("tr");
+      const name = document.createElement("td");
+      const email = document.createElement("td");
+      const verified = document.createElement("td");
+      const status = document.createElement("td");
+      const actions = document.createElement("td");
+      name.textContent = request.full_name || "—";
+      email.textContent = request.email || "—";
+      verified.textContent = request.email_verified ? "Verified" : "Not verified";
+      status.textContent = accessStatusLabel(request.approval_status);
+      status.className = `access-state-${String(request.approval_status || "pending_email").toLowerCase().replaceAll("_", "-")}`;
+      ["APPROVED", "DENIED"].forEach((decision) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.decision = decision;
+        button.textContent = decision === "APPROVED" ? "Approve" : "Deny";
+        button.disabled = decision === "APPROVED" && !request.email_verified;
+        button.addEventListener("click", async () => {
+          actions.querySelectorAll("button").forEach((item) => { item.disabled = true; });
+          accessRequestsStatus.textContent = `${decision === "APPROVED" ? "Approving" : "Denying"} ${request.full_name}…`;
+          try {
+            const result = await fetch(`${BASE_URL}/admin/access/requests/${encodeURIComponent(request.id)}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ decision }),
+            });
+            const payload = await result.json().catch(() => ({}));
+            if (!result.ok) throw new Error(payload?.detail || "ACCESS_REVIEW_FAILED");
+            accessRequestsStatus.textContent = decision === "APPROVED"
+              ? (payload.email_sent ? "Access approved and approval email sent." : `Access approved, but email was not sent (${payload.email_error || "delivery unavailable"}).`)
+              : "Access denied. No email was sent.";
+            await loadAccessRequests();
+          } catch (error) {
+            accessRequestsStatus.textContent = String(error?.message || "Could not update access.").replaceAll("_", " ");
+            actions.querySelectorAll("button").forEach((item) => { item.disabled = false; });
+          }
+        });
+        actions.appendChild(button);
+      });
+      row.append(name, email, verified, status, actions);
+      accessRequestsBody.appendChild(row);
+    });
+    accessRequestsStatus.textContent = requests.length ? `${requests.length} account request${requests.length === 1 ? "" : "s"}.` : "No account requests yet.";
+  } catch (error) {
+    accessRequestsStatus.textContent = String(error?.message || "Could not load account requests.").replaceAll("_", " ");
+  }
+}
+
+menuAccessRequestsBtn?.addEventListener("click", () => {
+  if (!isAdminAccount()) return;
+  closeAllOverlays();
+  accessRequestsModal?.classList.remove("hidden");
+  setMainMenuOpen(false);
+  loadAccessRequests();
+});
+closeAccessRequestsBtn?.addEventListener("click", () => accessRequestsModal?.classList.add("hidden"));
+accessRequestsModal?.addEventListener("click", (event) => {
+  if (event.target === accessRequestsModal) accessRequestsModal.classList.add("hidden");
 });
 
 menuAssistantBtn?.addEventListener("click", (event) => {

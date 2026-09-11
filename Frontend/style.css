@@ -12523,6 +12523,10 @@ body[data-active-settings-page="performance"] #statsModal .performance-modal-box
   }
 }
 
+.access-requests-modal{position:fixed;inset:0;z-index:10050;display:grid;place-items:center;padding:20px;background:rgba(1,7,14,.8);backdrop-filter:blur(8px)}
+.access-requests-card{width:min(920px,100%);max-height:85vh;overflow:auto;padding:22px;border:1px solid #28537d;border-radius:18px;background:#07131f;color:#eaf3ff;box-shadow:0 24px 80px rgba(0,0,0,.55)}
+.access-requests-card header{display:flex;align-items:center;justify-content:space-between;gap:16px}.access-requests-card h2{margin:4px 0;font-size:24px}.access-requests-card small{color:#69adff;letter-spacing:.12em}.access-requests-card>p,.access-requests-status{color:#93a9c1}.access-requests-card header button{border:0;background:transparent;color:#b9cbe0;font-size:30px;cursor:pointer}.access-requests-table-wrap{overflow:auto;border:1px solid #1c3954;border-radius:12px}.access-requests-table{width:100%;border-collapse:collapse;min-width:700px}.access-requests-table th,.access-requests-table td{padding:12px;border-bottom:1px solid #172f46;text-align:left;font-size:12px}.access-requests-table th{color:#8ea8c1;background:#091a29}.access-requests-table button{margin-right:6px;padding:7px 10px;border:1px solid #2b6599;border-radius:7px;background:#0b3151;color:#eaf3ff;cursor:pointer}.access-requests-table button[data-decision="DENIED"]{border-color:#7b3b47;background:#3a1620}.access-requests-table button:disabled{opacity:.45;cursor:not-allowed}.access-state-approved{color:#61d98a}.access-state-denied{color:#ff7d88}.access-state-pending-admin,.access-state-pending-email{color:#f1bf5c}
+
 /* Compact SMC dashboard cleanup */
 .main-smc-panel .smc-row {
   display: grid !important;
