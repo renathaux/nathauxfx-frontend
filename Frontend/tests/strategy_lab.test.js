@@ -17,6 +17,7 @@ test('Strategy Lab page exposes only replay controls and result fields', () => {
   assert.match(html, /v3_m5_two_close/);
   assert.match(html, /v3a_m5_bos_body_50/);
   assert.match(html, /v3b_m5_frozen_candidate/);
+  assert.match(html, /Frozen M5 candidate/);
   assert.match(script, /\/strategy-lab\/replay/);
   assert.match(script, /credentials:\s*["']include["']/);
   assert.match(script, /FlowSignalUser/);
