@@ -10,6 +10,10 @@ test('Strategy Lab page exposes only replay controls and result fields', () => {
   const script = fs.readFileSync(path.join(root, 'strategy-lab.js'), 'utf8');
   assert.match(html, /Strategy Lab/);
   assert.match(html, /baseline_v1/);
+  assert.match(html, /v2_m5_quality/);
+  assert.match(html, /v2a_m5_quality_50_30/);
+  assert.match(html, /v2b_m5_quality_45_35/);
+  assert.match(html, /v2c_m15_quality_60_30/);
   assert.match(script, /\/strategy-lab\/replay/);
   assert.match(script, /credentials:\s*["']include["']/);
   assert.match(script, /FlowSignalUser/);
