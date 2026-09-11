@@ -13952,9 +13952,9 @@ function accessStatusLabel(value) {
   return String(value || "PENDING_EMAIL").replaceAll("_", " ").toLowerCase().replace(/^./, (char) => char.toUpperCase());
 }
 
-async function loadAccessRequests() {
+async function loadAccessRequests(resultMessage = "") {
   if (!isAdminAccount() || !accessRequestsBody || !accessRequestsStatus) return;
-  accessRequestsStatus.textContent = "Loading account requests…";
+  if (!resultMessage) accessRequestsStatus.textContent = "Loading account requests…";
   try {
     const response = await fetch(`${BASE_URL}/admin/access/requests`, { cache: "no-store" });
     const data = await response.json().catch(() => ({}));
@@ -13990,13 +13990,15 @@ async function loadAccessRequests() {
             });
             const payload = await result.json().catch(() => ({}));
             if (!result.ok) throw new Error(payload?.detail || "ACCESS_REVIEW_FAILED");
-            accessRequestsStatus.textContent = decision === "APPROVED"
+            const actionResultMessage = decision === "APPROVED"
               ? (payload.email_sent ? "Access approved and approval email sent." : `Access approved, but email was not sent (${payload.email_error || "delivery unavailable"}).`)
               : "Access denied. No email was sent.";
-            await loadAccessRequests();
+            await loadAccessRequests(actionResultMessage);
           } catch (error) {
             accessRequestsStatus.textContent = String(error?.message || "Could not update access.").replaceAll("_", " ");
-            actions.querySelectorAll("button").forEach((item) => { item.disabled = false; });
+            actions.querySelectorAll("button").forEach((item) => {
+              item.disabled = item.dataset.decision === "APPROVED" && !request.email_verified;
+            });
           }
         });
         actions.appendChild(button);
@@ -14004,7 +14006,7 @@ async function loadAccessRequests() {
       row.append(name, email, verified, status, actions);
       accessRequestsBody.appendChild(row);
     });
-    accessRequestsStatus.textContent = requests.length ? `${requests.length} account request${requests.length === 1 ? "" : "s"}.` : "No account requests yet.";
+    accessRequestsStatus.textContent = resultMessage || (requests.length ? `${requests.length} account request${requests.length === 1 ? "" : "s"}.` : "No account requests yet.");
   } catch (error) {
     accessRequestsStatus.textContent = String(error?.message || "Could not load account requests.").replaceAll("_", " ");
   }
