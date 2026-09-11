@@ -294,6 +294,11 @@
       <span class="menu-row-text">Performance</span>
     </button>
 
+    <button id="menuAccessRequestsBtn" class="menu-row hidden" title="Account access" aria-hidden="true">
+      <span class="menu-row-icon">✓</span>
+      <span class="menu-row-text">Access</span>
+    </button>
+
     <div class="menu-settings-group">
       <button id="menuSettingsBtn" class="menu-row" title="Settings" aria-expanded="false">
         <span class="menu-row-icon">⚙</span>
@@ -1647,6 +1652,22 @@
     </div>
 
   </div>
+</div>
+<div id="accessRequestsModal" class="access-requests-modal hidden" role="dialog" aria-modal="true" aria-labelledby="accessRequestsTitle">
+  <section class="access-requests-card">
+    <header>
+      <div><small>ADMINISTRATION</small><h2 id="accessRequestsTitle">Account access</h2></div>
+      <button id="closeAccessRequestsBtn" type="button" aria-label="Close">×</button>
+    </header>
+    <p>Approve verified users before they can enter NathauxFX. Denied users are not emailed.</p>
+    <div id="accessRequestsStatus" class="access-requests-status" role="status">Loading requests…</div>
+    <div class="access-requests-table-wrap">
+      <table class="access-requests-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Email</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="accessRequestsBody"></tbody>
+      </table>
+    </div>
+  </section>
 </div>
 <audio id="alertSound" src="alert.mp3" preload="auto"></audio>
 <script

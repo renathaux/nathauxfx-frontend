@@ -36,8 +36,14 @@ test('admin success without a token fails closed',async()=>{
 test('backend failure never creates or falls back to another session',async()=>{
   const h=harness([{status:503,data:{}}]);await h.submit();assert.deepEqual(h.redirects,[]);assert.equal(h.calls.length,1);assert.equal(h.el('submit').disabled,false);
 });
-test('signup skips owner endpoint and preserves verification',async()=>{
-  const h=harness([{status:200,data:{verification_required:true,email:'u***@example.test'}}],'signup');h.el('password').value=h.el('confirm').value='test-password';await h.submit();assert.equal(h.calls.length,1);assert.ok(h.calls[0].url.endsWith('/auth/signup'));assert.deepEqual(h.redirects,[]);assert.equal(h.el('password').minLength,10);assert.match(h.el('otpCopy').textContent,/6-digit code/);
+test('signup sends the name, skips owner login, and preserves verification',async()=>{
+  const h=harness([{status:200,data:{verification_required:true,email:'u***@example.test'}}],'signup');h.el('fullName').value='New Person';h.el('password').value=h.el('confirm').value='test-password';await h.submit();assert.equal(h.calls.length,1);assert.ok(h.calls[0].url.endsWith('/auth/signup'));assert.equal(h.calls[0].body.full_name,'New Person');assert.deepEqual(h.redirects,[]);assert.equal(h.el('password').minLength,10);assert.match(h.el('otpCopy').textContent,/6-digit code/);
+});
+test('email verification waits for admin approval instead of creating a session',async()=>{
+  const h=harness([{status:200,data:{verification_required:true,email:'u***@example.test'}},{status:200,data:{verified:true,approval_pending:true}}],'signup');h.el('fullName').value='New Person';h.el('password').value=h.el('confirm').value='test-password';await h.submit();h.el('otpCode').value='123456';await h.el('otpForm').handlers.submit({preventDefault(){}});assert.deepEqual(h.redirects,[]);assert.equal(h.sessionStorage.getItem('flowsignal_tab_role'),null);
+});
+test('pending admin approval login shows the waiting message',async()=>{
+  const h=harness([{status:200,data:{ok:false}},{status:403,data:{detail:{code:'ADMIN_APPROVAL_PENDING'}}}]);await h.submit();assert.deepEqual(h.redirects,[]);assert.match(h.el('error').textContent,/wait for administrator approval/i);
 });
 test('unverified customer still gets email verification',async()=>{
   const h=harness([{status:200,data:{ok:false}},{status:403,data:{detail:{code:'EMAIL_VERIFICATION_REQUIRED',email:'u***@example.test'}}}]);await h.submit();assert.deepEqual(h.redirects,[]);assert.match(h.el('otpCopy').textContent,/6-digit code/);
