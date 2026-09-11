@@ -14,7 +14,13 @@
       <p>Historical replay is isolated from PAPER, LIVE, and broker execution.</p>
     </header>
     <section class="lab-controls" aria-label="Replay controls">
-      <label>Strategy<select id="strategy"><option value="baseline_v1">Baseline v1</option><option value="v2_m5_quality">V2 — M5 quality confirmation</option></select></label>
+      <label>Strategy<select id="strategy">
+        <option value="baseline_v1">Baseline v1</option>
+        <option value="v2_m5_quality">V2 — M5 quality 55/25</option>
+        <option value="v2a_m5_quality_50_30">V2A — M5 quality 50/30</option>
+        <option value="v2b_m5_quality_45_35">V2B — M5 quality 45/35</option>
+        <option value="v2c_m15_quality_60_30">V2C — M15 quality 60/30</option>
+      </select></label>
       <label>Symbol<select id="symbol"><option value="EURUSD">EURUSD</option></select></label>
       <label>Start<input id="start" type="date" value="2026-08-22"></label>
       <label>End<input id="end" type="date"></label>
