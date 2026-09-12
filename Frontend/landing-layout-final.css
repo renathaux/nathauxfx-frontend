@@ -1,0 +1,85 @@
+/* Permanent landing-page layout captured at 1440x810 on 2026-09-12. */
+@media (min-width: 1100px) {
+  .landing-logo {
+    width: 172px !important;
+    height: 42px !important;
+    max-width: none !important;
+    translate: -19px 12px !important;
+  }
+
+  .landing-links {
+    width: 215px !important;
+    height: 31px !important;
+    max-width: none !important;
+    translate: -253px 7px !important;
+  }
+
+  .landing-nav-actions {
+    width: 361px !important;
+    height: 44px !important;
+    max-width: none !important;
+    translate: -91px 6px !important;
+  }
+
+  .hero-pill {
+    width: 435px !important;
+    height: 38px !important;
+    max-width: none !important;
+    translate: 33px -36px !important;
+  }
+
+  .hero-left h1 {
+    width: 683px !important;
+    height: 137px !important;
+    max-width: none !important;
+    translate: 33px -27px !important;
+  }
+
+  .hero-left > p {
+    width: 560px !important;
+    height: 155px !important;
+    max-width: none !important;
+    translate: 32px -15px !important;
+  }
+
+  .hero-actions {
+    width: 662px !important;
+    height: 54px !important;
+    max-width: none !important;
+    translate: 31px -19px !important;
+  }
+
+  .hero-badges {
+    width: 662px !important;
+    height: 26px !important;
+    max-width: none !important;
+    translate: 31px -19px !important;
+  }
+
+  .hero-dashboard-img {
+    width: 810px !important;
+    height: auto !important;
+    max-width: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    transform: none !important;
+    translate: -27px -56px !important;
+  }
+
+  .trust-card {
+    width: 1180px !important;
+    height: 303px !important;
+    max-width: none !important;
+    translate: -32px -109px !important;
+  }
+
+  .hero-stats {
+    width: 1180px !important;
+    height: 192px !important;
+    min-height: 192px !important;
+    max-width: none !important;
+    translate: -31px -139px !important;
+  }
+}
