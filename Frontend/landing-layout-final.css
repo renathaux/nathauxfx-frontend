@@ -75,6 +75,7 @@
   }
 
   .trust-card {
+    box-sizing: border-box !important;
     width: 1376px !important;
     height: 303px !important;
     min-width: 0 !important;
@@ -84,6 +85,7 @@
   }
 
   .hero-stats {
+    box-sizing: border-box !important;
     width: 1381px !important;
     height: 192px !important;
     min-width: 0 !important;
