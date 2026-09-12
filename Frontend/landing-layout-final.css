@@ -74,35 +74,38 @@
     translate: -27px -56px !important;
   }
 
-  /* The editor result was 1376/1381px at a 1440px viewport: roughly 32px side margins.
-     Use viewport-relative sizing so parent max-width rules cannot clip the right side. */
-  .trust-section {
-    width: 100% !important;
+  /* Keep both lower cards on the exact same left/right line. */
+  html body #landingPage.landing-page.landing-pro section#trust.trust-section {
+    box-sizing: border-box !important;
+    width: calc(100vw - 64px) !important;
     max-width: none !important;
+    margin: 22px 32px 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
     overflow: visible !important;
   }
 
-  .trust-card {
+  html body #landingPage.landing-page.landing-pro section#trust.trust-section > .trust-card {
     box-sizing: border-box !important;
-    width: calc(100vw - 64px) !important;
+    width: 100% !important;
     height: 303px !important;
     min-width: 0 !important;
     min-height: 0 !important;
     max-width: none !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
     translate: 0 78px !important;
   }
 
-  .hero-stats {
+  html body #landingPage.landing-page.landing-pro > .hero-stats {
     box-sizing: border-box !important;
     width: calc(100vw - 64px) !important;
     height: 192px !important;
     min-width: 0 !important;
     min-height: 192px !important;
     max-width: none !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
+    margin-left: 32px !important;
+    margin-right: 32px !important;
     translate: 0 34px !important;
   }
 }
