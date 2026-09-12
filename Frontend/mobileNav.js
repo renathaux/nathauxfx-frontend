@@ -201,13 +201,17 @@
     refreshPanelCache();
   }
 
+  function liveTrading(){
+    window.location.href="/app?desktop=1&from=mobile&open=menuPaperBtn";
+  }
+
   function rerenderOpenPanel(){
     if(activePanel==="isch") renderIsch();
     else if(activePanel==="history") renderHistory();
     else if(activePanel==="auto") renderAutoTrade();
   }
 
-  const actions={home:closeSheets,isch:ischDetail,fundamental:fundamentalDetail,history:historyDetail,auto:autoTradeDetail};
+  const actions={home:closeSheets,isch:ischDetail,fundamental:fundamentalDetail,history:historyDetail,live:liveTrading,auto:autoTradeDetail};
   document.querySelectorAll(".bottom-nav button").forEach(button=>{
     button.onclick=()=>{
       document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.remove("active"));
