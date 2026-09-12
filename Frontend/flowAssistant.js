@@ -6,9 +6,9 @@
     status: "loaded",
   };
 
-  // Keep mobile settings pages below the persistent app header so the
-  // NathauxFX brand/menu/status row remains visible instead of overlapping the
-  // settings content. This only applies to phone layouts.
+  // Keep mobile menu/settings pages below the persistent app header so the
+  // NathauxFX brand/menu/status row remains visible instead of overlapping page
+  // content. This only applies to phone layouts.
   function installMobileSettingsHeaderSpacing() {
     if (document.getElementById('flowsignalMobileSettingsHeaderSpacing')) return;
 
@@ -21,11 +21,31 @@
         }
 
         body[data-active-settings-page="assistant"] #assistantModal .assistant-modal-box,
-        body[data-active-settings-page^="settings:"] #settingsModal .settings-modal-box {
+        body[data-active-settings-page^="settings:"] #settingsModal .settings-modal-box,
+        body[data-active-settings-page="auto-trade"] #paperModal .trade-modal-box,
+        body[data-active-settings-page="performance"] #statsModal .performance-modal-box {
           top: var(--flowsignal-mobile-settings-top) !important;
           bottom: 0 !important;
           height: auto !important;
           max-height: calc(100dvh - var(--flowsignal-mobile-settings-top)) !important;
+        }
+
+        body.fit-mode #feedbackModal:not(.hidden) {
+          padding-top: var(--flowsignal-mobile-settings-top) !important;
+          align-items: flex-start !important;
+          justify-content: center !important;
+        }
+
+        body.fit-mode #feedbackModal:not(.hidden) .feedback-modal-box {
+          position: relative !important;
+          top: auto !important;
+          right: auto !important;
+          bottom: auto !important;
+          left: auto !important;
+          transform: none !important;
+          margin: 8px auto 0 !important;
+          max-height: calc(100dvh - var(--flowsignal-mobile-settings-top) - 12px) !important;
+          overflow-y: auto !important;
         }
       }
     `;
