@@ -94,4 +94,30 @@
     // Do not stop this second click. The existing Risk/Strategy save handler
     // receives it and performs the real backend save.
   }, true);
+
+  // Broker Accounts used to be the full desktop broker manager, including the
+  // complete account list, active-account switching, refresh/connect controls,
+  // and account actions. The lightweight mobile summary removed those actions.
+  // Route only this Settings item back to the existing full broker manager.
+  function restoreBrokerAccountsLink() {
+    const links = document.querySelectorAll('.desktop-settings-submenu a');
+    const brokerLink = Array.from(links).find(link =>
+      String(link.textContent || '').trim() === 'Broker Accounts'
+    );
+    if (!brokerLink) return;
+
+    brokerLink.setAttribute('href', '#broker-accounts');
+    brokerLink.removeAttribute('onclick');
+    if (brokerLink.dataset.fullBrokerManager === '1') return;
+    brokerLink.dataset.fullBrokerManager = '1';
+
+    brokerLink.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.location.href = '/app?desktop=1&from=mobile&open=menuBrokerAccountsBtn';
+    });
+  }
+
+  restoreBrokerAccountsLink();
+  window.addEventListener('pageshow', restoreBrokerAccountsLink);
 })();
