@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="mobile.css?v=8" />
   <link rel="stylesheet" href="mobileSheet.css?v=7" />
   <link rel="stylesheet" href="mobileChartLayout.css?v=5" />
-  <link rel="stylesheet" href="mobileFullMenu.css?v=1" />
+  <link rel="stylesheet" href="mobileFullMenu.css?v=2" />
   <link rel="stylesheet" href="mobileLiveTrading.css?v=3" />
   <link rel="stylesheet" href="mobileSettings.css?v=1" />
   <style>
@@ -97,7 +97,7 @@
       <a class="desktop-menu-row" href="/app?desktop=1&from=mobile&open=menuFeedbackBtn"><span>💬</span><strong>Feedback</strong></a>
       <a class="desktop-menu-row" href="/app?desktop=1&from=mobile&open=menuStatsBtn"><span>▤</span><strong>Performance</strong></a>
 
-      <details class="desktop-settings-group" open>
+      <details class="desktop-settings-group">
         <summary class="desktop-menu-row"><span>⚙</span><strong>Settings</strong><b>⌄</b></summary>
         <div class="desktop-settings-submenu">
           <a href="mobile.html?open=menuGeneralSettingsBtn" onclick="return false">General</a>
@@ -107,6 +107,10 @@
           <a href="mobile.html?open=menuStrategySettingsBtn" onclick="return false">Strategy</a>
         </div>
       </details>
+
+      <button id="logoutBtn" class="mobile-menu-logout" type="button" aria-label="Log out">
+        <span aria-hidden="true">↪</span><strong>Log out</strong>
+      </button>
     </nav>
   </aside>
 
@@ -116,6 +120,33 @@
     <div id="mobileDetailBody"></div>
   </section>
 
+  <script>
+    (function(){
+      var menu=document.getElementById('mobileMenu');
+      var settings=menu && menu.querySelector('.desktop-settings-group');
+      var logout=document.getElementById('logoutBtn');
+      function stripDuplicateSideItems(){
+        if(!menu)return;
+        menu.querySelectorAll('.desktop-menu-row').forEach(function(row){
+          var label=(row.querySelector('strong')&&row.querySelector('strong').textContent||'').trim();
+          if(label==='Live Trading'||label==='History')row.remove();
+        });
+      }
+      function syncLogout(){
+        if(logout)logout.classList.toggle('settings-hidden',!!(settings&&settings.open));
+      }
+      function collapseSettings(){
+        if(settings)settings.open=false;
+        syncLogout();
+      }
+      stripDuplicateSideItems();
+      collapseSettings();
+      if(settings)settings.addEventListener('toggle',syncLogout);
+      var menuButton=document.getElementById('mobileMenuBtn');
+      if(menuButton)menuButton.addEventListener('click',collapseSettings,true);
+      window.addEventListener('pageshow',function(){stripDuplicateSideItems();collapseSettings();});
+    })();
+  </script>
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
   <script src="mobileChartFix.js?v=8"></script>
   <script src="mobileDashboard.js?v=8"></script>
