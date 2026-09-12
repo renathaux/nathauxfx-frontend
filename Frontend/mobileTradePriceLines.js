@@ -77,3 +77,15 @@
   window.addEventListener('load', () => setTimeout(draw, 800));
   setInterval(draw, 1000);
 })();
+
+// The mobile full menu still reuses several mature desktop panels. Load them
+// inside the installed mobile web app instead of navigating the top-level page,
+// which makes iOS leave standalone mode and show Safari browser chrome.
+(() => {
+  if (document.querySelector('script[data-mobile-app-panel-bridge]')) return;
+  const script = document.createElement('script');
+  script.src = 'mobileAppPanelBridge.js?v=1';
+  script.async = false;
+  script.dataset.mobileAppPanelBridge = '1';
+  document.head.appendChild(script);
+})();
