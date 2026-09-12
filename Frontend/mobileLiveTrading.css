@@ -16,7 +16,7 @@
 body.live-trading-open #mobileBackdrop{background:#020812!important;opacity:1!important}
 .live-trading-shell{display:grid;grid-template-rows:auto auto auto auto minmax(0,1fr);gap:9px;min-height:0;height:100%}
 .live-trading-top{display:grid;grid-template-columns:1.25fr .72fr .72fr;gap:7px;align-items:stretch}
-.live-auto-toggle,.live-metric-card,.live-stat-card,.live-history-card,.live-broker-badge,.live-trading-section{
+.live-auto-toggle,.live-metric-card,.live-stat-card,.live-history-card,.live-broker-badge,.live-trading-section,.paper-active-section{
   border:1px solid rgba(67,99,143,.45);
   background:linear-gradient(145deg,rgba(7,22,39,.96),rgba(14,24,54,.94));
   color:#f7f9ff;
@@ -24,7 +24,9 @@ body.live-trading-open #mobileBackdrop{background:#020812!important;opacity:1!im
 .live-auto-toggle{min-height:52px;border-radius:14px;font-size:12px;font-weight:900;padding:7px 9px}
 .live-auto-toggle.off{border-color:rgba(33,194,112,.7);background:rgba(10,64,43,.72)}
 .live-auto-toggle.on{border-color:#00df88;background:linear-gradient(135deg,#0d7a4d,#08613d);box-shadow:0 0 18px rgba(0,223,136,.14)}
+.live-auto-toggle.paper{min-width:145px}
 .live-auto-toggle:disabled{opacity:.65}
+.paper-toggle-row{display:flex;align-items:center;gap:9px;min-height:52px}
 .live-metric-card{min-height:48px;border-radius:13px;padding:6px 5px;display:grid;place-items:center;text-align:center;border-color:rgba(116,65,255,.65)}
 .live-metric-card span{font-size:6.5px;color:#c5cdea;font-weight:800;white-space:nowrap}
 .live-metric-card strong{font-size:16px;color:#65aaff;line-height:1.05}
@@ -32,8 +34,10 @@ body.live-trading-open #mobileBackdrop{background:#020812!important;opacity:1!im
 .live-broker-badge{display:inline-flex;align-items:center;min-height:27px;border-radius:10px;padding:5px 9px;font-size:9px;font-weight:900}
 .live-broker-badge.connected{border-color:rgba(0,201,107,.65);color:#7df2b0;background:rgba(7,63,43,.45)}
 .live-broker-badge.disconnected{border-color:rgba(255,65,88,.5);color:#ff8997;background:rgba(74,22,31,.38)}
-.live-toggle-message{font-size:8px;color:#ffb0ba;min-height:10px}
-.live-mode-pill{border:1px solid #334263;background:#101a31;border-radius:12px;padding:7px;text-align:center;font-size:10px;font-weight:900;color:#fff;box-shadow:inset 0 0 0 1px rgba(85,74,255,.2)}
+.live-toggle-message{font-size:8px;color:#ffb0ba;min-height:10px;line-height:1.25}
+.trade-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid #273756;background:#0d162a;border-radius:13px}
+.trade-mode-tabs button{min-height:35px;border:0;border-radius:10px;background:transparent;color:#9aa8c1;font-size:10px;font-weight:900;letter-spacing:.15px}
+.trade-mode-tabs button.active{color:#fff;background:linear-gradient(100deg,#266ef1,#773eea);box-shadow:0 0 14px rgba(86,70,255,.2)}
 .live-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .live-stat-card{border-radius:12px;min-height:54px;padding:6px 4px;display:grid;place-items:center;text-align:center}
 .live-stat-card strong{font-size:17px;line-height:1}
@@ -42,6 +46,13 @@ body.live-trading-open #mobileBackdrop{background:#020812!important;opacity:1!im
 .live-stat-card.loss{border-color:rgba(255,65,88,.5)}.live-stat-card.loss strong{color:#ff5165}
 .live-stat-card.running{border-color:rgba(242,195,34,.5)}.live-stat-card.running strong{color:#ffd234}
 .live-stat-card.total{border-color:rgba(75,168,255,.5)}.live-stat-card.total strong{color:#6fb4ff}
+.paper-active-section{border-radius:14px;padding:9px 10px;min-height:82px;overflow:hidden}
+.paper-active-section h3{margin:0 0 7px;font-size:9px;color:#d8dfeb;letter-spacing:.25px}
+.paper-active-empty{min-height:55px;border:1px solid rgba(67,99,143,.28);border-radius:11px;background:rgba(13,29,53,.62);display:flex;flex-direction:column;justify-content:center;padding:8px 11px;box-sizing:border-box}
+.paper-active-empty strong{font-size:9px}.paper-active-empty span{margin-top:4px;font-size:7.5px;color:#8ea0b7;line-height:1.35}
+.paper-active-list{display:grid;gap:6px;max-height:105px;overflow-y:auto}
+.paper-active-card{border:1px solid rgba(67,99,143,.35);border-radius:10px;background:rgba(13,29,53,.72);padding:7px 9px;display:grid;gap:3px}
+.paper-active-card strong{font-size:9px}.paper-active-card span,.paper-active-card small{font-size:7px;color:#9aaac1}
 .live-trading-section{border-radius:14px;padding:10px;min-height:0;height:100%;overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr)}
 .live-trading-section h3{margin:0 0 8px;font-size:10px;color:#d8dfeb;letter-spacing:.3px}
 .live-history-list{display:grid;gap:7px;align-content:start;min-height:0;overflow-y:auto}
@@ -56,4 +67,5 @@ body.live-trading-open #mobileBackdrop{background:#020812!important;opacity:1!im
   .live-trading-top{grid-template-columns:1.2fr .75fr .75fr}
   .live-auto-toggle{min-height:48px}.live-metric-card{min-height:44px}
   .live-stat-card{min-height:48px}
+  .paper-active-section{min-height:72px;padding:7px 9px}
 }
