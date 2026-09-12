@@ -55,6 +55,17 @@
     document.body.appendChild(script);
   }
 
+  function loadDashboardLayoutEditorExtra() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("layoutEdit") !== "1" || window.innerWidth < 701) return;
+    if (document.querySelector('script[data-dashboard-layout-extra]')) return;
+    const script = document.createElement("script");
+    script.src = "dashboard-layout-editor-extra.js?v=1";
+    script.dataset.dashboardLayoutExtra = "true";
+    script.async = false;
+    document.body.appendChild(script);
+  }
+
   // The V2 shadow comparison card is no longer part of the dashboard UI.
   // Hide it immediately to prevent a flash, then remove it once all scripts load.
   hideV2ShadowCard();
@@ -64,6 +75,7 @@
   // Load the per-tab role adapter only after the page has finished loading so
   // it can replace the global role guard without racing initial definitions.
   window.addEventListener("load", loadTabRoleSession, { once: true });
+  window.addEventListener("load", loadDashboardLayoutEditorExtra, { once: true });
 
   window.FlowSignalState = {
     loadFeatureFlags,
