@@ -19,11 +19,13 @@
     .landing-card-editor-on .card-editor-target {
       position: relative !important;
       z-index: 1000 !important;
-      outline: 2px dashed rgba(56,189,248,.9) !important;
-      outline-offset: 3px !important;
+      outline: 2px dashed rgba(56,189,248,.95) !important;
+      outline-offset: 4px !important;
       cursor: move !important;
       touch-action: none !important;
       user-select: none !important;
+      overflow: visible !important;
+      box-sizing: border-box !important;
     }
     .landing-card-editor-on .card-editor-target:hover {
       outline-style: solid !important;
@@ -31,9 +33,9 @@
     .card-editor-label {
       position: absolute !important;
       left: 8px !important;
-      top: -31px !important;
+      top: -34px !important;
       z-index: 2147483646 !important;
-      padding: 5px 9px !important;
+      padding: 6px 10px !important;
       border-radius: 7px !important;
       background: #0b1b32 !important;
       border: 1px solid #2f80ff !important;
@@ -45,41 +47,42 @@
     .card-editor-handle {
       position: absolute !important;
       z-index: 2147483647 !important;
-      width: 14px !important;
-      height: 14px !important;
-      border-radius: 3px !important;
+      width: 20px !important;
+      height: 20px !important;
+      border-radius: 5px !important;
       border: 2px solid #fff !important;
       background: #2f80ff !important;
-      box-shadow: 0 2px 8px rgba(0,0,0,.55) !important;
+      box-shadow: 0 2px 10px rgba(0,0,0,.65) !important;
       pointer-events: auto !important;
+      touch-action: none !important;
     }
-    .card-editor-handle[data-dir="nw"]{left:-9px!important;top:-9px!important;cursor:nwse-resize!important}
-    .card-editor-handle[data-dir="n"]{left:50%!important;top:-9px!important;transform:translateX(-50%)!important;cursor:ns-resize!important}
-    .card-editor-handle[data-dir="ne"]{right:-9px!important;top:-9px!important;cursor:nesw-resize!important}
-    .card-editor-handle[data-dir="e"]{right:-9px!important;top:50%!important;transform:translateY(-50%)!important;cursor:ew-resize!important}
-    .card-editor-handle[data-dir="se"]{right:-9px!important;bottom:-9px!important;cursor:nwse-resize!important}
-    .card-editor-handle[data-dir="s"]{left:50%!important;bottom:-9px!important;transform:translateX(-50%)!important;cursor:ns-resize!important}
-    .card-editor-handle[data-dir="sw"]{left:-9px!important;bottom:-9px!important;cursor:nesw-resize!important}
-    .card-editor-handle[data-dir="w"]{left:-9px!important;top:50%!important;transform:translateY(-50%)!important;cursor:ew-resize!important}
+    .card-editor-handle[data-dir="nw"]{left:-12px!important;top:-12px!important;cursor:nwse-resize!important}
+    .card-editor-handle[data-dir="n"]{left:50%!important;top:-12px!important;transform:translateX(-50%)!important;cursor:ns-resize!important}
+    .card-editor-handle[data-dir="ne"]{right:-12px!important;top:-12px!important;cursor:nesw-resize!important}
+    .card-editor-handle[data-dir="e"]{right:-12px!important;top:50%!important;transform:translateY(-50%)!important;cursor:ew-resize!important}
+    .card-editor-handle[data-dir="se"]{right:-12px!important;bottom:-12px!important;cursor:nwse-resize!important}
+    .card-editor-handle[data-dir="s"]{left:50%!important;bottom:-12px!important;transform:translateX(-50%)!important;cursor:ns-resize!important}
+    .card-editor-handle[data-dir="sw"]{left:-12px!important;bottom:-12px!important;cursor:nesw-resize!important}
+    .card-editor-handle[data-dir="w"]{left:-12px!important;top:50%!important;transform:translateY(-50%)!important;cursor:ew-resize!important}
 
     #landingPageHeightGuide {
       position: fixed !important;
       left: 0 !important;
       right: 0 !important;
       bottom: 0 !important;
-      height: 20px !important;
+      height: 26px !important;
       z-index: 2147483645 !important;
       cursor: ns-resize !important;
       touch-action: none !important;
-      background: linear-gradient(to bottom, transparent 0 7px, rgba(168,85,247,.95) 7px 10px, transparent 10px) !important;
+      background: linear-gradient(to bottom, transparent 0 10px, rgba(168,85,247,.98) 10px 14px, transparent 14px) !important;
     }
     #landingPageHeightGuide::after {
-      content: '↕ PAGE BOTTOM — drag up / down';
+      content: '↕ PAGE HEIGHT — drag up / down';
       position: absolute !important;
       left: 50% !important;
-      bottom: 12px !important;
+      bottom: 16px !important;
       transform: translateX(-50%) !important;
-      padding: 6px 10px !important;
+      padding: 7px 11px !important;
       border-radius: 8px !important;
       background: #24103d !important;
       border: 1px solid #a855f7 !important;
@@ -91,7 +94,7 @@
     #landingCardEditorToolbar {
       position: fixed !important;
       left: 50% !important;
-      bottom: 28px !important;
+      bottom: 34px !important;
       transform: translateX(-50%) !important;
       z-index: 2147483647 !important;
       display: flex !important;
@@ -121,7 +124,7 @@
     #cardEditorToast {
       position: fixed !important;
       left: 50% !important;
-      bottom: 82px !important;
+      bottom: 88px !important;
       transform: translateX(-50%) !important;
       z-index: 2147483647 !important;
       padding: 8px 13px !important;
@@ -143,6 +146,10 @@
     return Number.isFinite(n) ? n : fallback;
   };
 
+  function setImportant(el, property, value) {
+    el.style.setProperty(property, value, 'important');
+  }
+
   function parseTranslate(el) {
     const value = getComputedStyle(el).translate;
     if (!value || value === 'none') return { x: 0, y: 0 };
@@ -160,11 +167,28 @@
   const dirs = ['nw','n','ne','e','se','s','sw','w'];
 
   function applyState(el, state) {
-    el.style.width = `${Math.round(state.width)}px`;
-    el.style.height = `${Math.round(state.height)}px`;
-    el.style.maxWidth = 'none';
-    el.style.minHeight = '0';
-    el.style.translate = `${Math.round(state.x)}px ${Math.round(state.y)}px`;
+    setImportant(el, 'width', `${Math.round(state.width)}px`);
+    setImportant(el, 'height', `${Math.round(state.height)}px`);
+    setImportant(el, 'max-width', 'none');
+    setImportant(el, 'min-width', '0');
+    setImportant(el, 'min-height', '0');
+    setImportant(el, 'translate', `${Math.round(state.x)}px ${Math.round(state.y)}px`);
+  }
+
+  function attachDragSession(onMove, onEnd) {
+    const move = event => {
+      event.preventDefault();
+      onMove(event);
+    };
+    const end = event => {
+      window.removeEventListener('pointermove', move, true);
+      window.removeEventListener('pointerup', end, true);
+      window.removeEventListener('pointercancel', end, true);
+      onEnd?.(event);
+    };
+    window.addEventListener('pointermove', move, true);
+    window.addEventListener('pointerup', end, true);
+    window.addEventListener('pointercancel', end, true);
   }
 
   targets.forEach(([key, el]) => {
@@ -197,14 +221,13 @@
       handle.addEventListener('pointerdown', event => {
         event.preventDefault();
         event.stopPropagation();
-        handle.setPointerCapture(event.pointerId);
         const startX = event.clientX;
         const startY = event.clientY;
         const start = { ...state };
-        const minW = 280;
-        const minH = 90;
+        const minW = 240;
+        const minH = 70;
 
-        const move = moveEvent => {
+        attachDragSession(moveEvent => {
           const dx = moveEvent.clientX - startX;
           const dy = moveEvent.clientY - startY;
           let x = start.x;
@@ -227,17 +250,7 @@
 
           Object.assign(state, { x, y, width, height });
           applyState(el, state);
-        };
-
-        const end = endEvent => {
-          try { handle.releasePointerCapture(endEvent.pointerId); } catch (_error) {}
-          handle.removeEventListener('pointermove', move);
-          handle.removeEventListener('pointerup', end);
-          handle.removeEventListener('pointercancel', end);
-        };
-        handle.addEventListener('pointermove', move);
-        handle.addEventListener('pointerup', end);
-        handle.addEventListener('pointercancel', end);
+        });
       });
     });
 
@@ -245,26 +258,16 @@
       if (event.target.closest('.card-editor-handle')) return;
       if (event.target.closest('a,button,input,select,textarea')) return;
       event.preventDefault();
-      el.setPointerCapture(event.pointerId);
       const startX = event.clientX;
       const startY = event.clientY;
       const baseX = state.x;
       const baseY = state.y;
 
-      const move = moveEvent => {
+      attachDragSession(moveEvent => {
         state.x = Math.round(baseX + moveEvent.clientX - startX);
         state.y = Math.round(baseY + moveEvent.clientY - startY);
         applyState(el, state);
-      };
-      const end = endEvent => {
-        try { el.releasePointerCapture(endEvent.pointerId); } catch (_error) {}
-        el.removeEventListener('pointermove', move);
-        el.removeEventListener('pointerup', end);
-        el.removeEventListener('pointercancel', end);
-      };
-      el.addEventListener('pointermove', move);
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
+      });
     });
   });
 
@@ -274,32 +277,24 @@
 
   const initialPageHeight = Math.max(page?.getBoundingClientRect().height || 0, document.documentElement.clientHeight);
   let pageHeight = toNumber(saved?.pageHeight, initialPageHeight);
-  if (page) {
-    page.style.height = `${Math.round(pageHeight)}px`;
-    page.style.minHeight = `${Math.round(pageHeight)}px`;
+
+  function applyPageHeight() {
+    if (!page) return;
+    setImportant(page, 'height', `${Math.round(pageHeight)}px`);
+    setImportant(page, 'min-height', `${Math.round(pageHeight)}px`);
+    setImportant(page, 'max-height', 'none');
   }
+  applyPageHeight();
 
   pageGuide.addEventListener('pointerdown', event => {
     event.preventDefault();
-    pageGuide.setPointerCapture(event.pointerId);
+    event.stopPropagation();
     const startY = event.clientY;
     const startHeight = pageHeight;
-    const move = moveEvent => {
+    attachDragSession(moveEvent => {
       pageHeight = Math.max(500, startHeight + (moveEvent.clientY - startY));
-      if (page) {
-        page.style.height = `${Math.round(pageHeight)}px`;
-        page.style.minHeight = `${Math.round(pageHeight)}px`;
-      }
-    };
-    const end = endEvent => {
-      try { pageGuide.releasePointerCapture(endEvent.pointerId); } catch (_error) {}
-      pageGuide.removeEventListener('pointermove', move);
-      pageGuide.removeEventListener('pointerup', end);
-      pageGuide.removeEventListener('pointercancel', end);
-    };
-    pageGuide.addEventListener('pointermove', move);
-    pageGuide.addEventListener('pointerup', end);
-    pageGuide.addEventListener('pointercancel', end);
+      applyPageHeight();
+    });
   });
 
   const toolbar = document.createElement('div');
@@ -329,7 +324,7 @@
       };
     });
     return {
-      version: 2,
+      version: 3,
       viewport: { width: window.innerWidth, height: window.innerHeight },
       pageHeight: Math.round(pageHeight),
       savedAt: new Date().toISOString(),
