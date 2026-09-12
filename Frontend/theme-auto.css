@@ -71,37 +71,29 @@
   }
 }
 
-
 :root,
 html[data-theme="dark"] { color-scheme: dark; }
 html[data-theme="light"] { color-scheme: light; }
 
-/* Prevent Safari from keeping a horizontal offset after older wide layouts. */
 html,
 body {
   max-width: 100%;
   overflow-x: clip !important;
 }
-
 @supports not (overflow: clip) {
   html,
   body { overflow-x: hidden !important; }
 }
-
 body:has(#landingPage:not(.hidden)),
 body.fit-mode:has(#landingPage:not(.hidden)) {
   overflow-y: auto !important;
 }
-
-/* Keep the ORIGINAL landing geometry from style.css.
-   Only remove the old viewport-height clipping so the extra cards can sit below it. */
 #landingPage.landing-pro {
   height: auto !important;
   min-height: 100vh !important;
   overflow: visible !important;
 }
 
-/* Keep the theme switch visible despite legacy phone rules that hide button spans. */
 #landingPage.landing-pro .theme-toggle > span,
 #landingPage.landing-pro .theme-toggle-knob {
   display: block !important;
@@ -118,7 +110,6 @@ body.fit-mode:has(#landingPage:not(.hidden)) {
   }
 }
 
-/* Theme switch */
 #landingPage .theme-toggle {
   height: 34px;
   padding: 0 8px;
@@ -180,7 +171,6 @@ html[data-theme="light"] #landingPage .theme-toggle-track {
 html[data-theme="light"] #landingPage .theme-icon-sun { opacity: 1; color: #d97706; }
 html[data-theme="light"] #landingPage .theme-toggle-knob { transform: translateX(0); }
 
-/* Two lower cards only. They use the landing page's existing 58px desktop inset. */
 #landingPage > .trust-section,
 #landingPage > .hero-stats {
   position: relative !important;
@@ -191,7 +181,6 @@ html[data-theme="light"] #landingPage .theme-toggle-knob { transform: translateX
   margin-left: 0 !important;
   margin-right: auto !important;
 }
-
 #landingPage > .trust-section {
   margin-top: 22px !important;
   margin-bottom: 0 !important;
@@ -202,7 +191,6 @@ html[data-theme="light"] #landingPage .theme-toggle-knob { transform: translateX
   height: auto !important;
   box-sizing: border-box !important;
 }
-
 #landingPage > .hero-stats {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -272,7 +260,6 @@ html[data-theme="light"] #landingPage .theme-toggle-knob { transform: translateX
   #landingPage > .hero-stats { grid-template-columns: 1fr !important; }
 }
 
-/* Light mode colors only. */
 html[data-theme="light"] body:has(#landingPage:not(.hidden)),
 html[data-theme="light"] body.fit-mode:has(#landingPage:not(.hidden)) {
   background: #f7f9fc !important;
@@ -333,10 +320,25 @@ html[data-theme="light"] #landingPage .trust-point strong { color: #2563eb !impo
 html[data-theme="light"] #landingPage .hero-left > p,
 html[data-theme="light"] #landingPage .trust-card p,
 html[data-theme="light"] #landingPage .risk-note { color: #526177 !important; }
-html[data-theme="light"] #landingPage .hero-dashboard-img {
-  border-color: rgba(148, 163, 184, .38) !important;
-  box-shadow: 0 28px 70px rgba(15, 23, 42, .12), 0 0 0 1px rgba(255, 255, 255, .75) inset !important;
+
+/* Keep the device mockup truly floating in both themes. */
+#landingPage .hero-right,
+html[data-theme="light"] #landingPage .hero-right,
+html[data-theme="dark"] #landingPage .hero-right {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
+#landingPage .hero-dashboard-img,
+html[data-theme="light"] #landingPage .hero-dashboard-img,
+html[data-theme="dark"] #landingPage .hero-dashboard-img {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
 html[data-theme="light"] #landingPage .hero-stats,
 html[data-theme="light"] #landingPage .trust-card {
   background: radial-gradient(circle at 100% 0%, rgba(37, 99, 235, .06), transparent 34%), #fff !important;
