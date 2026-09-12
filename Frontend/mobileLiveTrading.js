@@ -46,8 +46,7 @@
 
   function activeLive(data){
     const meta = data?._meta || {};
-    const direct = list(first(data?.live_active_orders, meta.live_active_orders, data?.live_positions, meta.live_positions, []));
-    return direct;
+    return list(first(data?.live_active_orders, meta.live_active_orders, data?.live_positions, meta.live_positions, []));
   }
 
   function resultClass(trade){
@@ -136,6 +135,8 @@
     const backdrop = $("mobileBackdrop");
     if(menu){ menu.classList.add("hidden"); menu.setAttribute("aria-hidden", "true"); }
     if(!detail || !backdrop) return;
+    detail.classList.remove("mobile-settings-sheet");
+    document.body.classList.remove("mobile-settings-open");
     $("mobileDetailEyebrow").textContent = "AUTO TRADE";
     $("mobileDetailTitle").textContent = "Live Trading";
     $("mobileDetailBody").innerHTML = '<div class="live-trading-loading">Loading Live Trading…</div>';
@@ -144,7 +145,7 @@
     detail.setAttribute("aria-hidden", "false");
     backdrop.classList.remove("hidden");
     backdrop.setAttribute("aria-hidden", "false");
-    document.body.classList.add("sheet-open");
+    document.body.classList.add("sheet-open", "live-trading-open");
   }
 
   async function loadLiveData(){
@@ -205,6 +206,7 @@
 
   function clearLiveClass(){
     $("mobileDetail")?.classList.remove("live-trading-sheet");
+    document.body.classList.remove("live-trading-open");
   }
 
   const liveButton = document.querySelector('.bottom-nav button[data-nav="live"]');
