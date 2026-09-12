@@ -66,6 +66,37 @@
     @media(max-width:520px){.trust-points{grid-template-columns:1fr}.trust-card{padding:20px}.legal-links{gap:12px}}
   </style>
   <link rel="stylesheet" href="landing-layout-final.css?v=3">
+  <style id="landing-card-final-override">
+    @media (min-width:701px){
+      #landingPage.landing-pro{overflow-x:hidden!important}
+      #landingPage.landing-pro .trust-section{
+        box-sizing:border-box!important;
+        width:100vw!important;
+        max-width:none!important;
+        margin-left:calc(50% - 50vw)!important;
+        margin-right:0!important;
+        padding-left:32px!important;
+        padding-right:32px!important;
+        overflow:visible!important;
+      }
+      #landingPage.landing-pro .trust-section .trust-card{
+        box-sizing:border-box!important;
+        width:100%!important;
+        max-width:none!important;
+        margin-left:0!important;
+        margin-right:0!important;
+        translate:0 78px!important;
+      }
+      #landingPage.landing-pro > .hero-stats{
+        box-sizing:border-box!important;
+        width:calc(100vw - 64px)!important;
+        max-width:none!important;
+        margin-left:32px!important;
+        margin-right:32px!important;
+        translate:0 34px!important;
+      }
+    }
+  </style>
   <script src="landing-card-editor.js?v=3" defer></script>
   <script type="application/ld+json">
   {
