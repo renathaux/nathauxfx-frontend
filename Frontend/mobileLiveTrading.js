@@ -127,6 +127,22 @@
     return `<div class="paper-active-list">${active.map(([symbol,trade]) => `<div class="paper-active-card"><strong>${esc(symbol)} · ${esc(String(first(trade.side, trade.signal, "--")).toUpperCase())}</strong><span>Entry ${esc(first(trade.entry,"--"))} · SL ${esc(first(trade.sl,"--"))}</span><small>TP1 ${esc(first(trade.tp1,"--"))} · TP2 ${esc(first(trade.tp2,"--"))}</small></div>`).join("")}</div>`;
   }
 
+  function activeLiveMarkup(data){
+    const active = activeLive(data);
+    if(!active.length){
+      return `<div class="paper-active-empty"><strong>No active live trades</strong><span>Live auto will show the running strategy here after a live order opens.</span></div>`;
+    }
+    return `<div class="paper-active-list">${active.map(trade => {
+      const symbol = first(trade?.symbol, trade?.symbol_name, "--");
+      const side = String(first(trade?.side, trade?.signal, trade?.action, trade?.trade_side, "--")).toUpperCase();
+      const entry = first(trade?.entry, trade?.entry_price, trade?.open_price, "--");
+      const sl = first(trade?.sl, trade?.stop_loss, trade?.stopLoss, "--");
+      const tp1 = first(trade?.tp1, trade?.take_profit_1, trade?.takeProfit1, "--");
+      const tp2 = first(trade?.tp2, trade?.take_profit, trade?.take_profit_2, trade?.takeProfit, "--");
+      return `<div class="paper-active-card"><strong>${esc(symbol)} · ${esc(side)}</strong><span>Entry ${esc(entry)} · SL ${esc(sl)}</span><small>TP1 ${esc(tp1)} · TP2 ${esc(tp2)}</small></div>`;
+    }).join("")}</div>`;
+  }
+
   function statsMarkup(stats){
     return `<div class="live-stats-grid">
       <div class="live-stat-card win"><strong>${stats.wins}</strong><span>Wins</span></div>
@@ -173,7 +189,7 @@
           <button id="mobileLiveTab" class="${!isPaper ? "active" : ""}" type="button">LIVE TRADES</button>
         </div>
 
-        ${isPaper ? `<section class="paper-active-section"><h3>✦ ACTIVE STRATEGIES</h3>${activePaperMarkup(currentData)}</section>` : ""}
+        <section class="paper-active-section"><h3>✦ ACTIVE STRATEGIES</h3>${isPaper ? activePaperMarkup(currentData) : activeLiveMarkup(currentData)}</section>
         ${statsMarkup(stats)}
         <section class="live-trading-section">
           <h3>${isPaper ? "RECENT TRADES" : "RECENT LIVE TRADES"}</h3>
