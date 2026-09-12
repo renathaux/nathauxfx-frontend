@@ -32,8 +32,10 @@
 
         body.fit-mode #feedbackModal:not(.hidden) {
           padding-top: var(--flowsignal-mobile-settings-top) !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
           align-items: flex-start !important;
-          justify-content: center !important;
+          justify-content: flex-start !important;
         }
 
         body.fit-mode #feedbackModal:not(.hidden) .feedback-modal-box {
@@ -41,11 +43,14 @@
           top: auto !important;
           right: auto !important;
           bottom: auto !important;
-          left: auto !important;
+          left: 0 !important;
           transform: none !important;
-          margin: 8px auto 0 !important;
+          margin: 8px 0 0 0 !important;
+          width: min(88vw, 520px) !important;
+          max-width: min(88vw, 520px) !important;
           max-height: calc(100dvh - var(--flowsignal-mobile-settings-top) - 12px) !important;
           overflow-y: auto !important;
+          border-radius: 0 20px 20px 0 !important;
         }
       }
     `;
@@ -53,6 +58,54 @@
   }
 
   installMobileSettingsHeaderSpacing();
+
+  // Give Flow Assistant's Save button a visible two-step response on mobile:
+  // first tap -> Confirm, second tap -> the existing save handler runs, then OK.
+  function installAssistantSaveConfirmation() {
+    const button = document.querySelector('.assistant-save-btn');
+    if (!button || button.dataset.flowSaveConfirmInstalled === '1') return false;
+
+    button.dataset.flowSaveConfirmInstalled = '1';
+    button.dataset.flowSaveDefaultLabel = button.textContent.trim() || '✓ Save Changes';
+    button.dataset.flowSaveStage = 'idle';
+
+    button.addEventListener('click', (event) => {
+      if (button.dataset.flowSaveStage !== 'confirm') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        button.dataset.flowSaveStage = 'confirm';
+        button.textContent = 'Confirm';
+
+        window.setTimeout(() => {
+          if (!button.isConnected || button.dataset.flowSaveStage !== 'confirm') return;
+          button.dataset.flowSaveStage = 'idle';
+          button.textContent = button.dataset.flowSaveDefaultLabel || '✓ Save Changes';
+        }, 6000);
+        return;
+      }
+
+      // Let the existing application listener receive the second click.
+      button.dataset.flowSaveStage = 'saving';
+      button.textContent = 'Saving…';
+
+      window.setTimeout(() => {
+        if (!button.isConnected) return;
+        button.dataset.flowSaveStage = 'ok';
+        button.textContent = '✓ OK';
+        window.setTimeout(() => {
+          if (!button.isConnected) return;
+          button.dataset.flowSaveStage = 'idle';
+          button.textContent = button.dataset.flowSaveDefaultLabel || '✓ Save Changes';
+        }, 1400);
+      }, 350);
+    }, true);
+
+    return true;
+  }
+
+  installAssistantSaveConfirmation();
+  window.addEventListener('load', installAssistantSaveConfirmation, { once: true });
 
   // Voice safety boundary:
   // WIN / LOSS / closed-trade speech must come from a real broker-backed
