@@ -1,0 +1,30 @@
+.detail.mobile-settings-sheet{
+  top:max(10px,env(safe-area-inset-top))!important;
+  bottom:calc(62px + max(8px,env(safe-area-inset-bottom)))!important;
+  height:auto!important;
+  max-height:none!important;
+  background:#07111f!important;
+  border-radius:18px 18px 0 0!important;
+}
+.mobile-settings-sheet #mobileDetailBody{
+  overflow-y:auto!important;
+  padding:10px 4px 18px!important;
+  min-height:0!important;
+}
+.mobile-settings-shell{display:grid;gap:12px;color:#f5f7fb}
+.mobile-settings-card{border:1px solid #233b59;border-radius:14px;background:#091625;padding:12px}
+.mobile-settings-card h3{margin:0 0 4px;font-size:14px}
+.mobile-settings-card>p{margin:0 0 10px;color:#91a2b8;font-size:10px;line-height:1.45}
+.mobile-settings-list{display:grid;gap:0}
+.mobile-setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:45px;border-bottom:1px solid rgba(67,91,123,.32);font-size:11px}
+.mobile-setting-row:last-child{border-bottom:0}.mobile-setting-row>span{display:grid;gap:2px;min-width:0}.mobile-setting-row small{color:#7f91a8;font-size:8px;line-height:1.3}
+.mobile-setting-row input[type="checkbox"]{width:20px;height:20px;accent-color:#2387ff;flex:0 0 auto}
+.mobile-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.mobile-field{display:grid;gap:5px}.mobile-field.full{grid-column:1/-1}.mobile-field label{font-size:9px;color:#9fb0c5;font-weight:800}.mobile-field input,.mobile-field select{width:100%;height:38px;border:1px solid #294766;border-radius:10px;background:#07111f;color:#f6f8fb;padding:0 10px;font-size:12px;outline:none}.mobile-field input:focus,.mobile-field select:focus{border-color:#2687ff}
+.mobile-settings-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:11px}.mobile-settings-actions button,.mobile-settings-btn{height:38px;border-radius:10px;border:1px solid #2b4564;background:#0b1b2f;color:#fff;padding:0 14px;font-size:10px;font-weight:900}.mobile-settings-actions .primary,.mobile-settings-btn.primary{background:#147cff;border-color:#147cff}.mobile-settings-actions button:disabled,.mobile-settings-btn:disabled{opacity:.55}
+.mobile-settings-status{min-height:18px;margin-top:8px;color:#7df2b0;font-size:9px}.mobile-settings-status.error{color:#ff8b9a}
+.mobile-account-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mobile-account-chip{border:1px solid #28435f;border-radius:12px;background:#071321;padding:10px;display:grid;gap:4px}.mobile-account-chip span{font-size:8px;color:#8ea0b7}.mobile-account-chip strong{font-size:11px;word-break:break-word}.mobile-account-chip.connected{border-color:rgba(0,201,107,.55)}.mobile-account-chip.connected strong{color:#7df2b0}
+.mobile-strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.mobile-strategy-grid .mobile-field.toggle{display:flex;align-items:center;justify-content:space-between;border:1px solid #294766;border-radius:10px;background:#07111f;padding:0 10px;min-height:46px}.mobile-strategy-grid .mobile-field.toggle input{width:20px;height:20px;padding:0}
+.mobile-settings-note{padding:9px 10px;border-radius:10px;background:#0a1a2c;border:1px solid #203b59;color:#91a4bc;font-size:8.5px;line-height:1.4}
+body.mobile-settings-open #mobileBackdrop{background:#020812!important;opacity:1!important}
+@media(max-height:820px){.detail.mobile-settings-sheet{bottom:calc(56px + max(8px,env(safe-area-inset-bottom)))!important}.mobile-settings-sheet #mobileDetailBody{padding-bottom:12px!important}.mobile-setting-row{min-height:40px}.mobile-field input,.mobile-field select{height:34px}}
