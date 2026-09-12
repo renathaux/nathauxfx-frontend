@@ -102,11 +102,11 @@
       <details class="desktop-settings-group" open>
         <summary class="desktop-menu-row"><span>⚙</span><strong>Settings</strong><b>⌄</b></summary>
         <div class="desktop-settings-submenu">
-          <a href="mobile.html?open=menuGeneralSettingsBtn">General</a>
-          <a href="mobile.html?open=menuRiskSettingsBtn">Risk Management</a>
-          <a href="mobile.html?open=menuBrokerAccountsBtn">Broker Accounts</a>
-          <a href="mobile.html?open=menuNotificationsSettingsBtn">Notifications</a>
-          <a href="mobile.html?open=menuStrategySettingsBtn">Strategy</a>
+          <a href="mobile.html?open=menuGeneralSettingsBtn" onclick="return false">General</a>
+          <a href="mobile.html?open=menuRiskSettingsBtn" onclick="return false">Risk Management</a>
+          <a href="mobile.html?open=menuBrokerAccountsBtn" onclick="return false">Broker Accounts</a>
+          <a href="mobile.html?open=menuNotificationsSettingsBtn" onclick="return false">Notifications</a>
+          <a href="mobile.html?open=menuStrategySettingsBtn" onclick="return false">Strategy</a>
         </div>
       </details>
     </nav>
@@ -125,7 +125,7 @@
   <script src="mobileNav.js?v=6"></script>
   <script src="user-auth.js?v=4"></script>
   <script src="mobileLiveTrading.js?v=2"></script>
-  <script src="mobileSettings.js?v=1"></script>
+  <script src="mobileSettings.js?v=2"></script>
   <script>
     window.addEventListener('pageshow', function(){
       var menu=document.getElementById('mobileMenu'), detail=document.getElementById('mobileDetail'), back=document.getElementById('mobileBackdrop');
