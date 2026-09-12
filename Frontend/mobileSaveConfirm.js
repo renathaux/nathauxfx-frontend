@@ -121,3 +121,61 @@
   restoreBrokerAccountsLink();
   window.addEventListener('pageshow', restoreBrokerAccountsLink);
 })();
+
+// Mobile menu can be entered from the lightweight dashboard before user-auth
+// has rebuilt its per-tab role marker. In that state the shared document-level
+// logout listener used to ignore the click. Catch it at window capture level
+// and call the real auth logout API directly, independent of that role marker.
+(() => {
+  'use strict';
+  let loggingOut = false;
+
+  function emergencyLocalLogout() {
+    try {
+      localStorage.removeItem('flowsignal_access');
+      localStorage.removeItem('flowsignal_role');
+      localStorage.removeItem('flowsignal_user_session_persist');
+      localStorage.removeItem('flowsignal_session_token');
+      const tabPrefix = 'flowsignal_tab_';
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(tabPrefix) || key.startsWith('flowsignal_tab_user_session:') || key.startsWith('flowsignal_tab_admin_session:')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (_error) {}
+
+    try {
+      sessionStorage.removeItem('flowsignal_user_session_token');
+      sessionStorage.removeItem('flowsignal_csrf_token');
+      sessionStorage.removeItem('flowsignal_tab_role');
+      sessionStorage.removeItem('flowsignal_public_home_mode');
+      sessionStorage.setItem('flowsignal_tab_signed_out', '1');
+    } catch (_error) {}
+
+    try {
+      document.cookie = 'flowsignal_login_hint=; Max-Age=0; Path=/; Secure; SameSite=Lax';
+    } catch (_error) {}
+    try { window.name = ''; } catch (_error) {}
+    window.location.replace('/');
+  }
+
+  window.addEventListener('click', event => {
+    const button = event.target?.closest?.('#logoutBtn');
+    if (!button || loggingOut) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    loggingOut = true;
+    button.disabled = true;
+    const label = button.querySelector('strong');
+    if (label) label.textContent = 'Logging out…';
+
+    Promise.resolve()
+      .then(() => {
+        if (window.FlowSignalAuth?.logout) return window.FlowSignalAuth.logout();
+        throw new Error('Auth logout unavailable');
+      })
+      .catch(() => emergencyLocalLogout());
+  }, true);
+})();
