@@ -58,6 +58,7 @@
       .active-v3b-field{display:grid;gap:8px;padding:14px;border:1px solid rgba(148,163,184,.2);border-radius:14px;background:rgba(8,19,33,.74)}
       .active-v3b-field span{font-weight:800;color:#e2e8f0}.active-v3b-field small{color:#8fa0b7;line-height:1.35}
       .active-v3b-field input{width:100%;box-sizing:border-box;border:1px solid rgba(96,165,250,.35);border-radius:10px;background:#071421;color:#fff;padding:11px 12px;font-size:16px;font-weight:800}
+      .active-v3b-field input[readonly]{opacity:.72;border-color:rgba(148,163,184,.25);cursor:not-allowed}
       .active-v3b-fixed{padding:14px;border:1px solid rgba(168,85,247,.28);border-radius:14px;background:rgba(46,20,75,.18)}
       .active-v3b-fixed h3{margin:0 0 10px;color:#d8b4fe}.active-v3b-fixed-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
       .active-v3b-fixed-grid div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.12)}
@@ -83,15 +84,16 @@
   function numberInput(key, data, help) {
     const current = data.current?.[key];
     const limit = data.limits?.[key] || {};
+    const editable = Array.isArray(data.editable) ? data.editable.includes(key) : true;
     return `
       <label class="active-v3b-field">
         <span>${escapeHtml(limit.label || key)}</span>
-        <input type="number" data-v3b-strategy-setting="${escapeHtml(key)}"
+        <input type="number" ${editable ? `data-v3b-strategy-setting="${escapeHtml(key)}"` : "readonly aria-readonly=\"true\""}
           value="${escapeHtml(current)}"
           ${limit.min !== undefined ? `min="${escapeHtml(limit.min)}"` : ""}
           ${limit.max !== undefined ? `max="${escapeHtml(limit.max)}"` : ""}
           ${limit.step !== undefined ? `step="${escapeHtml(limit.step)}"` : ""}>
-        <small>${escapeHtml(help)}${limit.unit ? ` · ${escapeHtml(limit.unit)}` : ""}</small>
+        <small>${escapeHtml(help)}${limit.unit ? ` · ${escapeHtml(limit.unit)}` : ""}${editable ? "" : " · Fixed for the current broker profile"}</small>
       </label>`;
   }
 
