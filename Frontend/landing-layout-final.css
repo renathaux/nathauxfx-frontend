@@ -74,23 +74,35 @@
     translate: -27px -56px !important;
   }
 
+  /* The editor result was 1376/1381px at a 1440px viewport: roughly 32px side margins.
+     Use viewport-relative sizing so parent max-width rules cannot clip the right side. */
+  .trust-section {
+    width: 100% !important;
+    max-width: none !important;
+    overflow: visible !important;
+  }
+
   .trust-card {
     box-sizing: border-box !important;
-    width: 1376px !important;
+    width: calc(100vw - 64px) !important;
     height: 303px !important;
     min-width: 0 !important;
     min-height: 0 !important;
     max-width: none !important;
-    translate: -23px 78px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    translate: 0 78px !important;
   }
 
   .hero-stats {
     box-sizing: border-box !important;
-    width: 1381px !important;
+    width: calc(100vw - 64px) !important;
     height: 192px !important;
     min-width: 0 !important;
     min-height: 192px !important;
     max-width: none !important;
-    translate: -25px 34px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    translate: 0 34px !important;
   }
 }
