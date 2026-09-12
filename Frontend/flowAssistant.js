@@ -6,6 +6,34 @@
     status: "loaded",
   };
 
+  // Keep mobile settings pages below the persistent app header so the
+  // NathauxFX brand/menu/status row remains visible instead of overlapping the
+  // settings content. This only applies to phone layouts.
+  function installMobileSettingsHeaderSpacing() {
+    if (document.getElementById('flowsignalMobileSettingsHeaderSpacing')) return;
+
+    const style = document.createElement('style');
+    style.id = 'flowsignalMobileSettingsHeaderSpacing';
+    style.textContent = `
+      @media (max-width: 700px) {
+        :root {
+          --flowsignal-mobile-settings-top: calc(max(7px, env(safe-area-inset-top)) + 54px);
+        }
+
+        body[data-active-settings-page="assistant"] #assistantModal .assistant-modal-box,
+        body[data-active-settings-page^="settings:"] #settingsModal .settings-modal-box {
+          top: var(--flowsignal-mobile-settings-top) !important;
+          bottom: 0 !important;
+          height: auto !important;
+          max-height: calc(100dvh - var(--flowsignal-mobile-settings-top)) !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  installMobileSettingsHeaderSpacing();
+
   // Voice safety boundary:
   // WIN / LOSS / closed-trade speech must come from a real broker-backed
   // FlowSignal Forex trade. Binary 5m research/hypothetical results must never
