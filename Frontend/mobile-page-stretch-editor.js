@@ -67,10 +67,10 @@
         #landingPage{position:relative!important;overflow-x:hidden!important;overflow-y:visible!important}
         #mobileProfessionalBottom{
           position:absolute!important;
-          left:50%!important;
-          transform:translateX(-50%)!important;
-          width:calc(100% - 24px)!important;
-          max-width:468px!important;
+          left:0!important;
+          transform:none!important;
+          width:381px!important;
+          max-width:calc(100% - 16px)!important;
           box-sizing:border-box!important;
           display:flex!important;
           flex-direction:column!important;
@@ -100,6 +100,7 @@
           box-shadow:0 10px 28px rgba(42,84,140,.10)!important;
           color:#14213a!important;
           overflow:hidden!important;
+          text-align:left!important;
         }
         #mobileProfessionalBottom .trust-card>h2{
           margin:0 0 10px!important;
@@ -114,6 +115,7 @@
           transform:none!important;
           position:static!important;
           white-space:normal!important;
+          text-align:left!important;
         }
         #mobileProfessionalBottom .trust-card>p:nth-of-type(1){
           margin:0!important;
@@ -126,6 +128,7 @@
           transform:none!important;
           position:static!important;
           white-space:normal!important;
+          text-align:left!important;
         }
         #mobileProfessionalBottom .trust-card>p:nth-of-type(2){display:none!important}
         #mobileProfessionalBottom .trust-points{
@@ -306,7 +309,6 @@
         #landingPage>.mobile-footer{display:none!important}
 
         @media(max-width:360px){
-          #mobileProfessionalBottom{width:calc(100% - 16px)!important}
           #mobileProfessionalBottom .trust-card{padding:14px!important}
           #mobileProfessionalBottom .trust-point{padding-left:44px!important;min-height:122px!important}
           #mobileProfessionalBottom .trust-point::before{left:8px!important;width:28px!important;height:28px!important}
@@ -370,10 +372,24 @@
     const page = document.getElementById('landingPage');
     const wrapper = document.getElementById('mobileProfessionalBottom');
     const actions = document.querySelector('.hero-actions');
-    if (!page || !wrapper || !actions) return;
+    const reference = document.querySelector('.hero-left > p') || actions;
+    if (!page || !wrapper || !actions || !reference) return;
 
     const pageRect = page.getBoundingClientRect();
     const actionsRect = actions.getBoundingClientRect();
+    const referenceRect = reference.getBoundingClientRect();
+
+    const desiredLeft = Math.round(referenceRect.left - pageRect.left);
+    const safeLeft = Math.max(8, Math.min(desiredLeft, Math.max(8, Math.round(pageRect.width - 248))));
+    const availableWidth = Math.max(240, Math.round(pageRect.width - safeLeft - 8));
+    const desiredWidth = Math.round(referenceRect.width);
+    const safeWidth = Math.max(240, Math.min(desiredWidth, availableWidth));
+
+    wrapper.style.setProperty('left',safeLeft+'px','important');
+    wrapper.style.setProperty('width',safeWidth+'px','important');
+    wrapper.style.setProperty('max-width',safeWidth+'px','important');
+    wrapper.style.setProperty('transform','none','important');
+
     const top = Math.max(0, Math.round(actionsRect.bottom - pageRect.top + 18));
     wrapper.style.setProperty('top',top+'px','important');
 
