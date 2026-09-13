@@ -36,9 +36,7 @@
 
   function removeV2ShadowCard() {
     if (typeof window.fetchV2Shadow === "function") {
-      window.fetchV2Shadow = async function () {
-        return null;
-      };
+      window.fetchV2Shadow = async function () { return null; };
     }
     document.getElementById("v2-shadow-card")?.remove();
   }
@@ -63,10 +61,10 @@
     script.onload = function () {
       const params = new URLSearchParams(window.location.search);
       if (params.get("layoutEdit") !== "1") return;
-      if (document.querySelector('script[data-fundamental-hover-editor]')) return;
+      if (document.querySelector('script[data-main-trade-hover-editor]')) return;
       const editor = document.createElement("script");
-      editor.src = "dashboard-layout-hover-edit.js?v=1";
-      editor.dataset.fundamentalHoverEditor = "true";
+      editor.src = "dashboard-layout-hover-edit.js?v=2";
+      editor.dataset.mainTradeHoverEditor = "true";
       editor.async = false;
       document.body.appendChild(editor);
     };
