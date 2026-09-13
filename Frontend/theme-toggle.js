@@ -125,11 +125,32 @@
     document.body.appendChild(script);
   }
 
+  function keepMobileEditorChromeVisible() {
+    if (window.innerWidth > 700) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mobileEdit') !== '1') return;
+    if (document.getElementById('mobileEditorAlwaysVisibleStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'mobileEditorAlwaysVisibleStyle';
+    style.textContent = `
+      html.mobile-layout-editing .mobile-layout-edit-target {
+        outline-color:#49a4ff!important;
+      }
+      html.mobile-layout-editing .mobile-layout-edit-target > .mobile-layout-edit-label,
+      html.mobile-layout-editing .mobile-layout-edit-target > .mobile-layout-edit-handle {
+        opacity:1!important;
+        pointer-events:auto!important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   window.addEventListener('pageshow', resetHorizontalScroll);
   window.addEventListener('load', resetHorizontalScroll, { once: true });
   window.addEventListener('load', function () {
     setTimeout(loadMobileLandingLockedLayout, 0);
     setTimeout(loadMobileLandingEditorDragFix, 40);
+    setTimeout(keepMobileEditorChromeVisible, 90);
   }, { once: true });
 
   if (document.readyState === 'loading') {
