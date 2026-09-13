@@ -98,7 +98,7 @@
       if (typeof systemTheme.addEventListener === 'function') {
         systemTheme.addEventListener('change', onSystemThemeChange);
       } else if (typeof systemTheme.addListener === 'function') {
-        systemTheme.addListener(onSystemThemeChange);
+        systemTheme.addListener('change', onSystemThemeChange);
       }
     }
   }
@@ -113,10 +113,23 @@
     document.body.appendChild(script);
   }
 
+  function loadMobileLandingEditorDragFix() {
+    if (window.innerWidth > 700) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mobileEdit') !== '1') return;
+    if (document.querySelector('script[data-mobile-landing-drag-fix]')) return;
+    const script = document.createElement('script');
+    script.src = 'mobile-landing-editor-drag-fix.js?v=1';
+    script.dataset.mobileLandingDragFix = 'true';
+    script.async = false;
+    document.body.appendChild(script);
+  }
+
   window.addEventListener('pageshow', resetHorizontalScroll);
   window.addEventListener('load', resetHorizontalScroll, { once: true });
   window.addEventListener('load', function () {
     setTimeout(loadMobileLandingLockedLayout, 0);
+    setTimeout(loadMobileLandingEditorDragFix, 40);
   }, { once: true });
 
   if (document.readyState === 'loading') {
