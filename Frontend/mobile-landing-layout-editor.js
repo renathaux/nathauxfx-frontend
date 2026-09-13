@@ -6,9 +6,9 @@
   const STORAGE_KEY = 'nathauxfx_mobile_landing_layout_v1';
   const dirs = ['nw','n','ne','e','se','s','sw','w'];
   const configs = [
-    {key:'logo',label:'LOGO',selector:'.landing-logo',minW:120,minH:36},
-    {key:'navLinks',label:'NAV LINKS',selector:'.landing-links',minW:160,minH:36},
-    {key:'navActions',label:'NAV ACTIONS',selector:'.landing-nav-actions',minW:180,minH:44},
+    {key:'logo',label:'LOGO',selector:'.landing-logo',minW:90,minH:28,scaleContent:true},
+    {key:'navLinks',label:'NAV LINKS',selector:'.landing-links',minW:120,minH:30},
+    {key:'navActions',label:'NAV ACTIONS',selector:'.landing-nav-actions',minW:150,minH:36,scaleContent:true},
     {key:'heroPill',label:'LIVE PILL',selector:'.hero-pill',minW:180,minH:34},
     {key:'heroTitle',label:'HERO TITLE',selector:'.hero-left h1',minW:220,minH:120},
     {key:'heroCopy',label:'HERO TEXT',selector:'.hero-left > p',minW:220,minH:90},
@@ -30,6 +30,38 @@
     if(!t || t==='none') return {x:0,y:0};
     try{ const m = new DOMMatrixReadOnly(t); return {x:m.m41||0,y:m.m42||0}; }catch(_e){ return {x:0,y:0}; }
   }
+  function applySpecialContent(el,state){
+    if(state.key==='logo'){
+      const scale=Math.max(.55,Math.min(2.2,state.height/state.baseHeight));
+      const font=Math.max(14,state.baseFont*scale);
+      setImportant(el,'display','flex');
+      setImportant(el,'align-items','center');
+      setImportant(el,'font-size',font.toFixed(1)+'px');
+      setImportant(el,'line-height','1');
+      setImportant(el,'gap',Math.max(4,state.baseGap*scale).toFixed(1)+'px');
+      const wave=el.querySelector('.logo-wave');
+      if(wave){
+        const waveFont=Math.max(18,state.baseWaveFont*scale);
+        setImportant(wave,'font-size',waveFont.toFixed(1)+'px');
+        setImportant(wave,'line-height','1');
+      }
+    }
+    if(state.key==='navActions'){
+      const scale=Math.max(.65,Math.min(1.8,state.height/state.baseHeight));
+      setImportant(el,'display','grid');
+      setImportant(el,'grid-template-columns','minmax(52px,.8fr) minmax(64px,1fr) minmax(82px,1.15fr)');
+      setImportant(el,'align-items','stretch');
+      setImportant(el,'gap',Math.max(4,state.baseGap*scale).toFixed(1)+'px');
+      Array.from(el.children).forEach(child=>{
+        if(!(child instanceof HTMLElement)) return;
+        if(child.classList.contains('mobile-layout-edit-label')||child.classList.contains('mobile-layout-edit-handle')) return;
+        setImportant(child,'height','100%');
+        setImportant(child,'min-height','0');
+        setImportant(child,'max-height','none');
+        if(child.matches('button,select')) setImportant(child,'font-size',Math.max(10,state.baseChildFont*scale).toFixed(1)+'px');
+      });
+    }
+  }
   function applyBox(el,state){
     setImportant(el,'box-sizing','border-box');
     setImportant(el,'width',Math.round(state.width)+'px');
@@ -41,6 +73,7 @@
     setImportant(el,'transform','translate3d('+Math.round(state.x)+'px,'+Math.round(state.y)+'px,0)');
     setImportant(el,'overflow','visible');
     setImportant(el,'position','relative');
+    applySpecialContent(el,state);
   }
 
   const style=document.createElement('style');
@@ -72,14 +105,21 @@
     const el=document.querySelector(config.selector);
     if(!el || states.has(el)) return;
     const rect=el.getBoundingClientRect();
+    const css=getComputedStyle(el);
     const current=readTransform(el);
     const restored=saved?.items?.[config.key];
+    const firstControl=el.querySelector('button,select');
     const state={
       key:config.key,minW:config.minW,minH:config.minH,
       x:Number.isFinite(Number(restored?.x))?Number(restored.x):current.x,
       y:Number.isFinite(Number(restored?.y))?Number(restored.y):current.y,
       width:Number.isFinite(Number(restored?.width))?Number(restored.width):rect.width,
-      height:Number.isFinite(Number(restored?.height))?Number(restored.height):rect.height
+      height:Number.isFinite(Number(restored?.height))?Number(restored.height):rect.height,
+      baseHeight:Math.max(1,rect.height),
+      baseFont:parseFloat(css.fontSize)||28,
+      baseGap:parseFloat(css.gap)||8,
+      baseWaveFont:parseFloat(getComputedStyle(el.querySelector('.logo-wave')||el).fontSize)||30,
+      baseChildFont:firstControl?(parseFloat(getComputedStyle(firstControl).fontSize)||14):14
     };
     states.set(el,state);
     el.classList.add('mobile-layout-edit-target');
@@ -135,7 +175,7 @@
   document.getElementById('mobileLandingSave')?.addEventListener('click',async()=>{
     const items={};
     configs.forEach(c=>{const el=document.querySelector(c.selector);const s=el?states.get(el):null;if(s)items[c.key]={x:Math.round(s.x),y:Math.round(s.y),width:Math.round(s.width),height:Math.round(s.height)}});
-    const payload={version:1,scope:'mobile-only',viewport:{width:window.innerWidth,height:window.innerHeight},savedAt:new Date().toISOString(),items};
+    const payload={version:2,scope:'mobile-only',viewport:{width:window.innerWidth,height:window.innerHeight},savedAt:new Date().toISOString(),items};
     localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
     const text=JSON.stringify(payload,null,2);
     try{await navigator.clipboard.writeText(text)}catch(_e){window.prompt('Copy mobile layout:',text)}
