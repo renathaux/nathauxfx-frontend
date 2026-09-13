@@ -35,9 +35,6 @@
   }
 
   function removeV2ShadowCard() {
-    // script.js is parsed after state.js and owns the V2 shadow polling function.
-    // Disable future shadow refreshes before removing the card so later symbol
-    // changes and the 60-second poll cannot try to render into deleted elements.
     if (typeof window.fetchV2Shadow === "function") {
       window.fetchV2Shadow = async function () {
         return null;
@@ -55,34 +52,20 @@
     document.body.appendChild(script);
   }
 
-  function loadDashboardLayoutEditorExtra() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("layoutEdit") !== "1" || window.innerWidth < 701) return;
-    if (document.querySelector('script[data-dashboard-layout-extra]')) return;
-
+  function loadDashboardLayoutStage3() {
+    if (window.innerWidth < 701) return;
+    if (document.querySelector('script[data-dashboard-layout-stage3]')) return;
     const script = document.createElement("script");
-    script.src = "dashboard-layout-editor-extra.js?v=1";
-    script.dataset.dashboardLayoutExtra = "true";
+    script.src = "dashboard-layout-stage3.js?v=1";
+    script.dataset.dashboardLayoutStage3 = "true";
     script.async = false;
     document.body.appendChild(script);
-
-    const dragFix = document.createElement("script");
-    dragFix.src = "dashboard-layout-drag-fix.js?v=1";
-    dragFix.dataset.dashboardLayoutDragFix = "true";
-    dragFix.async = false;
-    document.body.appendChild(dragFix);
   }
 
-  // The V2 shadow comparison card is no longer part of the dashboard UI.
-  // Hide it immediately to prevent a flash, then remove it once all scripts load.
   hideV2ShadowCard();
   window.addEventListener("load", removeV2ShadowCard, { once: true });
-
-  // script.js owns the legacy login handlers and is parsed after this file.
-  // Load the per-tab role adapter only after the page has finished loading so
-  // it can replace the global role guard without racing initial definitions.
   window.addEventListener("load", loadTabRoleSession, { once: true });
-  window.addEventListener("load", loadDashboardLayoutEditorExtra, { once: true });
+  window.addEventListener("load", loadDashboardLayoutStage3, { once: true });
 
   window.FlowSignalState = {
     loadFeatureFlags,
