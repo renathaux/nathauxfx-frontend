@@ -129,30 +129,10 @@
     if (params.get('mobileEdit') !== '1') return;
     if (document.querySelector('script[data-mobile-landing-drag-fix]')) return;
     const script = document.createElement('script');
-    script.src = 'mobile-landing-editor-drag-fix.js?v=2';
+    script.src = 'mobile-landing-editor-drag-fix.js?v=3';
     script.dataset.mobileLandingDragFix = 'true';
     script.async = false;
     document.body.appendChild(script);
-  }
-
-  function keepMobileEditorChromeVisible() {
-    if (window.innerWidth > 700) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('mobileEdit') !== '1') return;
-    if (document.getElementById('mobileEditorAlwaysVisibleStyle')) return;
-    const style = document.createElement('style');
-    style.id = 'mobileEditorAlwaysVisibleStyle';
-    style.textContent = `
-      html.mobile-layout-editing .mobile-layout-edit-target {
-        outline-color:#49a4ff!important;
-      }
-      html.mobile-layout-editing .mobile-layout-edit-target > .mobile-layout-edit-label,
-      html.mobile-layout-editing .mobile-layout-edit-target > .mobile-layout-edit-handle {
-        opacity:1!important;
-        pointer-events:auto!important;
-      }
-    `;
-    document.head.appendChild(style);
   }
 
   window.addEventListener('pageshow', resetHorizontalScroll);
@@ -161,7 +141,6 @@
     setTimeout(loadMobileLandingLockedLayout, 0);
     setTimeout(loadMobileProfessionalBottom, 20);
     setTimeout(loadMobileLandingEditorDragFix, 60);
-    setTimeout(keepMobileEditorChromeVisible, 100);
   }, { once: true });
 
   if (document.readyState === 'loading') {
