@@ -109,7 +109,7 @@
     if (window.innerWidth > 700) return;
     if (document.querySelector('script[data-mobile-landing-selected-lock]')) return;
     const script = document.createElement('script');
-    script.src = 'mobile-landing-layout-locked.js?v=2';
+    script.src = 'mobile-landing-layout-locked.js?v=3';
     script.dataset.mobileLandingSelectedLock = 'true';
     script.async = false;
     document.body.appendChild(script);
