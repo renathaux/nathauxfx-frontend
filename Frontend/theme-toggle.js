@@ -5,8 +5,6 @@
   const OWNER_TOKEN_KEY = 'flowsignal_session_token';
   const ROLE_KEY = 'flowsignal_role';
   const TAB_ROLE_KEY = 'flowsignal_tab_role';
-  const MOBILE_LAYOUT_KEY = 'nathauxfx_mobile_landing_layout_v2';
-  const MOBILE_UNLOCK_RESET_KEY = 'nathauxfx_mobile_unlock_reset_v1';
   const systemTheme = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 
   function resumePersistentOwnerFromHome() {
@@ -33,19 +31,6 @@
   }
 
   if (resumePersistentOwnerFromHome()) return;
-
-  function resetMobileEditorOnce() {
-    if (window.innerWidth > 700) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('mobileEdit') !== '1') return;
-    try {
-      if (sessionStorage.getItem(MOBILE_UNLOCK_RESET_KEY) === '1') return;
-      localStorage.removeItem(MOBILE_LAYOUT_KEY);
-      sessionStorage.setItem(MOBILE_UNLOCK_RESET_KEY, '1');
-    } catch (_error) {}
-  }
-
-  resetMobileEditorOnce();
 
   function getSavedTheme() {
     try {
@@ -118,8 +103,21 @@
     }
   }
 
+  function loadMobileLandingLockedLayout() {
+    if (window.innerWidth > 700) return;
+    if (document.querySelector('script[data-mobile-landing-selected-lock]')) return;
+    const script = document.createElement('script');
+    script.src = 'mobile-landing-layout-locked.js?v=7';
+    script.dataset.mobileLandingSelectedLock = 'true';
+    script.async = false;
+    document.body.appendChild(script);
+  }
+
   window.addEventListener('pageshow', resetHorizontalScroll);
   window.addEventListener('load', resetHorizontalScroll, { once: true });
+  window.addEventListener('load', function () {
+    setTimeout(loadMobileLandingLockedLayout, 0);
+  }, { once: true });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initThemeToggle, { once: true });
