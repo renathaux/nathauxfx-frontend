@@ -3,7 +3,7 @@
 
   const locked = [
     { selector: "#fundamental-insight-card", x: 0, y: 0, width: 706, height: 423 },
-    { selector: ".main-smc-panel", x: -9, y: 0, width: 367, height: 487 },
+    { selector: ".main-smc-panel", x: -9, y: 0, width: 367, height: 500 },
     { selector: ".main-metrics", x: 0, y: 0, width: 358, height: 66 },
     { selector: ".main-signal-box", x: 0, y: 0, width: 358, height: 64 },
     { selector: ".main-live", x: 0, y: 0, width: 358, height: 14 },
@@ -13,7 +13,10 @@
     { selector: ".entry-strategy-debug", x: 0, y: -1, width: 265, height: 179 },
     { selector: "#eurusd-card", x: 0, y: 0, width: 264, height: 296 },
     { selector: "#gold-card", x: 0, y: 6, width: 264, height: 288 },
+    { selector: ".main-trade-card", x: 0, y: 0, width: 875, height: 833 },
   ];
+
+  const entryChecksOuter = { x: 0, y: 0, width: 274, height: 811 };
 
   function setImportant(el, prop, value) {
     el.style.setProperty(prop, value, "important");
@@ -31,13 +34,30 @@
     el.style.removeProperty("cursor");
   }
 
+  function resolveEntryOuter() {
+    const inner = document.querySelector(".entry-strategy-debug");
+    if (!inner) return null;
+    let parent = inner.parentElement;
+    const innerRect = inner.getBoundingClientRect();
+    for (let i = 0; parent && i < 5; i++, parent = parent.parentElement) {
+      const r = parent.getBoundingClientRect();
+      if (
+        r.width >= innerRect.width + 8 &&
+        r.width <= innerRect.width + 140 &&
+        r.height >= innerRect.height + 16 &&
+        r.height <= innerRect.height + 180
+      ) return parent;
+    }
+    return inner.parentElement;
+  }
+
   function removeEditorUi() {
     document.querySelectorAll(
-      ".dashboard-layout-editor-label, .dashboard-layout-editor-handle, .dashboard-card-top-overlay, #dashboardLayoutToolbar, #dashboardLayoutSave, #dashboardLayoutReset, #dashboardLayoutToast"
+      ".dashboard-layout-editor-label, .dashboard-layout-editor-handle, .dashboard-card-top-overlay, .stage4-edit-label, .stage4-edit-handle, #dashboardLayoutToolbar, #dashboardLayoutSave, #dashboardLayoutReset, #dashboardLayoutToast, #dashboardStage4Toolbar, #dashboardStage4Toast"
     ).forEach(node => node.remove());
 
-    document.querySelectorAll(".dashboard-layout-editor-target").forEach(el => {
-      el.classList.remove("dashboard-layout-editor-target");
+    document.querySelectorAll(".dashboard-layout-editor-target, .stage4-edit-target").forEach(el => {
+      el.classList.remove("dashboard-layout-editor-target", "stage4-edit-target");
       el.style.removeProperty("outline");
       el.style.removeProperty("outline-offset");
       el.style.removeProperty("cursor");
@@ -50,6 +70,10 @@
       if (!el) return;
       applyBox(el, config);
     });
+
+    const outer = resolveEntryOuter();
+    if (outer) applyBox(outer, entryChecksOuter);
+
     removeEditorUi();
   }
 
