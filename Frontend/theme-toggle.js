@@ -119,7 +119,7 @@
     if (params.get('mobileEdit') !== '1') return;
     if (document.querySelector('script[data-mobile-landing-drag-fix]')) return;
     const script = document.createElement('script');
-    script.src = 'mobile-landing-editor-drag-fix.js?v=1';
+    script.src = 'mobile-landing-editor-drag-fix.js?v=2';
     script.dataset.mobileLandingDragFix = 'true';
     script.async = false;
     document.body.appendChild(script);
