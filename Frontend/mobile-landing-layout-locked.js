@@ -22,8 +22,8 @@
 
   prepareTitleLines();
 
-  /* Logo/brand and dashboard mockup intentionally remain unlocked in mobile edit mode. */
   const locked = [
+    { key:'logo', selector:'.landing-logo', x:0, y:36, width:162, height:63, scaleText:true, logo:true, baseWidth:162, baseHeight:63, baseFont:23.7 },
     { key:'navLinks', selector:'.landing-links', x:8, y:10, width:361, height:22, scaleText:true },
     { key:'navActions', selector:'.landing-nav-actions', x:36, y:4, width:337, height:44, navActions:true },
     { key:'heroPill', selector:'.hero-pill', x:-4, y:-92, width:317, height:54, scaleText:true },
@@ -31,7 +31,8 @@
     { key:'heroTitleBottom', selector:'.mobile-title-line-2', x:2, y:-146, width:133, height:65, scaleText:true, titleLine:true },
     { key:'heroCopy', selector:'.hero-left > p', x:-3, y:-105, width:381, height:130, scaleText:true, baseWidth:381, baseHeight:130, baseFont:16 },
     { key:'heroActions', selector:'.hero-actions', x:-8, y:-166, width:369, height:118 },
-    { key:'heroBadges', selector:'.hero-badges', x:-6, y:-505, width:372, height:105, scaleText:true, baseWidth:372, baseHeight:105, baseFont:16 }
+    { key:'heroBadges', selector:'.hero-badges', x:-6, y:-505, width:372, height:105, scaleText:true, baseWidth:372, baseHeight:105, baseFont:16 },
+    { key:'heroImage', selector:'.hero-right', x:114, y:-736, width:263, height:246, imageBox:true }
   ];
 
   const editorProps = [
