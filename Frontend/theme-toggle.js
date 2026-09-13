@@ -7,6 +7,19 @@
   const TAB_ROLE_KEY = 'flowsignal_tab_role';
   const systemTheme = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 
+  function loadMobileTopCutStyle() {
+    if (window.innerWidth > 700) return;
+    if (document.querySelector('link[data-mobile-top-cut]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'mobile-top-cut.css?v=1';
+    link.media = '(max-width: 700px)';
+    link.dataset.mobileTopCut = 'true';
+    document.head.appendChild(link);
+  }
+
+  loadMobileTopCutStyle();
+
   function resumePersistentOwnerFromHome() {
     if (!/^\/$/.test(window.location.pathname)) return false;
     try {
