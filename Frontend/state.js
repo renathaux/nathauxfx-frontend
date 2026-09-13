@@ -55,10 +55,19 @@
   function loadDashboardLayoutStage3() {
     if (window.innerWidth < 701) return;
     if (document.querySelector('script[data-dashboard-layout-stage3]')) return;
+
     const script = document.createElement("script");
-    script.src = "dashboard-layout-stage3.js?v=1";
+    script.src = "dashboard-layout-stage3.js?v=2";
     script.dataset.dashboardLayoutStage3 = "true";
     script.async = false;
+    script.onload = function () {
+      if (document.querySelector('script[data-dashboard-card-fix]')) return;
+      const fix = document.createElement("script");
+      fix.src = "dashboard-layout-card-fix.js?v=1";
+      fix.dataset.dashboardCardFix = "true";
+      fix.async = false;
+      document.body.appendChild(fix);
+    };
     document.body.appendChild(script);
   }
 
