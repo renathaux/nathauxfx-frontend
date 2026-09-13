@@ -52,13 +52,13 @@
     document.body.appendChild(script);
   }
 
-  function loadDashboardLayoutStage3() {
+  function loadLockedDashboardLayout() {
     if (window.innerWidth < 701) return;
-    if (document.querySelector('script[data-dashboard-layout-stage3]')) return;
+    if (document.querySelector('script[data-dashboard-layout-locked-v5]')) return;
 
     const script = document.createElement("script");
-    script.src = "dashboard-layout-stage3.js?v=3";
-    script.dataset.dashboardLayoutStage3 = "true";
+    script.src = "dashboard-layout-locked-v5.js?v=1";
+    script.dataset.dashboardLayoutLockedV5 = "true";
     script.async = false;
     document.body.appendChild(script);
   }
@@ -66,7 +66,7 @@
   hideV2ShadowCard();
   window.addEventListener("load", removeV2ShadowCard, { once: true });
   window.addEventListener("load", loadTabRoleSession, { once: true });
-  window.addEventListener("load", loadDashboardLayoutStage3, { once: true });
+  window.addEventListener("load", loadLockedDashboardLayout, { once: true });
 
   window.FlowSignalState = {
     loadFeatureFlags,
