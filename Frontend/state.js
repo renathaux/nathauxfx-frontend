@@ -55,19 +55,9 @@
     if (document.querySelector('script[data-dashboard-layout-locked-v5]')) return;
 
     const script = document.createElement("script");
-    script.src = "dashboard-layout-locked-v5.js?v=4";
+    script.src = "dashboard-layout-locked-v5.js?v=5";
     script.dataset.dashboardLayoutLockedV5 = "true";
     script.async = false;
-    script.onload = function () {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("layoutEdit") !== "1") return;
-      if (document.querySelector('script[data-main-trade-hover-editor]')) return;
-      const editor = document.createElement("script");
-      editor.src = "dashboard-layout-hover-edit.js?v=2";
-      editor.dataset.mainTradeHoverEditor = "true";
-      editor.async = false;
-      document.body.appendChild(editor);
-    };
     document.body.appendChild(script);
   }
 
