@@ -1,6 +1,8 @@
 (function () {
   if (window.innerWidth < 701) return;
 
+  const editMode = new URLSearchParams(window.location.search).get("layoutEdit") === "1";
+
   const locked = [
     { selector: "#fundamental-insight-card", x: 0, y: 0, width: 706, height: 423 },
     { selector: ".main-smc-panel", x: -9, y: 0, width: 367, height: 500 },
@@ -9,8 +11,8 @@
     { selector: ".main-live", x: 0, y: 0, width: 358, height: 14 },
     { selector: "#main-candle-debug", x: 0, y: 0, width: 358, height: 13 },
 
-    { selector: ".history-section", x: -684, y: 34, width: 2108, height: 260 },
-    { selector: ".entry-strategy-debug", x: 0, y: -1, width: 265, height: 179 },
+    { selector: ".history-section", x: -684, y: 34, width: 2108, height: 260, editableInLayoutMode: true },
+    { selector: ".entry-strategy-debug", x: 0, y: -1, width: 265, height: 179, editableInLayoutMode: true },
     { selector: "#eurusd-card", x: 0, y: 0, width: 264, height: 296 },
     { selector: "#gold-card", x: 0, y: 6, width: 264, height: 288 },
     { selector: ".main-trade-card", x: 0, y: 7, width: 393, height: 819 },
@@ -66,6 +68,7 @@
 
   function applyLockedLayout() {
     locked.forEach(config => {
+      if (editMode && config.editableInLayoutMode) return;
       const el = document.querySelector(config.selector);
       if (!el) return;
       applyBox(el, config);
