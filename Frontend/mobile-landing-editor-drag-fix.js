@@ -31,17 +31,30 @@
     }
 
     html.mobile-layout-editing .mobile-layout-edit-target,
-    html.mobile-layout-editing .mobile-layout-edit-target.mobile-layout-edit-active,
     html.mobile-layout-editing .mobile-layout-edit-target.mobile-layout-edit-selected {
       position: relative !important;
       z-index: 2147483000 !important;
       overflow: visible !important;
       isolation: isolate !important;
+      outline-color: transparent !important;
+    }
+
+    html.mobile-layout-editing .mobile-layout-edit-target.mobile-editor-hover,
+    html.mobile-layout-editing .mobile-layout-edit-target.mobile-layout-edit-active {
       outline-color: #49a4ff !important;
     }
 
     html.mobile-layout-editing .mobile-layout-edit-target > .mobile-layout-edit-label,
     html.mobile-layout-editing .mobile-layout-edit-target > .mobile-layout-edit-handle {
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+
+    html.mobile-layout-editing .mobile-layout-edit-target.mobile-editor-hover > .mobile-layout-edit-label,
+    html.mobile-layout-editing .mobile-layout-edit-target.mobile-editor-hover > .mobile-layout-edit-handle,
+    html.mobile-layout-editing .mobile-layout-edit-target.mobile-layout-edit-active > .mobile-layout-edit-label,
+    html.mobile-layout-editing .mobile-layout-edit-target.mobile-layout-edit-active > .mobile-layout-edit-handle {
       opacity: 1 !important;
       visibility: visible !important;
       pointer-events: auto !important;
@@ -139,10 +152,25 @@
     const proxy = document.createElement('div');
     proxy.className = 'mobile-editor-hit-proxy';
     proxy.dataset.forKey = target.querySelector(':scope > .mobile-layout-edit-label')?.textContent || '';
+
+    const show = function(){
+      target.classList.add('mobile-editor-hover');
+      liftTarget(target);
+    };
+    const hide = function(){
+      if (!target.classList.contains('mobile-layout-edit-active')) {
+        target.classList.remove('mobile-editor-hover');
+      }
+    };
+
+    proxy.addEventListener('pointerenter', show, true);
+    proxy.addEventListener('pointermove', show, true);
+    proxy.addEventListener('pointerleave', hide, true);
     proxy.addEventListener('pointerdown', function(event){
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
+      show();
       const handle = pickHandle(target, event);
       dispatchPointerDown(handle || target, event);
       requestAnimationFrame(function(){ liftTarget(target); });
@@ -157,6 +185,7 @@
 
     for (const [target, proxy] of proxies.entries()) {
       if (!currentTargets.has(target) || !target.isConnected) {
+        target.classList.remove('mobile-editor-hover');
         proxy.remove();
         proxies.delete(target);
       }
