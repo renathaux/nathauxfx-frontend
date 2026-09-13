@@ -61,12 +61,22 @@
     script.async = false;
     script.onload = function () {
       if (!editMode) return;
-      if (document.querySelector('script[data-history-entry-editor]')) return;
-      const editor = document.createElement("script");
-      editor.src = "dashboard-layout-history-entry-edit.js?v=1";
-      editor.dataset.historyEntryEditor = "true";
-      editor.async = false;
-      document.body.appendChild(editor);
+
+      if (!document.querySelector('script[data-history-entry-editor]')) {
+        const editor = document.createElement("script");
+        editor.src = "dashboard-layout-history-entry-edit.js?v=1";
+        editor.dataset.historyEntryEditor = "true";
+        editor.async = false;
+        document.body.appendChild(editor);
+      }
+
+      if (!document.querySelector('script[data-entry-outer-editor]')) {
+        const outerEditor = document.createElement("script");
+        outerEditor.src = "dashboard-layout-entry-outer-edit.js?v=1";
+        outerEditor.dataset.entryOuterEditor = "true";
+        outerEditor.async = false;
+        document.body.appendChild(outerEditor);
+      }
     };
     document.body.appendChild(script);
   }
