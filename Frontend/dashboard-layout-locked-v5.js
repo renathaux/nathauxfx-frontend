@@ -18,7 +18,7 @@
     { selector: ".main-trade-card", x: 0, y: 7, width: 393, height: 819 },
   ];
 
-  const entryChecksOuter = { x: 0, y: 0, width: 274, height: 811 };
+  const entryChecksOuter = { x: 0, y: 0, width: 274, height: 802 };
 
   function setImportant(el, prop, value) {
     el.style.setProperty(prop, value, "important");
