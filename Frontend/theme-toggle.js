@@ -105,8 +105,21 @@
     }
   }
 
+  function loadMobileLandingLockedLayout() {
+    if (window.innerWidth > 700) return;
+    if (document.querySelector('script[data-mobile-landing-selected-lock]')) return;
+    const script = document.createElement('script');
+    script.src = 'mobile-landing-layout-locked.js?v=2';
+    script.dataset.mobileLandingSelectedLock = 'true';
+    script.async = false;
+    document.body.appendChild(script);
+  }
+
   window.addEventListener('pageshow', resetHorizontalScroll);
   window.addEventListener('load', resetHorizontalScroll, { once: true });
+  window.addEventListener('load', function () {
+    setTimeout(loadMobileLandingLockedLayout, 0);
+  }, { once: true });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initThemeToggle, { once: true });
