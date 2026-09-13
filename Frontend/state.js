@@ -60,6 +60,16 @@
     script.src = "dashboard-layout-locked-v5.js?v=4";
     script.dataset.dashboardLayoutLockedV5 = "true";
     script.async = false;
+    script.onload = function () {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("layoutEdit") !== "1") return;
+      if (document.querySelector('script[data-fundamental-hover-editor]')) return;
+      const editor = document.createElement("script");
+      editor.src = "dashboard-layout-hover-edit.js?v=1";
+      editor.dataset.fundamentalHoverEditor = "true";
+      editor.async = false;
+      document.body.appendChild(editor);
+    };
     document.body.appendChild(script);
   }
 
