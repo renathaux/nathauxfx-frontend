@@ -16,4 +16,74 @@
     margin-top: -24px !important;
     padding-top: 0 !important;
   }
+
+  /* The rebuilt lower cards were hard-coded light. Make them follow dark mode. */
+  html[data-theme="dark"] #mobileProfessionalBottom .trust-section {
+    color: #d7e2f2 !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .trust-card {
+    background: linear-gradient(180deg, #0a1321 0%, #060c16 100%) !important;
+    border-color: #26364c !important;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .34) !important;
+    color: #f4f7fb !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .trust-card > h2 {
+    color: #f8fafc !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .trust-card > p:nth-of-type(1) {
+    color: #aebbd0 !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .trust-point {
+    background: #0b1524 !important;
+    border-color: #26384f !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .trust-point::before {
+    background: #102849 !important;
+    color: #4d91ff !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .trust-point > strong {
+    color: #5b9bff !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .trust-point > span {
+    color: #9eacc0 !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .hero-stats {
+    background: linear-gradient(180deg, #0a1321 0%, #060c16 100%) !important;
+    border-color: #26364c !important;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .34) !important;
+    color: #f4f7fb !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .hero-stats > div:not(.legal-links) {
+    border-right-color: #25354a !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .hero-stats > div:not(.legal-links)::before {
+    color: #5b9bff !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .hero-stats > div > strong {
+    color: #f1f5f9 !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .hero-stats > div > span {
+    color: #93a4ba !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom .hero-stats > .risk-note {
+    background: #0b1524 !important;
+    color: #9eacc0 !important;
+  }
+
+  html[data-theme="dark"] #mobileProfessionalBottom > .legal-links a {
+    color: #69a5ff !important;
+  }
 }
