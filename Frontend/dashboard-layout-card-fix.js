@@ -30,39 +30,78 @@
       opacity: 1 !important;
     }
 
-    /* Keep the TOP handles fully inside the card so the performance strip above
-       cannot steal Safari pointer events. */
+    /* The performance strip physically overlaps the first pixels of these cards.
+       Put the NORTH resize controls farther INSIDE the card so they are actually clickable. */
     #eurusd-card > .dashboard-layout-editor-handle[data-dir="nw"],
-    #gold-card > .dashboard-layout-editor-handle[data-dir="nw"] { left:3px!important; top:3px!important; cursor:nwse-resize!important; }
+    #gold-card > .dashboard-layout-editor-handle[data-dir="nw"] {
+      left: 8px !important;
+      top: 32px !important;
+      cursor: nwse-resize !important;
+    }
     #eurusd-card > .dashboard-layout-editor-handle[data-dir="n"],
-    #gold-card > .dashboard-layout-editor-handle[data-dir="n"] { left:50%!important; top:3px!important; transform:translateX(-50%)!important; cursor:ns-resize!important; }
+    #gold-card > .dashboard-layout-editor-handle[data-dir="n"] {
+      left: 50% !important;
+      top: 32px !important;
+      transform: translateX(-50%) !important;
+      cursor: ns-resize !important;
+    }
     #eurusd-card > .dashboard-layout-editor-handle[data-dir="ne"],
-    #gold-card > .dashboard-layout-editor-handle[data-dir="ne"] { right:3px!important; top:3px!important; cursor:nesw-resize!important; }
+    #gold-card > .dashboard-layout-editor-handle[data-dir="ne"] {
+      right: 8px !important;
+      top: 32px !important;
+      cursor: nesw-resize !important;
+    }
 
     #eurusd-card > .dashboard-layout-editor-handle[data-dir="e"],
-    #gold-card > .dashboard-layout-editor-handle[data-dir="e"] { right:-11px!important; top:50%!important; transform:translateY(-50%)!important; cursor:ew-resize!important; }
+    #gold-card > .dashboard-layout-editor-handle[data-dir="e"] {
+      right: -11px !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      cursor: ew-resize !important;
+    }
     #eurusd-card > .dashboard-layout-editor-handle[data-dir="se"],
-    #gold-card > .dashboard-layout-editor-handle[data-dir="se"] { right:-11px!important; bottom:-11px!important; cursor:nwse-resize!important; }
+    #gold-card > .dashboard-layout-editor-handle[data-dir="se"] {
+      right: -11px !important;
+      bottom: -11px !important;
+      cursor: nwse-resize !important;
+    }
     #eurusd-card > .dashboard-layout-editor-handle[data-dir="s"],
-    #gold-card > .dashboard-layout-editor-handle[data-dir="s"] { left:50%!important; bottom:-11px!important; transform:translateX(-50%)!important; cursor:ns-resize!important; }
+    #gold-card > .dashboard-layout-editor-handle[data-dir="s"] {
+      left: 50% !important;
+      bottom: -11px !important;
+      transform: translateX(-50%) !important;
+      cursor: ns-resize !important;
+    }
     #eurusd-card > .dashboard-layout-editor-handle[data-dir="sw"],
-    #gold-card > .dashboard-layout-editor-handle[data-dir="sw"] { left:-11px!important; bottom:-11px!important; cursor:nesw-resize!important; }
+    #gold-card > .dashboard-layout-editor-handle[data-dir="sw"] {
+      left: -11px !important;
+      bottom: -11px !important;
+      cursor: nesw-resize !important;
+    }
     #eurusd-card > .dashboard-layout-editor-handle[data-dir="w"],
-    #gold-card > .dashboard-layout-editor-handle[data-dir="w"] { left:-11px!important; top:50%!important; transform:translateY(-50%)!important; cursor:ew-resize!important; }
+    #gold-card > .dashboard-layout-editor-handle[data-dir="w"] {
+      left: -11px !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      cursor: ew-resize !important;
+    }
 
-    /* Large invisible hit zone across the top edge. */
+    /* Dedicated top-resize lane. It is intentionally ~30px below the real top border,
+       but it resizes the REAL top edge. This avoids the overlapping performance strip. */
     #eurusd-card > .dashboard-card-top-resize-hit,
     #gold-card > .dashboard-card-top-resize-hit {
-      position:absolute!important;
-      left:34px!important;
-      right:34px!important;
-      top:0!important;
-      height:20px!important;
-      z-index:2147483646!important;
-      cursor:ns-resize!important;
-      pointer-events:auto!important;
-      touch-action:none!important;
-      background:transparent!important;
+      position: absolute !important;
+      left: 38px !important;
+      right: 38px !important;
+      top: 28px !important;
+      height: 30px !important;
+      z-index: 2147483646 !important;
+      cursor: ns-resize !important;
+      pointer-events: auto !important;
+      touch-action: none !important;
+      background: rgba(59,130,246,.06) !important;
+      border-top: 2px dashed rgba(96,165,250,.95) !important;
+      box-sizing: border-box !important;
     }
   `;
   document.head.appendChild(style);
@@ -71,6 +110,7 @@
     if (!card || card.querySelector(":scope > .dashboard-card-top-resize-hit")) return;
     const hit = document.createElement("span");
     hit.className = "dashboard-card-top-resize-hit";
+    hit.title = "Drag here to resize the TOP edge";
     card.appendChild(hit);
   }
 
@@ -86,7 +126,7 @@
     const card = event.target.closest?.("#eurusd-card, #gold-card");
     if (!card || !card.classList.contains("dashboard-layout-editor-target")) return;
 
-    /* Clicking anywhere along the top edge uses the north resize handle. */
+    /* The blue dashed lane proxies directly to the north handle. */
     if (event.target.closest?.(".dashboard-card-top-resize-hit")) {
       const north = card.querySelector(":scope > .dashboard-layout-editor-handle[data-dir='n']");
       if (!north) return;
@@ -109,6 +149,7 @@
 
     if (event.target.closest?.(".dashboard-layout-editor-handle,.dashboard-layout-editor-label,button,input,select,textarea,a")) return;
 
+    /* Drag the entire EURUSD/GOLD card from anywhere in the middle. */
     const label = Array.from(card.children).find(child => child.classList?.contains("dashboard-layout-editor-label"));
     if (!label) return;
 
