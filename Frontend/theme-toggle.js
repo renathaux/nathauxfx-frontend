@@ -77,8 +77,6 @@
     applyTheme(getEffectiveTheme(), false);
     resetHorizontalScroll();
 
-    /* Safari can preserve an old horizontal page offset across reloads/bfcache.
-       Reset only X; keep the visitor's vertical position. */
     requestAnimationFrame(function () {
       resetHorizontalScroll();
       requestAnimationFrame(resetHorizontalScroll);
@@ -109,7 +107,7 @@
     if (window.innerWidth > 700) return;
     if (document.querySelector('script[data-mobile-landing-selected-lock]')) return;
     const script = document.createElement('script');
-    script.src = 'mobile-landing-layout-locked.js?v=4';
+    script.src = 'mobile-landing-layout-locked.js?v=5';
     script.dataset.mobileLandingSelectedLock = 'true';
     script.async = false;
     document.body.appendChild(script);
