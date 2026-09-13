@@ -41,6 +41,17 @@
     translate: 33px -27px !important;
   }
 
+  /* French and Spanish headings are longer than the two-line English copy. */
+  html[lang="fr"] .hero-left h1,
+  html[lang="es"] .hero-left h1 {
+    height: auto !important;
+    min-height: 96px !important;
+    font-size: 46px !important;
+    line-height: 1.02 !important;
+    letter-spacing: -1.25px !important;
+    margin-bottom: 16px !important;
+  }
+
   .hero-left > p {
     width: 560px !important;
     height: 155px !important;
