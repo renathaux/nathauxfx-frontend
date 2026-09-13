@@ -59,11 +59,18 @@
     const params = new URLSearchParams(window.location.search);
     if (params.get("layoutEdit") !== "1" || window.innerWidth < 701) return;
     if (document.querySelector('script[data-dashboard-layout-extra]')) return;
+
     const script = document.createElement("script");
     script.src = "dashboard-layout-editor-extra.js?v=1";
     script.dataset.dashboardLayoutExtra = "true";
     script.async = false;
     document.body.appendChild(script);
+
+    const dragFix = document.createElement("script");
+    dragFix.src = "dashboard-layout-drag-fix.js?v=1";
+    dragFix.dataset.dashboardLayoutDragFix = "true";
+    dragFix.async = false;
+    document.body.appendChild(dragFix);
   }
 
   // The V2 shadow comparison card is no longer part of the dashboard UI.
