@@ -14,11 +14,23 @@
     { selector: "#main-candle-debug", x: 0, y: 0, width: 358, height: 13 },
   ];
 
+  const editableConfigs = [
+    { key: "recentSignalHistory", label: "RECENT SIGNAL HISTORY", selector: ".history-section", minW: 260, minH: 100, dragWhole: false, externalTop: false },
+    { key: "entryStrategyChecks", label: "ENTRY STRATEGY CHECKS", selector: ".entry-strategy-debug", minW: 180, minH: 90, dragWhole: true, externalTop: false },
+    { key: "eurusdCard", label: "EURUSD CARD", selector: "#eurusd-card", minW: 180, minH: 180, dragWhole: true, externalTop: true },
+    { key: "goldCard", label: "GOLD CARD", selector: "#gold-card", minW: 180, minH: 180, dragWhole: true, externalTop: true },
+  ];
+
+  const dirs = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+  const states = new Map();
+  const overlays = new Map();
+
   function setImportant(el, prop, value) {
     el.style.setProperty(prop, value, "important");
   }
 
   function applyBox(el, state) {
+    setImportant(el, "box-sizing", "border-box");
     setImportant(el, "width", `${Math.round(state.width)}px`);
     setImportant(el, "height", `${Math.round(state.height)}px`);
     setImportant(el, "max-width", "none");
@@ -32,7 +44,6 @@
     if (!el) return;
     el.querySelectorAll(":scope > .dashboard-layout-editor-label, :scope > .dashboard-layout-editor-handle").forEach(node => node.remove());
     el.classList.remove("dashboard-layout-editor-target");
-    // Keep the old editors from attaching these locked items again.
     el.dataset.dashboardLayoutEditorAttached = "1";
     el.dataset.dashboardLayoutExtraAttached = "1";
   }
@@ -46,7 +57,6 @@
     });
   }
 
-  // Apply the completed part of the user's saved layout in normal mode and edit mode.
   applyLockedLayout();
   window.addEventListener("load", applyLockedLayout);
   const lockedTimer = window.setInterval(applyLockedLayout, 250);
@@ -54,18 +64,23 @@
 
   if (!editMode) return;
 
+  const style = document.createElement("style");
+  style.id = "dashboardStage3SelfContainedStyles";
+  style.textContent = `
+    .dashboard-layout-editor-target { position: relative !important; outline: 2px dashed #55a6ff !important; outline-offset: 3px !important; overflow: visible !important; }
+    .dashboard-layout-editor-label { position:absolute!important; left:8px!important; top:-23px!important; z-index:2147483000!important; padding:3px 8px!important; border:1px solid #68b4ff!important; border-radius:6px!important; background:#061425!important; color:#dcebff!important; font:700 11px/1.2 Arial,sans-serif!important; cursor:move!important; user-select:none!important; pointer-events:auto!important; touch-action:none!important; }
+    .dashboard-layout-editor-handle { position:absolute!important; z-index:2147483000!important; width:16px!important; height:16px!important; border-radius:4px!important; border:2px solid white!important; background:#3b82f6!important; box-sizing:border-box!important; pointer-events:auto!important; touch-action:none!important; }
+    .dashboard-layout-editor-handle[data-dir="nw"]{left:-9px!important;top:-9px!important;cursor:nwse-resize!important}.dashboard-layout-editor-handle[data-dir="n"]{left:50%!important;top:-9px!important;transform:translateX(-50%)!important;cursor:ns-resize!important}.dashboard-layout-editor-handle[data-dir="ne"]{right:-9px!important;top:-9px!important;cursor:nesw-resize!important}.dashboard-layout-editor-handle[data-dir="e"]{right:-9px!important;top:50%!important;transform:translateY(-50%)!important;cursor:ew-resize!important}.dashboard-layout-editor-handle[data-dir="se"]{right:-9px!important;bottom:-9px!important;cursor:nwse-resize!important}.dashboard-layout-editor-handle[data-dir="s"]{left:50%!important;bottom:-9px!important;transform:translateX(-50%)!important;cursor:ns-resize!important}.dashboard-layout-editor-handle[data-dir="sw"]{left:-9px!important;bottom:-9px!important;cursor:nesw-resize!important}.dashboard-layout-editor-handle[data-dir="w"]{left:-9px!important;top:50%!important;transform:translateY(-50%)!important;cursor:ew-resize!important}
+    .dashboard-card-top-overlay { position:fixed!important; z-index:2147483647!important; pointer-events:none!important; height:34px!important; }
+    .dashboard-card-top-overlay .top-bar { position:absolute!important; left:24px!important; right:24px!important; top:8px!important; height:18px!important; border-top:4px solid #00d4ff!important; background:rgba(0,212,255,.10)!important; cursor:ns-resize!important; pointer-events:auto!important; touch-action:none!important; }
+    .dashboard-card-top-overlay .top-left,.dashboard-card-top-overlay .top-right { position:absolute!important; top:2px!important; width:24px!important; height:24px!important; border:2px solid white!important; border-radius:5px!important; background:#00a8ff!important; pointer-events:auto!important; touch-action:none!important; }
+    .dashboard-card-top-overlay .top-left { left:0!important; cursor:nwse-resize!important; }
+    .dashboard-card-top-overlay .top-right { right:0!important; cursor:nesw-resize!important; }
+  `;
+  document.head.appendChild(style);
+
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch (_error) {}
-
-  const editableConfigs = [
-    { key: "recentSignalHistory", label: "RECENT SIGNAL HISTORY", selector: ".history-section", minW: 260, minH: 100, dragWhole: false },
-    { key: "entryStrategyChecks", label: "ENTRY STRATEGY CHECKS", selector: ".entry-strategy-debug", minW: 180, minH: 90, dragWhole: true },
-    { key: "eurusdCard", label: "EURUSD CARD", selector: "#eurusd-card", minW: 180, minH: 180, dragWhole: false },
-    { key: "goldCard", label: "GOLD CARD", selector: "#gold-card", minW: 180, minH: 180, dragWhole: false },
-  ];
-
-  const dirs = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
-  const states = new Map();
 
   function readTransform(el) {
     const style = getComputedStyle(el);
@@ -76,15 +91,10 @@
         return { x: m.m41 || 0, y: m.m42 || 0 };
       } catch (_error) {}
     }
-    const translate = style.translate;
-    if (translate && translate !== "none") {
-      const parts = translate.split(/\s+/);
-      return { x: parseFloat(parts[0]) || 0, y: parseFloat(parts[1] || "0") || 0 };
-    }
     return { x: 0, y: 0 };
   }
 
-  function ensureChrome(el, labelText) {
+  function ensureChrome(el, config) {
     el.classList.add("dashboard-layout-editor-target");
 
     let label = Array.from(el.children).find(child => child.classList?.contains("dashboard-layout-editor-label"));
@@ -93,9 +103,10 @@
       label.className = "dashboard-layout-editor-label";
       el.appendChild(label);
     }
-    label.textContent = labelText;
+    label.textContent = config.label;
 
     dirs.forEach(dir => {
+      if (config.externalTop && (dir === "n" || dir === "nw" || dir === "ne")) return;
       let handle = Array.from(el.children).find(child => child.classList?.contains("dashboard-layout-editor-handle") && child.dataset.dir === dir);
       if (!handle) {
         handle = document.createElement("span");
@@ -106,13 +117,27 @@
     });
   }
 
+  function makeTopOverlay(el, state) {
+    if (overlays.has(el)) return;
+    const overlay = document.createElement("div");
+    overlay.className = "dashboard-card-top-overlay";
+    overlay.innerHTML = '<span class="top-left" data-dir="nw"></span><span class="top-bar" data-dir="n"></span><span class="top-right" data-dir="ne"></span>';
+    document.body.appendChild(overlay);
+    overlays.set(el, overlay);
+
+    overlay.addEventListener("pointerdown", event => {
+      const hit = event.target.closest?.("[data-dir]");
+      if (!hit) return;
+      startResize(event, el, state, hit.dataset.dir);
+    }, true);
+  }
+
   function initEditable(config) {
     const el = document.querySelector(config.selector);
     if (!el || states.has(el)) return false;
     const rect = el.getBoundingClientRect();
     if (rect.width < 10 || rect.height < 10) return false;
 
-    ensureChrome(el, config.label);
     const current = readTransform(el);
     const restored = saved?.items?.[config.key];
     const state = {
@@ -121,17 +146,17 @@
       minW: config.minW,
       minH: config.minH,
       dragWhole: config.dragWhole,
+      externalTop: config.externalTop,
       x: Number.isFinite(Number(restored?.x)) ? Number(restored.x) : current.x,
       y: Number.isFinite(Number(restored?.y)) ? Number(restored.y) : current.y,
       width: Number.isFinite(Number(restored?.width)) ? Number(restored.width) : rect.width,
       height: Number.isFinite(Number(restored?.height)) ? Number(restored.height) : rect.height,
     };
     states.set(el, state);
+    ensureChrome(el, config);
     applyBox(el, state);
-
-    if (config.dragWhole) {
-      el.style.setProperty("cursor", "move", "important");
-    }
+    if (config.dragWhole) el.style.setProperty("cursor", "move", "important");
+    if (config.externalTop) makeTopOverlay(el, state);
     return true;
   }
 
@@ -139,6 +164,18 @@
     editableConfigs.forEach(initEditable);
     applyLockedLayout();
   }
+
+  function syncTopOverlays() {
+    overlays.forEach((overlay, el) => {
+      if (!document.documentElement.contains(el)) return;
+      const rect = el.getBoundingClientRect();
+      overlay.style.left = `${Math.round(rect.left)}px`;
+      overlay.style.top = `${Math.round(rect.top - 10)}px`;
+      overlay.style.width = `${Math.round(rect.width)}px`;
+    });
+    requestAnimationFrame(syncTopOverlays);
+  }
+  requestAnimationFrame(syncTopOverlays);
 
   function beginSession(onMove) {
     const move = event => {
@@ -163,8 +200,8 @@
     const startY = event.clientY;
     const start = { ...state };
     beginSession(moveEvent => {
-      state.x = start.x + moveEvent.clientX - startX;
-      state.y = start.y + moveEvent.clientY - startY;
+      state.x = start.x + (moveEvent.clientX - startX);
+      state.y = start.y + (moveEvent.clientY - startY);
       applyBox(el, state);
     });
   }
@@ -188,14 +225,15 @@
       if (dir.includes("e")) width = Math.max(state.minW, start.width + dx);
       if (dir.includes("s")) height = Math.max(state.minH, start.height + dy);
       if (dir.includes("w")) {
-        const next = Math.max(state.minW, start.width - dx);
-        x = start.x + (start.width - next);
-        width = next;
+        const nextWidth = Math.max(state.minW, start.width - dx);
+        x = start.x + (start.width - nextWidth);
+        width = nextWidth;
       }
       if (dir.includes("n")) {
-        const next = Math.max(state.minH, start.height - dy);
-        y = start.y + (start.height - next);
-        height = next;
+        const nextHeight = Math.max(state.minH, start.height - dy);
+        const actualDy = start.height - nextHeight;
+        y = start.y + actualDy;
+        height = nextHeight;
       }
 
       Object.assign(state, { x, y, width, height });
@@ -203,7 +241,6 @@
     });
   }
 
-  // Capture phase wins over the older temporary editor handlers.
   document.addEventListener("pointerdown", event => {
     ensureEditable();
     const target = event.target;
@@ -217,15 +254,15 @@
       return startMove(event, editorTarget, state);
     }
 
-    // ENTRY STRATEGY CHECKS can be dragged directly from the middle of the card.
-    const entry = target.closest?.(".entry-strategy-debug");
-    if (entry && states.has(entry)) {
+    for (const config of editableConfigs) {
+      if (!config.dragWhole) continue;
+      const el = target.closest?.(config.selector);
+      if (!el || !states.has(el)) continue;
       if (target.closest?.("button,input,select,textarea,a,.dashboard-layout-editor-handle,.dashboard-layout-editor-label")) return;
-      return startMove(event, entry, states.get(entry));
+      return startMove(event, el, states.get(el));
     }
   }, true);
 
-  // Save only the items that are still being edited. Completed items are already locked above.
   document.addEventListener("click", async event => {
     const button = event.target.closest?.("#dashboardLayoutSave");
     if (!button) return;
@@ -249,17 +286,16 @@
     });
 
     const payload = {
-      version: 4,
+      version: 5,
       viewport: { width: window.innerWidth, height: window.innerHeight },
       savedAt: new Date().toISOString(),
       items,
     };
     const text = JSON.stringify(payload, null, 2);
 
-    // Merge the new editable values into storage so refreshes keep the unfinished work.
     let merged = {};
     try { merged = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {}; } catch (_error) {}
-    merged.version = 4;
+    merged.version = 5;
     merged.viewport = payload.viewport;
     merged.savedAt = payload.savedAt;
     merged.items = { ...(merged.items || {}), ...items };
