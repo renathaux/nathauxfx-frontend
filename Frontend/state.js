@@ -63,7 +63,7 @@
     script.onload = function () {
       if (document.querySelector('script[data-dashboard-card-fix]')) return;
       const fix = document.createElement("script");
-      fix.src = "dashboard-layout-card-fix.js?v=2";
+      fix.src = "dashboard-layout-card-fix.js?v=4";
       fix.dataset.dashboardCardFix = "true";
       fix.async = false;
       document.body.appendChild(fix);
