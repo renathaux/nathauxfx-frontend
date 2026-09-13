@@ -47,8 +47,6 @@
         setImportant(wave,'font-size',Math.max(16,state.baseWaveFont*ratio).toFixed(1)+'px');
         setImportant(wave,'line-height','1');
       }
-      const text=Array.from(el.children).find(n=>n instanceof HTMLElement && !n.classList.contains('logo-wave') && !n.classList.contains('mobile-layout-edit-label') && !n.classList.contains('mobile-layout-edit-handle'));
-      if(text){setImportant(text,'white-space','nowrap');setImportant(text,'flex','0 0 auto');}
     }
 
     if(state.key==='navActions'){
@@ -99,7 +97,8 @@
   style.id='mobileLandingEditorStyle';
   style.textContent=`
     html.mobile-layout-editing,html.mobile-layout-editing body,#landingPage{overflow-x:visible!important}
-    .mobile-layout-edit-target{touch-action:none!important;overflow:visible!important;outline:none!important;}
+    .mobile-layout-edit-target{touch-action:none!important;overflow:visible!important;outline:none!important;cursor:move!important;}
+    .mobile-layout-edit-target *{user-select:none!important;-webkit-user-select:none!important;}
     .mobile-layout-edit-target::after{content:"";position:absolute!important;inset:-3px!important;border:2px dashed #49a4ff!important;border-radius:8px!important;opacity:0!important;pointer-events:none!important;z-index:2147483000!important;transition:opacity .12s ease!important;}
     .mobile-layout-edit-target:hover::after,.mobile-layout-edit-target.mobile-layout-edit-active::after{opacity:1!important;}
     .mobile-layout-edit-label,.mobile-layout-edit-handle{opacity:0!important;pointer-events:none!important;transition:opacity .12s ease!important;}
@@ -174,14 +173,19 @@
   }
 
   document.addEventListener('pointerdown',e=>{
+    if(e.target.closest?.('#mobileLandingEditorToolbar')) return;
     const el=e.target.closest?.('.mobile-layout-edit-target');
     if(!el || !states.has(el)) return;
     const state=states.get(el);
     const h=e.target.closest?.('.mobile-layout-edit-handle');
     if(h) return resizeStart(e,el,state,h.dataset.dir||'se');
-    if(e.target.closest?.('.mobile-layout-edit-label')) return moveStart(e,el,state);
-    if(e.target.closest?.('button,input,select,textarea,a')) return;
     return moveStart(e,el,state);
+  },true);
+
+  document.addEventListener('click',e=>{
+    if(e.target.closest?.('.mobile-layout-edit-target') && !e.target.closest?.('#mobileLandingEditorToolbar')){
+      e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+    }
   },true);
 
   const toolbar=document.createElement('div');
@@ -191,7 +195,7 @@
   document.getElementById('mobileLandingSave')?.addEventListener('click',async()=>{
     const items={};
     configs.forEach(c=>{const el=document.querySelector(c.selector);const s=el?states.get(el):null;if(s)items[c.key]={x:Math.round(s.x),y:Math.round(s.y),width:Math.round(s.width),height:Math.round(s.height)}});
-    const payload={version:3,scope:'mobile-only',viewport:{width:window.innerWidth,height:window.innerHeight},savedAt:new Date().toISOString(),items};
+    const payload={version:4,scope:'mobile-only',viewport:{width:window.innerWidth,height:window.innerHeight},savedAt:new Date().toISOString(),items};
     localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
     const text=JSON.stringify(payload,null,2);
     try{await navigator.clipboard.writeText(text)}catch(_e){window.prompt('Copy mobile layout:',text)}
