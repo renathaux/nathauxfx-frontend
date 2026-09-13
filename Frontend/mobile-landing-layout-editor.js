@@ -48,7 +48,6 @@
         setImportant(wave,'line-height','1');
       }
     }
-
     if(state.key==='navActions'){
       setImportant(el,'display','flex');
       setImportant(el,'flex-direction','row');
@@ -57,7 +56,6 @@
       setImportant(el,'justify-content','flex-start');
       setImportant(el,'grid-template-columns','none');
       setImportant(el,'gap','6px');
-
       const controls=Array.from(el.children).filter(child=>child instanceof HTMLElement && !child.classList.contains('mobile-layout-edit-label') && !child.classList.contains('mobile-layout-edit-handle'));
       controls.forEach((child,index)=>{
         setImportant(child,'box-sizing','border-box');
@@ -99,10 +97,10 @@
     html.mobile-layout-editing,html.mobile-layout-editing body,#landingPage{overflow-x:visible!important}
     .mobile-layout-edit-target{touch-action:none!important;overflow:visible!important;outline:none!important;cursor:move!important;}
     .mobile-layout-edit-target *{user-select:none!important;-webkit-user-select:none!important;}
-    .mobile-layout-edit-target::after{content:"";position:absolute!important;inset:-3px!important;border:2px dashed #49a4ff!important;border-radius:8px!important;opacity:0!important;pointer-events:none!important;z-index:2147483000!important;transition:opacity .12s ease!important;}
-    .mobile-layout-edit-target:hover::after,.mobile-layout-edit-target.mobile-layout-edit-active::after{opacity:1!important;}
-    .mobile-layout-edit-label,.mobile-layout-edit-handle{opacity:0!important;pointer-events:none!important;transition:opacity .12s ease!important;}
-    .mobile-layout-edit-target:hover>.mobile-layout-edit-label,.mobile-layout-edit-target:hover>.mobile-layout-edit-handle,.mobile-layout-edit-target.mobile-layout-edit-active>.mobile-layout-edit-label,.mobile-layout-edit-target.mobile-layout-edit-active>.mobile-layout-edit-handle{opacity:1!important;pointer-events:auto!important;}
+    .mobile-layout-edit-target::after{content:"";position:absolute!important;inset:-3px!important;border:2px dashed #49a4ff!important;border-radius:8px!important;opacity:0!important;pointer-events:none!important;z-index:2147483000!important;transition:opacity .08s ease!important;}
+    .mobile-layout-edit-target.mobile-layout-edit-hover::after,.mobile-layout-edit-target.mobile-layout-edit-active::after{opacity:1!important;}
+    .mobile-layout-edit-label,.mobile-layout-edit-handle{opacity:0!important;pointer-events:none!important;transition:opacity .08s ease!important;}
+    .mobile-layout-edit-target.mobile-layout-edit-hover>.mobile-layout-edit-label,.mobile-layout-edit-target.mobile-layout-edit-hover>.mobile-layout-edit-handle,.mobile-layout-edit-target.mobile-layout-edit-active>.mobile-layout-edit-label,.mobile-layout-edit-target.mobile-layout-edit-active>.mobile-layout-edit-handle{opacity:1!important;pointer-events:auto!important;}
     .mobile-layout-edit-label{position:absolute!important;left:8px!important;top:8px!important;z-index:2147483645!important;padding:4px 7px!important;border:1px solid #7cc0ff!important;border-radius:6px!important;background:#061425!important;color:#eaf4ff!important;font:700 10px/1.2 Arial,sans-serif!important;cursor:move!important;user-select:none!important;touch-action:none!important}
     .mobile-layout-edit-handle{position:absolute!important;z-index:2147483646!important;width:20px!important;height:20px!important;border-radius:5px!important;border:2px solid #fff!important;background:#3b82f6!important;box-sizing:border-box!important;touch-action:none!important}
     .mobile-layout-edit-handle[data-dir="nw"]{left:-10px!important;top:-10px!important;cursor:nwse-resize!important}
@@ -146,6 +144,12 @@
     dirs.forEach(dir=>{const h=document.createElement('span');h.className='mobile-layout-edit-handle';h.dataset.dir=dir;el.appendChild(h);});
   }
   configs.forEach(init);
+
+  document.addEventListener('pointermove',e=>{
+    const current=e.target.closest?.('.mobile-layout-edit-target') || null;
+    document.querySelectorAll('.mobile-layout-edit-target.mobile-layout-edit-hover').forEach(el=>{if(el!==current) el.classList.remove('mobile-layout-edit-hover');});
+    if(current) current.classList.add('mobile-layout-edit-hover');
+  },true);
 
   function beginSession(el,onMove){
     el.classList.add('mobile-layout-edit-active');
@@ -195,7 +199,7 @@
   document.getElementById('mobileLandingSave')?.addEventListener('click',async()=>{
     const items={};
     configs.forEach(c=>{const el=document.querySelector(c.selector);const s=el?states.get(el):null;if(s)items[c.key]={x:Math.round(s.x),y:Math.round(s.y),width:Math.round(s.width),height:Math.round(s.height)}});
-    const payload={version:4,scope:'mobile-only',viewport:{width:window.innerWidth,height:window.innerHeight},savedAt:new Date().toISOString(),items};
+    const payload={version:5,scope:'mobile-only',viewport:{width:window.innerWidth,height:window.innerHeight},savedAt:new Date().toISOString(),items};
     localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
     const text=JSON.stringify(payload,null,2);
     try{await navigator.clipboard.writeText(text)}catch(_e){window.prompt('Copy mobile layout:',text)}
