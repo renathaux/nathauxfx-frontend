@@ -11,10 +11,9 @@
     padding-top: 0 !important;
   }
 
-  /* The remaining blank area is part of the mobile header's flow.
-     Pull the complete header upward instead of moving individual items. */
+  /* Trim the blank mobile head without clipping the NathauxFX brand. */
   #landingPage.landing-pro > .landing-nav {
-    margin-top: -52px !important;
+    margin-top: -24px !important;
     padding-top: 0 !important;
   }
 }
