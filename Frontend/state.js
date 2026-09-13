@@ -55,7 +55,7 @@
     if (document.querySelector('script[data-dashboard-layout-locked-v5]')) return;
 
     const script = document.createElement("script");
-    script.src = "dashboard-layout-locked-v5.js?v=9";
+    script.src = "dashboard-layout-locked-v5.js?v=10";
     script.dataset.dashboardLayoutLockedV5 = "true";
     script.async = false;
     document.body.appendChild(script);
