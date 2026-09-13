@@ -98,7 +98,7 @@
       if (typeof systemTheme.addEventListener === 'function') {
         systemTheme.addEventListener('change', onSystemThemeChange);
       } else if (typeof systemTheme.addListener === 'function') {
-        systemTheme.addListener('change', onSystemThemeChange);
+        systemTheme.addListener(onSystemThemeChange);
       }
     }
   }
