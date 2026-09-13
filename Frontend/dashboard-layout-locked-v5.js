@@ -9,10 +9,10 @@
     { selector: ".main-live", x: 0, y: 0, width: 358, height: 14 },
     { selector: "#main-candle-debug", x: 0, y: 0, width: 358, height: 13 },
 
-    { selector: ".history-section", x: 544, y: 55, width: 880, height: 175 },
-    { selector: ".entry-strategy-debug", x: -8, y: 5, width: 278, height: 173 },
-    { selector: "#eurusd-card", x: -5, y: 13, width: 274, height: 295 },
-    { selector: "#gold-card", x: -6, y: 22, width: 273, height: 298 },
+    { selector: ".history-section", x: -684, y: 34, width: 2108, height: 260 },
+    { selector: ".entry-strategy-debug", x: 0, y: -1, width: 265, height: 179 },
+    { selector: "#eurusd-card", x: 0, y: 0, width: 264, height: 296 },
+    { selector: "#gold-card", x: 0, y: 6, width: 264, height: 288 },
   ];
 
   function setImportant(el, prop, value) {
