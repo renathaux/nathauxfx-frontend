@@ -13,7 +13,7 @@
     { selector: ".entry-strategy-debug", x: 0, y: -1, width: 265, height: 179 },
     { selector: "#eurusd-card", x: 0, y: 0, width: 264, height: 296 },
     { selector: "#gold-card", x: 0, y: 6, width: 264, height: 288 },
-    { selector: ".main-trade-card", x: 0, y: 0, width: 875, height: 833 },
+    { selector: ".main-trade-card", x: 0, y: 7, width: 393, height: 819 },
   ];
 
   const entryChecksOuter = { x: 0, y: 0, width: 274, height: 811 };
@@ -53,11 +53,11 @@
 
   function removeEditorUi() {
     document.querySelectorAll(
-      ".dashboard-layout-editor-label, .dashboard-layout-editor-handle, .dashboard-card-top-overlay, .stage4-edit-label, .stage4-edit-handle, #dashboardLayoutToolbar, #dashboardLayoutSave, #dashboardLayoutReset, #dashboardLayoutToast, #dashboardStage4Toolbar, #dashboardStage4Toast"
+      ".dashboard-layout-editor-label, .dashboard-layout-editor-handle, .dashboard-card-top-overlay, .stage4-edit-label, .stage4-edit-handle, .main-trade-hover-label, .main-trade-hover-handle, #dashboardLayoutToolbar, #dashboardLayoutSave, #dashboardLayoutReset, #dashboardLayoutToast, #dashboardStage4Toolbar, #dashboardStage4Toast, #mainTradeHoverToolbar"
     ).forEach(node => node.remove());
 
-    document.querySelectorAll(".dashboard-layout-editor-target, .stage4-edit-target").forEach(el => {
-      el.classList.remove("dashboard-layout-editor-target", "stage4-edit-target");
+    document.querySelectorAll(".dashboard-layout-editor-target, .stage4-edit-target, .main-trade-hover-edit").forEach(el => {
+      el.classList.remove("dashboard-layout-editor-target", "stage4-edit-target", "main-trade-hover-edit", "main-trade-edit-active");
       el.style.removeProperty("outline");
       el.style.removeProperty("outline-offset");
       el.style.removeProperty("cursor");
