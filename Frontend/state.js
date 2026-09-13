@@ -56,7 +56,7 @@
 
     const editMode = new URLSearchParams(window.location.search).get("layoutEdit") === "1";
     const script = document.createElement("script");
-    script.src = "dashboard-layout-locked-v5.js?v=6";
+    script.src = "dashboard-layout-locked-v5.js?v=7";
     script.dataset.dashboardLayoutLockedV5 = "true";
     script.async = false;
     script.onload = function () {
@@ -68,14 +68,6 @@
         editor.dataset.historyEntryEditor = "true";
         editor.async = false;
         document.body.appendChild(editor);
-      }
-
-      if (!document.querySelector('script[data-entry-outer-editor]')) {
-        const outerEditor = document.createElement("script");
-        outerEditor.src = "dashboard-layout-entry-outer-edit.js?v=1";
-        outerEditor.dataset.entryOuterEditor = "true";
-        outerEditor.async = false;
-        document.body.appendChild(outerEditor);
       }
     };
     document.body.appendChild(script);
