@@ -51,6 +51,40 @@
     return inner.parentElement;
   }
 
+  function fixHistoryClipping() {
+    const history = document.querySelector(".history-section");
+    if (!history) return;
+
+    setImportant(history, "overflow", "visible");
+    setImportant(history, "position", "relative");
+    setImportant(history, "z-index", "20");
+    setImportant(history, "contain", "none");
+    setImportant(history, "clip-path", "none");
+
+    let parent = history.parentElement;
+    for (let i = 0; parent && i < 6; i++, parent = parent.parentElement) {
+      setImportant(parent, "overflow", "visible");
+      setImportant(parent, "contain", "none");
+      setImportant(parent, "clip-path", "none");
+      if (parent.id === "mainApp") break;
+    }
+  }
+
+  function removeStrayDetails() {
+    document.querySelectorAll("body *").forEach(node => {
+      if (!(node instanceof HTMLElement)) return;
+      if (node.closest("#smartExplainDetails, .entry-strategy-debug")) return;
+      const text = (node.textContent || "").trim().replace(/\s+/g, " ");
+      if (text !== "Details" && text !== "Details ×" && text !== "Details×") return;
+      const style = getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
+      const nearBottomLeft = rect.left < 180 && rect.bottom > window.innerHeight - 120;
+      if ((style.position === "fixed" || style.position === "absolute") && nearBottomLeft) {
+        node.remove();
+      }
+    });
+  }
+
   function removeEditorUi() {
     document.querySelectorAll(
       ".dashboard-layout-editor-label, .dashboard-layout-editor-handle, .dashboard-card-top-overlay, .stage4-edit-label, .stage4-edit-handle, .main-trade-hover-label, .main-trade-hover-handle, .history-entry-hover-label, .history-entry-hover-handle, .entry-outer-hover-label, .entry-outer-hover-handle, #dashboardLayoutToolbar, #dashboardLayoutSave, #dashboardLayoutReset, #dashboardLayoutToast, #dashboardStage4Toolbar, #dashboardStage4Toast, #mainTradeHoverToolbar, #historyEntryToolbar, #entryOuterToolbar"
@@ -74,7 +108,9 @@
     const outer = resolveEntryOuter();
     if (outer) applyBox(outer, entryChecksOuter);
 
+    fixHistoryClipping();
     removeEditorUi();
+    removeStrayDetails();
   }
 
   applyLockedLayout();
