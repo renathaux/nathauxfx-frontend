@@ -57,17 +57,9 @@
     if (document.querySelector('script[data-dashboard-layout-stage3]')) return;
 
     const script = document.createElement("script");
-    script.src = "dashboard-layout-stage3.js?v=2";
+    script.src = "dashboard-layout-stage3.js?v=3";
     script.dataset.dashboardLayoutStage3 = "true";
     script.async = false;
-    script.onload = function () {
-      if (document.querySelector('script[data-dashboard-card-fix]')) return;
-      const fix = document.createElement("script");
-      fix.src = "dashboard-layout-card-fix.js?v=4";
-      fix.dataset.dashboardCardFix = "true";
-      fix.async = false;
-      document.body.appendChild(fix);
-    };
     document.body.appendChild(script);
   }
 
