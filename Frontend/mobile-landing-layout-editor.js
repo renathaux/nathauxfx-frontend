@@ -33,8 +33,32 @@
     {key:'heroActions',label:'HERO BUTTONS',selector:'.hero-actions',minW:100,minH:40},
     {key:'heroBadges',label:'HERO BADGES',selector:'.hero-badges',minW:100,minH:30,scaleText:true},
     {key:'heroImage',label:'MOCKUP',selector:'.hero-right',minW:80,minH:60,imageBox:true},
-    {key:'trustCard',label:'TRUST CARD',selector:'.trust-card',minW:130,minH:120},
-    {key:'heroStats',label:'STATS / RISK',selector:'.hero-stats',minW:130,minH:120},
+
+    /* Trust card: edit the text itself, not the whole card. */
+    {key:'trustTitle',label:'TRUST TITLE',selector:'.trust-card > h2',minW:90,minH:28,scaleText:true,textBox:true},
+    {key:'trustText1',label:'TRUST TEXT 1',selector:'.trust-card > p:nth-of-type(1)',minW:100,minH:36,scaleText:true,textBox:true},
+    {key:'trustText2',label:'TRUST TEXT 2',selector:'.trust-card > p:nth-of-type(2)',minW:100,minH:36,scaleText:true,textBox:true},
+    {key:'trustPoint1Title',label:'POINT 1 TITLE',selector:'.trust-points > .trust-point:nth-child(1) > strong',minW:70,minH:22,scaleText:true,textBox:true},
+    {key:'trustPoint1Text',label:'POINT 1 TEXT',selector:'.trust-points > .trust-point:nth-child(1) > span',minW:70,minH:30,scaleText:true,textBox:true},
+    {key:'trustPoint2Title',label:'POINT 2 TITLE',selector:'.trust-points > .trust-point:nth-child(2) > strong',minW:70,minH:22,scaleText:true,textBox:true},
+    {key:'trustPoint2Text',label:'POINT 2 TEXT',selector:'.trust-points > .trust-point:nth-child(2) > span',minW:70,minH:30,scaleText:true,textBox:true},
+    {key:'trustPoint3Title',label:'POINT 3 TITLE',selector:'.trust-points > .trust-point:nth-child(3) > strong',minW:70,minH:22,scaleText:true,textBox:true},
+    {key:'trustPoint3Text',label:'POINT 3 TEXT',selector:'.trust-points > .trust-point:nth-child(3) > span',minW:70,minH:30,scaleText:true,textBox:true},
+    {key:'trustPoint4Title',label:'POINT 4 TITLE',selector:'.trust-points > .trust-point:nth-child(4) > strong',minW:70,minH:22,scaleText:true,textBox:true},
+    {key:'trustPoint4Text',label:'POINT 4 TEXT',selector:'.trust-points > .trust-point:nth-child(4) > span',minW:70,minH:30,scaleText:true,textBox:true},
+
+    /* Stats/risk card: every text block is independent too. */
+    {key:'stat1Title',label:'BROKER TITLE',selector:'.hero-stats > div:nth-of-type(1) > strong',minW:60,minH:22,scaleText:true,textBox:true},
+    {key:'stat1Text',label:'BROKER TEXT',selector:'.hero-stats > div:nth-of-type(1) > span',minW:70,minH:28,scaleText:true,textBox:true},
+    {key:'stat2Title',label:'CTRADER TITLE',selector:'.hero-stats > div:nth-of-type(2) > strong',minW:60,minH:22,scaleText:true,textBox:true},
+    {key:'stat2Text',label:'CTRADER TEXT',selector:'.hero-stats > div:nth-of-type(2) > span',minW:70,minH:28,scaleText:true,textBox:true},
+    {key:'stat3Title',label:'EMAIL TITLE',selector:'.hero-stats > div:nth-of-type(3) > strong',minW:60,minH:22,scaleText:true,textBox:true},
+    {key:'stat3Text',label:'EMAIL TEXT',selector:'.hero-stats > div:nth-of-type(3) > span',minW:70,minH:28,scaleText:true,textBox:true},
+    {key:'stat4Title',label:'RISK TITLE',selector:'.hero-stats > div:nth-of-type(4) > strong',minW:60,minH:22,scaleText:true,textBox:true},
+    {key:'stat4Text',label:'RISK TEXT',selector:'.hero-stats > div:nth-of-type(4) > span',minW:70,minH:28,scaleText:true,textBox:true},
+    {key:'riskNote',label:'RISK NOTE',selector:'.hero-stats > .risk-note',minW:100,minH:36,scaleText:true,textBox:true},
+    {key:'legalLinks',label:'LEGAL LINKS',selector:'.hero-stats > .legal-links',minW:100,minH:28,scaleText:true,textBox:true},
+
     {key:'footer',label:'MOBILE FOOTER',selector:'.mobile-footer',minW:90,minH:28,scaleText:true}
   ];
 
@@ -64,6 +88,11 @@
         setImportant(el,'white-space','nowrap');
         setImportant(el,'z-index','50');
       }
+    }
+    if (state.textBox){
+      setImportant(el,'display','block');
+      setImportant(el,'white-space','normal');
+      setImportant(el,'z-index','60');
     }
     if (state.logo){
       setImportant(el,'display','flex');
@@ -177,14 +206,14 @@
     const useSaved = Number.isFinite(Number(restored?.width)) && Number(restored.width) > 0;
     const state = {
       key:config.key,minW:config.minW,minH:config.minH,
-      scaleText:!!config.scaleText,logo:!!config.logo,navActions:!!config.navActions,titleLine:!!config.titleLine,imageBox:!!config.imageBox,
+      scaleText:!!config.scaleText,logo:!!config.logo,navActions:!!config.navActions,titleLine:!!config.titleLine,imageBox:!!config.imageBox,textBox:!!config.textBox,
       x:useSaved?Number(restored.x||0):current.x,
       y:useSaved?Number(restored.y||0):current.y,
       width:useSaved?Number(restored.width):Math.max(1,rect.width),
       height:useSaved?Number(restored.height):Math.max(1,rect.height),
       baseWidth:Math.max(1,useSaved?Number(restored.width):rect.width),
       baseHeight:Math.max(1,useSaved?Number(restored.height):rect.height),
-      baseFont:parseFloat(css.fontSize)||16
+      baseFont:useSaved&&Number.isFinite(Number(restored?.fontSize))?Number(restored.fontSize):(parseFloat(css.fontSize)||16)
     };
     states.set(el,state);
     el.classList.add('mobile-layout-edit-target');
@@ -268,9 +297,22 @@
     configs.forEach(c=>{
       const el=document.querySelector(c.selector);
       const s=el?states.get(el):null;
-      if(s)items[c.key]={x:Math.round(s.x),y:Math.round(s.y),width:Math.round(s.width),height:Math.round(s.height)};
+      if(!s) return;
+      const css=getComputedStyle(el);
+      items[c.key]={
+        x:Math.round(s.x),
+        y:Math.round(s.y),
+        width:Math.round(s.width),
+        height:Math.round(s.height)
+      };
+      if(c.scaleText){
+        items[c.key].fontSize=parseFloat(css.fontSize)||s.baseFont;
+        items[c.key].lineHeight=css.lineHeight;
+        items[c.key].letterSpacing=css.letterSpacing;
+        items[c.key].whiteSpace=css.whiteSpace;
+      }
     });
-    const payload={version:8,scope:'mobile-only-full-unlock',viewport:{width:window.innerWidth,height:window.innerHeight},savedAt:new Date().toISOString(),items};
+    const payload={version:9,scope:'mobile-only-text-editor',viewport:{width:window.innerWidth,height:window.innerHeight},savedAt:new Date().toISOString(),items};
     localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
     const text=JSON.stringify(payload,null,2);
     try{await navigator.clipboard.writeText(text)}catch(_e){window.prompt('Copy mobile layout:',text)}
