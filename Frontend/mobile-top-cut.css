@@ -1,0 +1,11 @@
+/* Final mobile landing top trim. Desktop is intentionally untouched. */
+@media (max-width: 700px) {
+  #landingPage.landing-pro {
+    padding-top: 0 !important;
+  }
+
+  #landingPage.landing-pro .landing-nav {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+}
