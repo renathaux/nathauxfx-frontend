@@ -22,9 +22,6 @@
 
   prepareTitleLines();
 
-  /* Approved 393px phone layout. These items are locked exactly from the
-     phone editor saves. The last three values are the approved red-box group
-     saved at 2026-09-13T10:57:48.596Z. */
   const locked = [
     { key:'logo', selector:'.landing-logo', x:-15, y:25, width:188, height:59, scaleText:true, logo:true },
     { key:'navLinks', selector:'.landing-links', x:8, y:10, width:361, height:22, scaleText:true },
@@ -33,12 +30,12 @@
     { key:'heroTitleTop', selector:'.mobile-title-line-1', x:0, y:-106, width:170, height:81, scaleText:true, titleLine:true },
     { key:'heroTitleBottom', selector:'.mobile-title-line-2', x:2, y:-146, width:133, height:65, scaleText:true, titleLine:true },
 
-    /* Exact approved lower hero group from version 8 / 393px save.
-       For text items the saved box itself is the baseline on reload, exactly
-       like the editor. This prevents a second font-size scaling pass. */
     { key:'heroCopy', selector:'.hero-left > p', x:-3, y:-105, width:381, height:130, scaleText:true, baseWidth:381, baseHeight:130, baseFont:16 },
     { key:'heroActions', selector:'.hero-actions', x:-8, y:-166, width:369, height:118 },
-    { key:'heroBadges', selector:'.hero-badges', x:-6, y:-505, width:372, height:105, scaleText:true, baseWidth:372, baseHeight:105, baseFont:16 }
+    { key:'heroBadges', selector:'.hero-badges', x:-6, y:-505, width:372, height:105, scaleText:true, baseWidth:372, baseHeight:105, baseFont:16 },
+
+    /* Approved mockup from the 500px mobile editor save at 2026-09-13T11:25:01.821Z. */
+    { key:'heroImage', selector:'.hero-right', x:113, y:-719, width:256, height:180, imageBox:true }
   ];
 
   const editorProps = [
@@ -117,6 +114,25 @@
       setImportant(el,'align-items','center');
       setImportant(el,'justify-content','center');
       setImportant(el,'text-align','center');
+    }
+
+    if (state.imageBox) {
+      const img = el.querySelector('.hero-dashboard-img');
+      setImportant(el,'z-index','20');
+      if (img) {
+        setImportant(img,'display','block');
+        setImportant(img,'position','absolute');
+        setImportant(img,'inset','0');
+        setImportant(img,'width','100%');
+        setImportant(img,'height','100%');
+        setImportant(img,'max-width','none');
+        setImportant(img,'max-height','none');
+        setImportant(img,'object-fit','contain');
+        setImportant(img,'object-position','center');
+        setImportant(img,'transform','none');
+        setImportant(img,'margin','0');
+        setImportant(img,'pointer-events','none');
+      }
     }
   }
 
