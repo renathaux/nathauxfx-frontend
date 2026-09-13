@@ -37,7 +37,7 @@
        For text items the saved box itself is the baseline on reload, exactly
        like the editor. This prevents a second font-size scaling pass. */
     { key:'heroCopy', selector:'.hero-left > p', x:-3, y:-105, width:381, height:130, scaleText:true, baseWidth:381, baseHeight:130, baseFont:16 },
-    { key:'heroActions', selector:'.hero-actions', x:-8, y:-178, width:369, height:118 },
+    { key:'heroActions', selector:'.hero-actions', x:-8, y:-166, width:369, height:118 },
     { key:'heroBadges', selector:'.hero-badges', x:-6, y:-505, width:372, height:105, scaleText:true, baseWidth:372, baseHeight:105, baseFont:16 }
   ];
 
