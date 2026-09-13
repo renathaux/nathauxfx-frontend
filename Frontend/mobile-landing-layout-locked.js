@@ -28,8 +28,8 @@
     { key:'navLinks', selector:'.landing-links', x:0, y:0, width:361, height:19 },
     { key:'navActions', selector:'.landing-nav-actions', x:0, y:0, width:361, height:44 },
     { key:'heroPill', selector:'.hero-pill', x:0, y:0, width:357, height:54 },
-    { key:'heroTitleTop', selector:'.mobile-title-line-1', x:0, y:0, width:357, height:126, titleLine:true },
-    { key:'heroTitleBottom', selector:'.mobile-title-line-2', x:0, y:0, width:357, height:126, titleLine:true },
+    { key:'heroTitleTop', selector:'.mobile-title-line-1', x:0, y:0, width:357, height:126, titleLine:true, fontSize:31 },
+    { key:'heroTitleBottom', selector:'.mobile-title-line-2', x:0, y:0, width:357, height:126, titleLine:true, fontSize:20 },
     { key:'heroCopy', selector:'.hero-left > p', x:-3, y:-80, width:373, height:144 },
     { key:'heroActions', selector:'.hero-actions', x:-3, y:-159, width:369, height:118 },
     { key:'heroBadges', selector:'.hero-badges', x:-5, y:-501, width:352, height:124 }
@@ -51,8 +51,6 @@
     setImportant(el,'justify-self','start');
     setImportant(el,'align-self','start');
 
-    /* Keep the same structural behavior the phone editor had, without
-       changing the approved font sizes, button text, or content spacing. */
     if (state.key === 'logo') {
       setImportant(el,'display','flex');
       setImportant(el,'align-items','center');
@@ -100,6 +98,9 @@
     if (state.titleLine) {
       setImportant(el,'display','block');
       setImportant(el,'white-space','nowrap');
+      setImportant(el,'font-size',state.fontSize+'px');
+      setImportant(el,'line-height','.92');
+      setImportant(el,'letter-spacing','-0.04em');
       setImportant(el,'z-index','60');
     }
   }
