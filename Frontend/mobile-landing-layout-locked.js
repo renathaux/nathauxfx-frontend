@@ -22,49 +22,18 @@
 
   prepareTitleLines();
 
+  /* Exact approved values from the 393px-wide phone editor save (version 8). */
   const locked = [
     { key:'logo', selector:'.landing-logo', x:0, y:0, width:177, height:42 },
     { key:'navLinks', selector:'.landing-links', x:0, y:0, width:361, height:19 },
     { key:'navActions', selector:'.landing-nav-actions', x:0, y:0, width:361, height:44 },
-    { key:'heroPill', selector:'.hero-pill', x:-6, y:-73, width:351, height:54 },
-    { key:'heroTitleTop', selector:'.mobile-title-line-1', x:3, y:-88, width:265, height:63, fitText:true },
-    { key:'heroTitleBottom', selector:'.mobile-title-line-2', x:7, y:-108, width:163, height:84, fitText:true },
-
-    /* Newly approved phone layout */
-    { key:'heroCopy', selector:'.hero-left > p', x:-3, y:-80, width:373, height:144, copyBlock:true },
-    { key:'heroActions', selector:'.hero-actions', x:-3, y:-159, width:369, height:118, actionBlock:true },
-    { key:'heroBadges', selector:'.hero-badges', x:-5, y:-501, width:352, height:124, badgeBlock:true }
+    { key:'heroPill', selector:'.hero-pill', x:0, y:0, width:357, height:54 },
+    { key:'heroTitleTop', selector:'.mobile-title-line-1', x:0, y:0, width:357, height:126, titleLine:true },
+    { key:'heroTitleBottom', selector:'.mobile-title-line-2', x:0, y:0, width:357, height:126, titleLine:true },
+    { key:'heroCopy', selector:'.hero-left > p', x:-3, y:-80, width:373, height:144 },
+    { key:'heroActions', selector:'.hero-actions', x:-3, y:-159, width:369, height:118 },
+    { key:'heroBadges', selector:'.hero-badges', x:-5, y:-501, width:352, height:124 }
   ];
-
-  function fitText(el, box){
-    setImportant(el,'display','block');
-    setImportant(el,'white-space','nowrap');
-    setImportant(el,'line-height','.94');
-    setImportant(el,'letter-spacing','-0.04em');
-    let low = 10, high = 72, best = 10;
-    for (let i=0; i<12; i++) {
-      const mid = (low + high) / 2;
-      el.style.setProperty('font-size', mid + 'px', 'important');
-      const fits = el.scrollWidth <= box.width + 1 && el.scrollHeight <= box.height + 1;
-      if (fits) { best = mid; low = mid; } else { high = mid; }
-    }
-    setImportant(el,'font-size',best.toFixed(1)+'px');
-  }
-
-  function fitCopy(el, box){
-    setImportant(el,'display','block');
-    setImportant(el,'white-space','normal');
-    setImportant(el,'line-height','1.16');
-    setImportant(el,'margin','0');
-    let low = 10, high = 28, best = 10;
-    for (let i=0; i<12; i++) {
-      const mid = (low + high) / 2;
-      el.style.setProperty('font-size', mid + 'px', 'important');
-      const fits = el.scrollWidth <= box.width + 1 && el.scrollHeight <= box.height + 1;
-      if (fits) { best = mid; low = mid; } else { high = mid; }
-    }
-    setImportant(el,'font-size',best.toFixed(1)+'px');
-  }
 
   function applyBox(el, state){
     setImportant(el,'box-sizing','border-box');
@@ -82,6 +51,8 @@
     setImportant(el,'justify-self','start');
     setImportant(el,'align-self','start');
 
+    /* Keep the same structural behavior the phone editor had, without
+       changing the approved font sizes, button text, or content spacing. */
     if (state.key === 'logo') {
       setImportant(el,'display','flex');
       setImportant(el,'align-items','center');
@@ -101,7 +72,11 @@
       setImportant(el,'flex-wrap','nowrap');
       setImportant(el,'align-items','stretch');
       setImportant(el,'gap','6px');
-      const children = Array.from(el.children).filter(child => child instanceof HTMLElement && !child.classList.contains('mobile-layout-edit-label') && !child.classList.contains('mobile-layout-edit-handle'));
+      const children = Array.from(el.children).filter(child =>
+        child instanceof HTMLElement &&
+        !child.classList.contains('mobile-layout-edit-label') &&
+        !child.classList.contains('mobile-layout-edit-handle')
+      );
       children.forEach((child,index)=>{
         setImportant(child,'height','100%');
         setImportant(child,'min-height','0');
@@ -122,48 +97,10 @@
       setImportant(el,'text-align','center');
     }
 
-    if (state.copyBlock) {
-      setImportant(el,'z-index','70');
-      fitCopy(el,state);
-    }
-
-    if (state.actionBlock) {
-      setImportant(el,'display','grid');
-      setImportant(el,'grid-template-columns','1fr');
-      setImportant(el,'grid-template-rows','1fr 1fr');
-      setImportant(el,'gap','10px');
-      setImportant(el,'z-index','70');
-      Array.from(el.children).forEach(child=>{
-        if (!(child instanceof HTMLElement)) return;
-        if (child.classList.contains('mobile-layout-edit-label') || child.classList.contains('mobile-layout-edit-handle')) return;
-        setImportant(child,'width','100%');
-        setImportant(child,'height','100%');
-        setImportant(child,'min-height','0');
-        setImportant(child,'margin','0');
-        setImportant(child,'font-size','18px');
-      });
-    }
-
-    if (state.badgeBlock) {
-      setImportant(el,'display','grid');
-      setImportant(el,'grid-template-columns','1fr');
-      setImportant(el,'grid-template-rows','repeat(3,1fr)');
-      setImportant(el,'gap','4px');
-      setImportant(el,'align-items','center');
-      setImportant(el,'z-index','70');
-      Array.from(el.children).forEach(child=>{
-        if (!(child instanceof HTMLElement)) return;
-        if (child.classList.contains('mobile-layout-edit-label') || child.classList.contains('mobile-layout-edit-handle')) return;
-        setImportant(child,'display','block');
-        setImportant(child,'font-size','18px');
-        setImportant(child,'line-height','1.05');
-        setImportant(child,'white-space','nowrap');
-      });
-    }
-
-    if (state.fitText) {
+    if (state.titleLine) {
+      setImportant(el,'display','block');
+      setImportant(el,'white-space','nowrap');
       setImportant(el,'z-index','60');
-      fitText(el,state);
     }
   }
 
