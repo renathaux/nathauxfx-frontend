@@ -54,22 +54,10 @@
     if (window.innerWidth < 701) return;
     if (document.querySelector('script[data-dashboard-layout-locked-v5]')) return;
 
-    const editMode = new URLSearchParams(window.location.search).get("layoutEdit") === "1";
     const script = document.createElement("script");
-    script.src = "dashboard-layout-locked-v5.js?v=7";
+    script.src = "dashboard-layout-locked-v5.js?v=8";
     script.dataset.dashboardLayoutLockedV5 = "true";
     script.async = false;
-    script.onload = function () {
-      if (!editMode) return;
-
-      if (!document.querySelector('script[data-history-entry-editor]')) {
-        const editor = document.createElement("script");
-        editor.src = "dashboard-layout-history-entry-edit.js?v=1";
-        editor.dataset.historyEntryEditor = "true";
-        editor.async = false;
-        document.body.appendChild(editor);
-      }
-    };
     document.body.appendChild(script);
   }
 
