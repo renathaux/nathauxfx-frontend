@@ -54,19 +54,11 @@
 
   function loadDashboardLayout() {
     if (window.innerWidth < 701) return;
-    const params = new URLSearchParams(window.location.search);
-    const editMode = params.get("layoutEdit") === "1";
-    const marker = editMode ? "script[data-dashboard-layout-stage4]" : "script[data-dashboard-layout-locked-v5]";
-    if (document.querySelector(marker)) return;
+    if (document.querySelector('script[data-dashboard-layout-locked-v5]')) return;
 
     const script = document.createElement("script");
-    if (editMode) {
-      script.src = "dashboard-layout-stage4.js?v=1";
-      script.dataset.dashboardLayoutStage4 = "true";
-    } else {
-      script.src = "dashboard-layout-locked-v5.js?v=3";
-      script.dataset.dashboardLayoutLockedV5 = "true";
-    }
+    script.src = "dashboard-layout-locked-v5.js?v=4";
+    script.dataset.dashboardLayoutLockedV5 = "true";
     script.async = false;
     document.body.appendChild(script);
   }
