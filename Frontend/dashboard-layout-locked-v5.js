@@ -9,13 +9,13 @@
     { selector: ".main-live", x: 0, y: 0, width: 358, height: 14 },
     { selector: "#main-candle-debug", x: 0, y: 0, width: 358, height: 13 },
 
-    { selector: ".history-section", x: -698, y: 13, width: 1405, height: 332 },
     { selector: ".entry-strategy-debug", x: 1, y: -9, width: 265, height: 174 },
     { selector: "#eurusd-card", x: 0, y: 0, width: 264, height: 296 },
     { selector: "#gold-card", x: 0, y: 6, width: 264, height: 288 },
     { selector: ".main-trade-card", x: 0, y: 7, width: 393, height: 819 },
   ];
 
+  const historyLocked = { x: -698, y: 13, width: 1405, height: 332 };
   const entryChecksOuter = { x: 0, y: 0, width: 274, height: 802 };
 
   function setImportant(el, prop, value) {
@@ -51,23 +51,39 @@
     return inner.parentElement;
   }
 
-  function fixHistoryClipping() {
+  function applyHistoryLayout() {
     const history = document.querySelector(".history-section");
-    if (!history) return;
+    const app = document.getElementById("mainApp");
+    if (!history || !app) return;
 
+    if (!history.dataset.detachedHistory) {
+      const rect = history.getBoundingClientRect();
+      const appRect = app.getBoundingClientRect();
+      history.dataset.detachedHistory = "1";
+      history.dataset.detachedTop = String(Math.round(rect.top - appRect.top));
+      app.appendChild(history);
+    }
+
+    const top = Number(history.dataset.detachedTop || 0) + historyLocked.y;
+    setImportant(app, "position", "relative");
+    setImportant(app, "overflow", "visible");
+    setImportant(history, "position", "absolute");
+    setImportant(history, "left", "18px");
+    setImportant(history, "top", `${Math.round(top)}px`);
+    setImportant(history, "width", `${historyLocked.width}px`);
+    setImportant(history, "height", `${historyLocked.height}px`);
+    setImportant(history, "max-width", "none");
+    setImportant(history, "min-width", "0");
+    setImportant(history, "min-height", "0");
+    setImportant(history, "transform", "none");
+    setImportant(history, "translate", "0px 0px");
     setImportant(history, "overflow", "visible");
-    setImportant(history, "position", "relative");
-    setImportant(history, "z-index", "20");
     setImportant(history, "contain", "none");
     setImportant(history, "clip-path", "none");
+    setImportant(history, "z-index", "20");
 
-    let parent = history.parentElement;
-    for (let i = 0; parent && i < 6; i++, parent = parent.parentElement) {
-      setImportant(parent, "overflow", "visible");
-      setImportant(parent, "contain", "none");
-      setImportant(parent, "clip-path", "none");
-      if (parent.id === "mainApp") break;
-    }
+    const needed = top + historyLocked.height + 24;
+    if (needed > app.scrollHeight) setImportant(app, "min-height", `${Math.ceil(needed)}px`);
   }
 
   function removeStrayDetails() {
@@ -79,9 +95,7 @@
       const style = getComputedStyle(node);
       const rect = node.getBoundingClientRect();
       const nearBottomLeft = rect.left < 180 && rect.bottom > window.innerHeight - 120;
-      if ((style.position === "fixed" || style.position === "absolute") && nearBottomLeft) {
-        node.remove();
-      }
+      if ((style.position === "fixed" || style.position === "absolute") && nearBottomLeft) node.remove();
     });
   }
 
@@ -108,7 +122,7 @@
     const outer = resolveEntryOuter();
     if (outer) applyBox(outer, entryChecksOuter);
 
-    fixHistoryClipping();
+    applyHistoryLayout();
     removeEditorUi();
     removeStrayDetails();
   }
