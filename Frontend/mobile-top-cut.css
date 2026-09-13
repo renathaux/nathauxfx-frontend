@@ -1,11 +1,20 @@
 /* Final mobile landing top trim. Desktop is intentionally untouched. */
 @media (max-width: 700px) {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   #landingPage.landing-pro {
+    margin-top: 0 !important;
     padding-top: 0 !important;
   }
 
-  #landingPage.landing-pro .landing-nav {
-    margin-top: 0 !important;
+  /* The remaining blank area is part of the mobile header's flow.
+     Pull the complete header upward instead of moving individual items. */
+  #landingPage.landing-pro > .landing-nav {
+    margin-top: -52px !important;
     padding-top: 0 !important;
   }
 }
