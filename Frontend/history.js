@@ -8,7 +8,8 @@
   const BACKEND_URL = "https://flowsignal-backend-3.onrender.com";
   const OPEN_RESULTS = new Set(["RUNNING", "TP1 HIT"]);
   const OPEN_STATUSES = new Set(["OPEN", "RUNNING", "CLOSING"]);
-  let lastV3BStatus = {};
+  let lastV3BStatus = null;
+  let applyingV3B = false;
 
   function newYorkMonthKey(value) {
     const date = value instanceof Date ? value : new Date(value);
@@ -144,10 +145,9 @@
   }
 
   function compactSignalHistory(history, limit = 10) {
-    const source = (Array.isArray(history) ? history : []).map((item, index) => ({
+    const source = (Array.isArray(history) ? history : []).map((item) => ({
       ...item,
       __date: signalDate(item),
-      __index: index,
       __signal: normalizeSignal(item.signal || item.final_signal || item.action),
       __symbol: String(item.symbol || item.pair || "--").toUpperCase()
     }));
@@ -167,7 +167,6 @@
       clone.signal = item.__signal;
       clone.time = item.__date ? formatTorontoTime(item.__date) : formatTorontoTime(item.time);
       delete clone.__date;
-      delete clone.__index;
       delete clone.__signal;
       delete clone.__symbol;
       return clone;
@@ -188,38 +187,69 @@
     const explicit = String(window.currentChartSymbol || "").toUpperCase().replace("/", "");
     if (["EURUSD", "XAUUSD"].includes(explicit)) return explicit;
     const selected = document.querySelector("[data-symbol].active, .symbol-tab.active, .pair-tab.active");
-    const text = String(selected?.dataset?.symbol || selected?.textContent || "").toUpperCase().replace(/[^A-Z]/g, "");
+    const text = String(selected?.dataset?.symbol || selected?.textContent || "")
+      .toUpperCase().replace(/[^A-Z]/g, "");
     return text.includes("XAUUSD") ? "XAUUSD" : "EURUSD";
   }
 
+  function isV3BObject(value) {
+    if (!value || typeof value !== "object") return false;
+    const model = String(
+      value.live_strategy_model || value.paper_entry_model || value.strategy_model || value.model || ""
+    ).toUpperCase();
+    const reason = String(
+      value.live_v3b_reason || value.paper_entry_reason || value.reason || value.block_reason || ""
+    ).toUpperCase();
+    return model.includes("V3B") || reason.includes("WAIT_V3B");
+  }
+
   function findV3BStatus(root, symbol) {
-    const wanted = String(symbol || "").toUpperCase();
+    const wanted = String(symbol || "").toUpperCase().replace("/", "");
     const queue = [root];
     const seen = new Set();
-    while (queue.length && seen.size < 1500) {
+    let fallback = null;
+    while (queue.length && seen.size < 2500) {
       const value = queue.shift();
       if (!value || typeof value !== "object" || seen.has(value)) continue;
       seen.add(value);
-      const model = String(value.paper_entry_model || value.strategy_model || value.model || "").toUpperCase();
-      const valueSymbol = String(value.symbol || value.pair || "").toUpperCase().replace("/", "");
-      const reason = String(value.paper_entry_reason || value.reason || value.block_reason || "");
-      if ((!wanted || !valueSymbol || valueSymbol === wanted) && (model.includes("V3B") || reason.includes("WAIT_V3B"))) return value;
-      for (const child of Object.values(value)) if (child && typeof child === "object") queue.push(child);
+      if (isV3BObject(value)) {
+        const valueSymbol = String(value.symbol || value.pair || "").toUpperCase().replace("/", "");
+        if (!valueSymbol || valueSymbol === wanted) return value;
+        if (!fallback) fallback = value;
+      }
+      for (const child of Object.values(value)) {
+        if (child && typeof child === "object") queue.push(child);
+      }
     }
-    return null;
+    return fallback;
   }
 
   function v3bFacts(status) {
-    const candidate = status?.source_candidate || status?.candidate || status || {};
-    const details = candidate.paper_entry_details || status?.paper_entry_details || {};
-    const reason = String(status?.reason || candidate.paper_entry_reason || status?.paper_entry_reason || candidate.block_reason || "WAIT_V3B_PAPER_5M_BOS");
-    const hasBos = Boolean(candidate.source_indicator_event_id || details.source_indicator_event_id || candidate.five_m_bos_level || (reason.includes("V3B") && !reason.includes("5M_BOS")));
+    const liveDetails = status?.live_v3b_details || {};
+    const candidate = liveDetails.source_candidate || status?.source_candidate || status?.candidate || status || {};
+    const details = candidate.paper_entry_details || status?.paper_entry_details || liveDetails || {};
+    const reason = String(
+      status?.live_v3b_reason || status?.reason || candidate.paper_entry_reason ||
+      status?.paper_entry_reason || candidate.block_reason || "WAIT_V3B_PAPER_5M_BOS"
+    );
+    const reasonUpper = reason.toUpperCase();
+    const hasBos = Boolean(
+      candidate.source_indicator_event_id || details.source_indicator_event_id ||
+      candidate.five_m_bos_level || candidate.five_m_break_time ||
+      (reasonUpper.includes("WAIT_V3B") && !reasonUpper.includes("5M_BOS"))
+    );
     const bodyRatio = Number(details.bos_body_ratio ?? candidate.bos_body_ratio);
     const bodyMin = Number(details.minimum_bos_body_ratio ?? candidate.minimum_bos_body_ratio ?? 0.5);
     const bodyPass = Number.isFinite(bodyRatio) ? bodyRatio >= bodyMin : null;
-    const secondSame = typeof details.second_5m_same_direction === "boolean" ? details.second_5m_same_direction : null;
-    const beyond = typeof details.second_5m_stays_beyond_bos_level === "boolean" ? details.second_5m_stays_beyond_bos_level : null;
-    const swingSl = Boolean(candidate.stop_loss != null || candidate.sl != null || candidate.paper_entry_ready === true) ? true : null;
+    const secondSame = typeof details.second_5m_same_direction === "boolean"
+      ? details.second_5m_same_direction
+      : null;
+    const beyond = typeof details.second_5m_stays_beyond_bos_level === "boolean"
+      ? details.second_5m_stays_beyond_bos_level
+      : null;
+    const swingSl = candidate.stop_loss != null || candidate.sl != null || candidate.paper_entry_ready === true
+      ? true
+      : null;
     return { candidate, reason, hasBos, bodyPass, secondSame, beyond, swingSl };
   }
 
@@ -231,79 +261,122 @@
     el.classList.toggle("check-pass", text === "YES");
     el.classList.toggle("check-fail", text === "NO");
     el.classList.toggle("check-waiting", text === "WAIT");
+    el.classList.remove("check-not-checked");
   }
 
   function triggerFromReason(reason) {
-    const r = String(reason || "");
-    if (r.includes("AUTHORITY")) return "5m authority sync";
+    const r = String(reason || "").toUpperCase();
+    if (r.includes("AUTHORITY_DESYNC") || r.includes("AUTHORITY_STALE")) return "5m authority sync";
     if (r.includes("BOS_BODY")) return "BOS body ≥ 50%";
     if (r.includes("SECOND_5M")) return "Next 5m confirmation";
     if (r.includes("RECOVERY_ENTRY_EXPIRED")) return "Fresh 5m BOS";
     if (r.includes("5M_BOS")) return "Fresh 5m BOS";
+    if (r.includes("DURABLE_IDENTITY")) return "5m setup identity";
     return "V3B 5m setup";
   }
 
+  function firstWaitingStep(f) {
+    if (f.hasBos !== true) return "Fresh 5m BOS";
+    if (f.bodyPass !== true) return "BOS body ≥ 50%";
+    if (f.secondSame !== true) return "Next 5m same direction";
+    if (f.beyond !== true) return "Close stays beyond BOS";
+    if (f.swingSl !== true) return "5m swing SL";
+    return "V3B setup ready";
+  }
+
+  function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el && el.textContent !== text) el.textContent = text;
+  }
+
   function applyV3BPresentation(status) {
-    const f = v3bFacts(status || {});
-
-    const details = document.querySelector("details.entry-strategy-debug");
-    if (details?.querySelector("summary")) details.querySelector("summary").textContent = "V3B ENTRY STRATEGY CHECKS";
-    const labels = [
-      ["strategy-debug-smc", "5m BOS"],
-      ["strategy-debug-swing-break", "BOS body ≥ 50%"],
-      ["strategy-debug-15m-close", "Next 5m same direction"],
-      ["strategy-debug-5m-confirm", "Close stays beyond BOS"],
-      ["strategy-debug-swing-sl", "5m swing SL"]
-    ];
-    for (const [id, label] of labels) {
-      const el = document.getElementById(id);
-      if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
-    }
-    setCheck("strategy-debug-smc", f.hasBos ? true : null);
-    setCheck("strategy-debug-swing-break", f.bodyPass);
-    setCheck("strategy-debug-15m-close", f.secondSame);
-    setCheck("strategy-debug-5m-confirm", f.beyond);
-    setCheck("strategy-debug-swing-sl", f.swingSl);
-    const decision = document.getElementById("strategy-debug-decision");
-    if (decision) decision.textContent = normalizeSignal(f.candidate.signal || f.candidate.final_signal || status?.signal);
-    const reasonEl = document.getElementById("strategy-debug-block-reason");
-    if (reasonEl) reasonEl.textContent = f.reason;
-
-    const header = document.querySelector(".main-smc-panel .smc-header");
-    if (header) header.textContent = "⚡ V3B PLAN";
-    const structureLabel = document.querySelector("#main-smc-structure")?.previousElementSibling;
-    if (structureLabel) structureLabel.textContent = "5m Structure";
-    const triggerLabel = document.querySelector("#main-smc-trigger")?.previousElementSibling;
-    if (triggerLabel) triggerLabel.textContent = "V3B Next Trigger";
-    const waitingLabel = document.querySelector("#main-smc-waiting-list")?.previousElementSibling;
-    if (waitingLabel) waitingLabel.textContent = "V3B Waiting For";
-
-    const structure = document.getElementById("main-smc-structure");
-    if (structure) structure.textContent = f.hasBos ? "5M BOS FOUND" : "WAITING 5M BOS";
-    const trigger = document.getElementById("main-smc-trigger");
-    if (trigger) trigger.textContent = triggerFromReason(f.reason);
-    const list = document.getElementById("main-smc-waiting-list");
-    if (list) {
-      const rows = [
-        ["5m BOS", f.hasBos ? true : null],
-        ["BOS body ≥ 50%", f.bodyPass],
-        ["Next 5m same direction", f.secondSame],
-        ["Close stays beyond BOS", f.beyond],
-        ["5m swing SL", f.swingSl]
+    if (applyingV3B) return;
+    applyingV3B = true;
+    try {
+      const f = v3bFacts(status || {});
+      const details = document.querySelector("details.entry-strategy-debug");
+      if (details?.querySelector("summary")) details.querySelector("summary").textContent = "V3B ENTRY STRATEGY CHECKS";
+      const labels = [
+        ["strategy-debug-smc", "5m BOS"],
+        ["strategy-debug-swing-break", "BOS body ≥ 50%"],
+        ["strategy-debug-15m-close", "Next 5m same direction"],
+        ["strategy-debug-5m-confirm", "Close stays beyond BOS"],
+        ["strategy-debug-swing-sl", "5m swing SL"]
       ];
-      list.innerHTML = rows.map(([label, value]) => `<li class="${value === true ? "check-pass" : value === false ? "check-fail" : "check-waiting"}">${value === true ? "✓" : value === false ? "✗" : "•"} ${label}</li>`).join("");
+      for (const [id, label] of labels) {
+        const el = document.getElementById(id);
+        if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
+      }
+      setCheck("strategy-debug-smc", f.hasBos ? true : null);
+      setCheck("strategy-debug-swing-break", f.bodyPass);
+      setCheck("strategy-debug-15m-close", f.secondSame);
+      setCheck("strategy-debug-5m-confirm", f.beyond);
+      setCheck("strategy-debug-swing-sl", f.swingSl);
+      setText("strategy-debug-decision", normalizeSignal(f.candidate.signal || f.candidate.final_signal || status?.signal));
+      setText("strategy-debug-block-reason", f.reason);
+
+      const header = document.querySelector(".main-smc-panel .smc-header");
+      if (header) header.textContent = "⚡ V3B PLAN";
+      const structureLabel = document.querySelector("#main-smc-structure")?.previousElementSibling;
+      if (structureLabel) structureLabel.textContent = "5m Structure";
+      const triggerLabel = document.querySelector("#main-smc-trigger")?.previousElementSibling;
+      if (triggerLabel) triggerLabel.textContent = "V3B Next Trigger";
+      const waitingLabel = document.querySelector("#main-smc-waiting-list")?.previousElementSibling;
+      if (waitingLabel) waitingLabel.textContent = "V3B Waiting For";
+
+      setText("main-smc-structure", f.hasBos ? "5M BOS FOUND" : "WAITING 5M BOS");
+      setText("main-smc-trigger", triggerFromReason(f.reason) || firstWaitingStep(f));
+      const list = document.getElementById("main-smc-waiting-list");
+      if (list) {
+        const rows = [
+          ["5m BOS", f.hasBos ? true : null],
+          ["BOS body ≥ 50%", f.bodyPass],
+          ["Next 5m same direction", f.secondSame],
+          ["Close stays beyond BOS", f.beyond],
+          ["5m swing SL", f.swingSl]
+        ];
+        const html = rows.map(([label, value]) =>
+          `<li class="${value === true ? "check-pass" : value === false ? "check-fail" : "check-waiting"}">${value === true ? "✓" : value === false ? "✗" : "•"} ${label}</li>`
+        ).join("");
+        if (list.innerHTML !== html) list.innerHTML = html;
+      }
+
+      // Never show a legacy V1 WAIT reason in V3B plan value fields.
+      for (const id of ["main-tp2", "main-risk-reward"]) {
+        const el = document.getElementById(id);
+        if (el && /^WAIT_(?!V3B)/i.test(String(el.textContent || "").trim())) el.textContent = "--";
+      }
+    } finally {
+      applyingV3B = false;
     }
   }
 
   async function refreshV3B() {
     try {
       const response = await fetch(`${BACKEND_URL}/dashboard-feed`, { cache: "no-store", credentials: "omit" });
-      if (!response.ok) return;
-      const payload = await response.json();
-      const found = findV3BStatus(payload, extractCurrentChartSymbol());
-      if (found) lastV3BStatus = found;
+      if (response.ok) {
+        const payload = await response.json();
+        const found = findV3BStatus(payload, extractCurrentChartSymbol());
+        if (found) lastV3BStatus = found;
+      }
     } catch (_error) {}
-    applyV3BPresentation(lastV3BStatus);
+    applyV3BPresentation(lastV3BStatus || {});
+  }
+
+  function installV3BObserver() {
+    const target = document.querySelector(".main-smc-panel")?.parentElement || document.body;
+    if (!target || window.__NATHAUX_V3B_OBSERVER) return;
+    let scheduled = false;
+    const observer = new MutationObserver(() => {
+      if (applyingV3B || scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(() => {
+        scheduled = false;
+        applyV3BPresentation(lastV3BStatus || {});
+      });
+    });
+    observer.observe(target, { subtree: true, childList: true, characterData: true });
+    window.__NATHAUX_V3B_OBSERVER = observer;
   }
 
   function install() {
@@ -315,12 +388,9 @@
     }, 250);
 
     refreshV3B();
-    setInterval(refreshV3B, 10000);
-
-    // script.js still renders the legacy V1 presentation. Keep the dashboard
-    // presentation pinned to V3B even when the V3B status request is temporarily
-    // unavailable. This changes display only; PAPER remains V1 and LIVE remains V3B.
-    setInterval(() => applyV3BPresentation(lastV3BStatus), 500);
+    setTimeout(installV3BObserver, 500);
+    setInterval(refreshV3B, 5000);
+    setInterval(() => applyV3BPresentation(lastV3BStatus || {}), 500);
   }
 
   if (typeof window !== "undefined" && window.localStorage) {
@@ -336,8 +406,11 @@
       formatTorontoTime,
       newYorkMonthKey
     };
-    if (document.readyState === "loading") window.addEventListener("DOMContentLoaded", install, { once: true });
-    else install();
+    if (document.readyState === "loading") {
+      window.addEventListener("DOMContentLoaded", install, { once: true });
+    } else {
+      install();
+    }
   }
 
   if (typeof module !== "undefined" && module.exports) {
