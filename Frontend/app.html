@@ -302,21 +302,21 @@
     <div class="menu-settings-group">
       <button id="menuSettingsBtn" class="menu-row" title="Settings" aria-expanded="false">
         <span class="menu-row-icon">⚙</span>
-        <span class="menu-row-text">Settings</span>
+        <span class="menu-row-text" data-i18n="settings">Settings</span>
         <span class="menu-row-caret">⌄</span>
       </button>
       <div id="settingsSubmenu" class="menu-submenu hidden">
-        <button id="menuGeneralSettingsBtn" class="menu-subrow">General</button>
-        <button id="menuRiskSettingsBtn" class="menu-subrow">Risk Management</button>
-        <button id="menuBrokerAccountsBtn" class="menu-subrow">Broker Accounts</button>
-        <button id="menuNotificationsSettingsBtn" class="menu-subrow">Notifications</button>
-        <button id="menuStrategySettingsBtn" class="menu-subrow">Strategy</button>
+        <button id="menuGeneralSettingsBtn" class="menu-subrow" data-i18n="general">General</button>
+        <button id="menuRiskSettingsBtn" class="menu-subrow" data-i18n="riskManagement">Risk Management</button>
+        <button id="menuBrokerAccountsBtn" class="menu-subrow" data-i18n="brokerAccounts">Broker Accounts</button>
+        <button id="menuNotificationsSettingsBtn" class="menu-subrow" data-i18n="notifications">Notifications</button>
+        <button id="menuStrategySettingsBtn" class="menu-subrow" data-i18n="strategy">Strategy</button>
       </div>
     </div>
 
     <button id="logoutBtn" class="menu-row menu-logout-row" title="Logout">
       <span class="menu-row-icon">←</span>
-      <span class="menu-row-text">Logout</span>
+      <span class="menu-row-text" data-i18n="logout">Logout</span>
     </button>
   </div>
 </div>
@@ -350,7 +350,7 @@
           </svg>
         </div>
         <div class="performance-copy">
-          <span>DAILY P/L</span>
+          <span data-i18n="dailyPnl">DAILY P/L</span>
           <strong id="dashboardDailyPnl">$0.00</strong>
         </div>
       </article>
@@ -363,7 +363,7 @@
           </svg>
         </div>
         <div class="performance-copy">
-          <span>WEEKLY P/L</span>
+          <span data-i18n="weeklyPnl">WEEKLY P/L</span>
           <strong id="dashboardWeeklyPnl">+$0.00</strong>
         </div>
         <svg class="performance-sparkline" viewBox="0 0 86 40" aria-hidden="true">
@@ -379,7 +379,7 @@
           </svg>
         </div>
         <div class="performance-copy">
-          <span>MONTHLY P/L</span>
+          <span data-i18n="monthlyPnl">MONTHLY P/L</span>
           <strong id="dashboardMonthlyPnl">$0.00</strong>
         </div>
       </article>
@@ -391,7 +391,7 @@
           </svg>
         </div>
         <div class="performance-copy">
-          <span>LIVE P/L (FLOATING)</span>
+          <span data-i18n="floatingPnl">LIVE P/L (FLOATING)</span>
           <strong id="dashboardFloatingPnl">+$0.00</strong>
         </div>
         <svg class="performance-sparkline" viewBox="0 0 86 40" aria-hidden="true">
@@ -407,7 +407,7 @@
           </svg>
         </div>
         <div class="performance-copy">
-          <span>OPEN TRADES</span>
+          <span data-i18n="openTrades">OPEN TRADES</span>
           <strong id="dashboardOpenTrades">0</strong>
         </div>
       </article>
@@ -422,12 +422,12 @@
       <div class="controls">
   <label class="switch-wrap">
     <input type="checkbox" id="alertsToggle" checked />
-    <span>Alerts</span>
+    <span data-i18n="alerts">Alerts</span>
   </label>
 
   <label class="switch-wrap">
     <input type="checkbox" id="strongToggle" />
-    <span>Strong</span>
+    <span data-i18n="strong">Strong</span>
   </label>
 </div>
     </div>
@@ -559,21 +559,21 @@
     <div id="main-signal-note" class="signal-freshness-note main-signal-note hidden">Trend active · no fresh entry</div>
 
     <div class="main-metrics">
-      <div><span>Bullish Bias</span><strong id="main-buy">--%</strong></div>
-      <div><span>Bearish Bias</span><strong id="main-sell">--%</strong></div>
-      <div><span>Bias Strength</span><strong id="main-confidence">--%</strong></div>
+      <div><span data-i18n="buy">Bullish Bias</span><strong id="main-buy">--%</strong></div>
+      <div><span data-i18n="sell">Bearish Bias</span><strong id="main-sell">--%</strong></div>
+      <div><span data-i18n="confidence">Bias Strength</span><strong id="main-confidence">--%</strong></div>
     </div>
     <div class="bias-only-note">Market bias only - entry requires strategy checks.</div>
 
     <div class="smc-panel main-smc-panel">
       <div class="smc-header">⚡ SMC PLAN</div>
-      <div class="smc-row"><span>Type</span><span id="main-plan-type">--</span></div>
-      <div class="smc-row"><span>Entry</span><span id="main-entry-price">--</span></div>
+      <div class="smc-row"><span data-i18n="type">Type</span><span id="main-plan-type">--</span></div>
+      <div class="smc-row"><span data-i18n="entry">Entry</span><span id="main-entry-price">--</span></div>
       <div class="smc-row"><span>SL</span><span id="main-sl">--</span></div>
       <div class="smc-row"><span>TP1</span><span id="main-tp1">--</span></div>
       <div class="smc-row"><span>TP2</span><span id="main-tp2">--</span></div>
-      <div class="smc-row"><span>Risk/Reward</span><span id="main-rr">--</span></div>
-      <div class="smc-row signal-blocker-row hidden" id="main-blocked-reason-row"><span>Block Reason</span><span id="main-blocked-reason">--</span></div>
+      <div class="smc-row"><span data-i18n="riskReward">Risk/Reward</span><span id="main-rr">--</span></div>
+      <div class="smc-row signal-blocker-row hidden" id="main-blocked-reason-row"><span data-i18n="blockReason">Block Reason</span><span id="main-blocked-reason">--</span></div>
       <div class="smc-plan-intel" id="main-smc-plan-intel">
         <div class="smc-intel-grid">
           <div>
@@ -616,7 +616,7 @@
     </div>
 
     <details class="entry-strategy-debug" open>
-      <summary>ENTRY STRATEGY CHECKS</summary>
+      <summary data-i18n="entryChecks">ENTRY STRATEGY CHECKS</summary>
       <div class="entry-strategy-debug-grid">
         <span>15m BOS/CHOCH</span><strong id="strategy-debug-smc">NO</strong>
         <span>Swing break</span><strong id="strategy-debug-swing-break">NO</strong>
@@ -855,19 +855,19 @@
 </section>
 <section class="history-section">
     <div class="history-header">
-      <h2>Recent Signal History</h2>
+      <h2 data-i18n="history">Recent Signal History</h2>
     </div>
 
     <div class="history-table-wrap">
       <table class="history-table">
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Symbol</th>
-            <th>Signal</th>
-            <th>Bias Strength</th>
-            <th>Result</th>
-            <th>Pips</th>
+            <th data-i18n="time">Time</th>
+            <th data-i18n="symbol">Symbol</th>
+            <th data-i18n="signal">Signal</th>
+            <th data-i18n="confidence">Bias Strength</th>
+            <th data-i18n="result">Result</th>
+            <th data-i18n="pips">Pips</th>
           </tr>
         </thead>
         <tbody id="historyBody">
@@ -895,23 +895,23 @@
     <nav class="mobile-bottom-nav" aria-label="Mobile app navigation">
       <button type="button" class="active" aria-label="Dashboard">
         <span aria-hidden="true">⌂</span>
-        <b>Dashboard</b>
+        <b data-i18n="dashboard">Dashboard</b>
       </button>
       <button type="button" onclick="switchChart(currentChartSymbol, currentChartTimeframe)" aria-label="Markets">
         <span aria-hidden="true">▥</span>
-        <b>Markets</b>
+        <b data-i18n="markets">Markets</b>
       </button>
       <button type="button" onclick="window.openPaperPanel?.()" aria-label="Trades">
         <span aria-hidden="true">▣</span>
-        <b>Trades</b>
+        <b data-i18n="trades">Trades</b>
       </button>
       <button type="button" onclick="document.querySelector('.history-section')?.scrollIntoView({behavior:'smooth'})" aria-label="History">
         <span aria-hidden="true">◷</span>
-        <b>History</b>
+        <b data-i18n="history">History</b>
       </button>
       <button type="button" onclick="document.getElementById('menuToggleBtn')?.click()" aria-label="Menu">
         <span aria-hidden="true">☰</span>
-        <b>Menu</b>
+        <b data-i18n="menu">Menu</b>
       </button>
     </nav>
   </div>
@@ -1685,7 +1685,7 @@
   <script src="performance.js?v=1"></script>
   <script src="history.js?v=1"></script>
   <script src="responsiveLayout.js?v=1"></script>
-  <script src="script.js?v=125"></script>
+  <script src="script.js?v=126"></script>
 </body>
 </html>
   

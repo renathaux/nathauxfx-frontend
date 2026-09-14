@@ -46,6 +46,24 @@ const LANG = {
     back: "Back",
     login: "Login",
     unlock: "Unlock",
+    settings: "Settings",
+    general: "General",
+    riskManagement: "Risk Management",
+    brokerAccounts: "Broker Accounts",
+    notifications: "Notifications",
+    strategy: "Strategy",
+    logout: "Logout",
+    dailyPnl: "DAILY P/L",
+    weeklyPnl: "WEEKLY P/L",
+    monthlyPnl: "MONTHLY P/L",
+    floatingPnl: "LIVE P/L (FLOATING)",
+    openTrades: "OPEN TRADES",
+    blockReason: "Block Reason",
+    entryChecks: "ENTRY STRATEGY CHECKS",
+    dashboard: "Dashboard",
+    markets: "Markets",
+    trades: "Trades",
+    menu: "Menu",
 
     // Top controls
     alerts: "Alerts",
@@ -177,6 +195,24 @@ const LANG = {
     back: "Retour",
     login: "Connexion",
     unlock: "Déverrouiller",
+    settings: "Paramètres",
+    general: "Général",
+    riskManagement: "Gestion du risque",
+    brokerAccounts: "Comptes de courtier",
+    notifications: "Notifications",
+    strategy: "Stratégie",
+    logout: "Déconnexion",
+    dailyPnl: "P/L DU JOUR",
+    weeklyPnl: "P/L HEBDOMADAIRE",
+    monthlyPnl: "P/L MENSUEL",
+    floatingPnl: "P/L RÉEL (FLOTTANT)",
+    openTrades: "TRADES OUVERTS",
+    blockReason: "Raison du blocage",
+    entryChecks: "CONTRÔLES DE STRATÉGIE D’ENTRÉE",
+    dashboard: "Tableau de bord",
+    markets: "Marchés",
+    trades: "Trades",
+    menu: "Menu",
 
     // Top controls
     alerts: "Alertes",
@@ -308,6 +344,24 @@ const LANG = {
     back: "Atrás",
     login: "Iniciar sesión",
     unlock: "Desbloquear",
+    settings: "Configuración",
+    general: "General",
+    riskManagement: "Gestión de riesgo",
+    brokerAccounts: "Cuentas del bróker",
+    notifications: "Notificaciones",
+    strategy: "Estrategia",
+    logout: "Cerrar sesión",
+    dailyPnl: "P/G DIARIO",
+    weeklyPnl: "P/G SEMANAL",
+    monthlyPnl: "P/G MENSUAL",
+    floatingPnl: "P/G REAL (FLOTANTE)",
+    openTrades: "OPERACIONES ABIERTAS",
+    blockReason: "Motivo del bloqueo",
+    entryChecks: "COMPROBACIONES DE ESTRATEGIA DE ENTRADA",
+    dashboard: "Panel",
+    markets: "Mercados",
+    trades: "Operaciones",
+    menu: "Menú",
 
     // Top controls
     alerts: "Alertas",
@@ -792,10 +846,6 @@ const FULL_UI_TRANSLATIONS = Object.fromEntries([
   ["More Creative", "Plus créatif", "Más creativo"],
 ].map(([en, fr, es]) => [en, { en, fr, es }]));
 
-const fullUiTextSources = new WeakMap();
-const fullUiAttributeSources = new WeakMap();
-let fullUiTranslationObserver = null;
-
 function translateDynamicUiText(source, lang) {
   const direct = FULL_UI_TRANSLATIONS[source];
   if (direct) return direct[lang] || direct.en;
@@ -881,88 +931,19 @@ function isTranslatableUiText(text) {
   ].some((pattern) => pattern.test(text));
 }
 
-function translateUiTextNode(node, lang) {
-  if (!node || !node.parentElement || ["SCRIPT", "STYLE"].includes(node.parentElement.tagName)) return;
-  const raw = node.nodeValue || "";
-  const trimmed = raw.trim();
-  let source = fullUiTextSources.get(node);
-  if (!source) {
-    if (!trimmed || !isTranslatableUiText(trimmed)) return;
-    source = trimmed;
-    fullUiTextSources.set(node, source);
-  }
-  const translated = translateDynamicUiText(source, lang);
-  const leading = raw.match(/^\s*/)?.[0] || "";
-  const trailing = raw.match(/\s*$/)?.[0] || "";
-  const nextValue = `${leading}${translated}${trailing}`;
-  if (node.nodeValue !== nextValue) node.nodeValue = nextValue;
-}
-
-function translateUiSubtree(root, lang) {
-  if (!root) return;
-  if (root.nodeType === Node.TEXT_NODE) {
-    translateUiTextNode(root, lang);
-    return;
-  }
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let node = walker.nextNode();
-  while (node) {
-    translateUiTextNode(node, lang);
-    node = walker.nextNode();
-  }
-}
-
-function translateUiAttributes(lang, root = document) {
-  const selector = "input[placeholder], textarea[placeholder], [title], [aria-label]";
-  const elements = [];
-  if (root?.nodeType === Node.ELEMENT_NODE && root.matches?.(selector)) {
-    elements.push(root);
-  }
-  root?.querySelectorAll?.(selector).forEach((element) => elements.push(element));
-  elements.forEach((element) => {
-    let sources = fullUiAttributeSources.get(element);
-    if (!sources) {
-      sources = {};
-      ["placeholder", "title", "aria-label"].forEach((attribute) => {
-        const value = element.getAttribute(attribute)?.trim();
-        if (value && isTranslatableUiText(value)) sources[attribute] = value;
-      });
-      fullUiAttributeSources.set(element, sources);
-    }
-    Object.entries(sources).forEach(([attribute, source]) => {
-      element.setAttribute(attribute, translateDynamicUiText(source, lang));
-    });
-  });
-}
-
-function translateFullInterface(lang) {
-  const safeLang = ["en", "fr", "es"].includes(lang) ? lang : "en";
-  document.documentElement.lang = safeLang;
-  translateUiSubtree(document.body, safeLang);
-  translateUiAttributes(safeLang);
-  if (!fullUiTranslationObserver && document.body) {
-    fullUiTranslationObserver = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          translateUiSubtree(node, currentLang);
-          translateUiAttributes(currentLang, node);
-        });
-      });
-    });
-    fullUiTranslationObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-  }
-}
-
 function tTradeAction(signal) {
   const side = String(signal || "").trim().toUpperCase();
   if (side === "BUY" || side === "SELL") return side;
   return side;
 }
 
-let currentLang = localStorage.getItem("flowsignal_lang") || "en";
+const LANGUAGE_STORAGE_KEY = "nathauxfx_language";
+const SUPPORTED_LANGUAGES = new Set(["en", "fr", "es"]);
+function validatedLanguage(value) {
+  const normalized = String(value || "").toLowerCase();
+  return SUPPORTED_LANGUAGES.has(normalized) ? normalized : "en";
+}
+let currentLang = validatedLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY));
 const TRADE_URL = `${BASE_URL}/execute-trade`;
 
 const statusEl = document.getElementById("status");
@@ -1045,7 +1026,7 @@ if (landingLang) {
   landingLang.addEventListener("change", () => {
     const lang = landingLang.value.toLowerCase();
 
-    localStorage.setItem("flowsignal_lang", lang);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, validatedLanguage(lang));
 
     applyLanguage(lang);
     updateAssistantLanguageUI();
@@ -4735,7 +4716,7 @@ function setAuthMessage(text, isError = false) {
 // HELPERS
 // ==============================
 
-function applyLanguage(lang) {
+function legacyApplyLanguageDisabled(lang) {
   currentLang = lang;
 // ==============================
 // LANDING PAGE TRANSLATION
@@ -4955,13 +4936,37 @@ if (mainLastSignal) {
       statusEl.dataset.fullStatus || ""
     );
   }
-  translateFullInterface(lang);
   if (confirmedStrategySettings) syncStrategySettingsPresentation();
   if (strategyFixedRules) renderFixedStrategyRules(strategyFixedRules);
   if (strategyHistoryItems.length) renderStrategySettingsHistory();
 }
 
+function t(key, lang = currentLang) {
+  const safeLang = validatedLanguage(lang);
+  return LANG[safeLang]?.[key] ?? LANG.en?.[key] ?? key;
+}
 
+function applyLanguage(lang) {
+  const safeLang = validatedLanguage(lang);
+  currentLang = safeLang;
+  document.documentElement.lang = safeLang;
+
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    const key = element.dataset.i18n;
+    if (key) element.textContent = t(key, safeLang);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    const key = element.dataset.i18nPlaceholder;
+    if (key) element.setAttribute("placeholder", t(key, safeLang));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+    const key = element.dataset.i18nTitle;
+    if (key) element.setAttribute("title", t(key, safeLang));
+  });
+
+  if (langSelect) langSelect.value = safeLang;
+  if (landingLang) landingLang.value = safeLang.toUpperCase();
+}
 
 function clampPct(value) {
   const num = parseInt(value, 10);
@@ -14600,7 +14605,7 @@ if (langSelect) {
 
   langSelect.addEventListener("change", (e) => {
     currentLang = e.target.value;
-    localStorage.setItem("flowsignal_lang", currentLang);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLang);
 
     applyLanguage(currentLang);
     updateAssistantLanguageUI();
@@ -14610,11 +14615,6 @@ if (langSelect) {
       "LANGUAGE"
     );
 
-    if (latestPanelData) {
-      updateCard("EURUSD", latestPanelData.EURUSD);
-      updateCard("XAUUSD", latestPanelData.XAUUSD);
-      updateMainPanel(currentChartSymbol);
-    }
   });
 }
 
