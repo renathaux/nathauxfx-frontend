@@ -8,6 +8,8 @@
   const OPEN_RESULTS = new Set(["RUNNING", "TP1 HIT"]);
   const OPEN_STATUSES = new Set(["OPEN", "RUNNING", "CLOSING"]);
   let applyingV3B = false;
+  let pendingV3BStatus = null;
+  let v3bMicrotaskQueued = false;
 
   function newYorkMonthKey(value) {
     const date = value instanceof Date ? value : new Date(value);
@@ -342,13 +344,18 @@
     return /^\d+(?:\.\d+)?\s*(?:(?::|\/)\s*\d+(?:\.\d+)?|R)?$/i.test(text);
   }
 
-  function applyV3BPresentation(status) {
+  function renderV3BPresentationNow(status) {
     if (applyingV3B) return;
     applyingV3B = true;
     try {
       const f = v3bFacts(status || {});
       const details = document.querySelector("details.entry-strategy-debug");
+      if (details) details.dataset.v3bViewVersion = "3";
       if (details?.querySelector("summary")) details.querySelector("summary").textContent = "V3B ENTRY STRATEGY CHECKS";
+
+      const header = document.querySelector(".main-smc-panel .smc-header");
+      if (header) header.textContent = "⚡ V3B PLAN";
+
       const labels = [
         ["strategy-debug-smc", "5m BOS"],
         ["strategy-debug-swing-break", "BOS body ≥ 50%"],
@@ -369,8 +376,8 @@
       setText("strategy-debug-decision", f.signal);
       setText("strategy-debug-block-reason", f.reason);
 
-      // The main V3B plan remains owned by updateSmcPlanIntelligence().
-      // This renderer only maps canonical V3B event checks and guards value fields.
+      // updateSmcPlanIntelligence() owns the plan body. This layer only gives
+      // V3B checks final render ownership and rejects reason strings from values.
       const tp2 = document.getElementById("main-tp2");
       const tp2Text = String(tp2?.textContent || "").trim();
       if (tp2 && (!tp2Text || !Number.isFinite(Number(tp2Text)))) {
@@ -384,6 +391,25 @@
     } finally {
       applyingV3B = false;
     }
+  }
+
+  function queueFinalV3BPresentation() {
+    if (v3bMicrotaskQueued) return;
+    v3bMicrotaskQueued = true;
+    const run = () => {
+      v3bMicrotaskQueued = false;
+      renderV3BPresentationNow(pendingV3BStatus || {});
+    };
+    if (typeof queueMicrotask === "function") queueMicrotask(run);
+    else Promise.resolve().then(run);
+  }
+
+  function applyV3BPresentation(status) {
+    pendingV3BStatus = status || {};
+    renderV3BPresentationNow(pendingV3BStatus);
+    // A few legacy dashboard writes happen later in the same synchronous render
+    // turn. Re-apply once after that turn, without polling, observers or timers.
+    queueFinalV3BPresentation();
   }
 
   function install() {
@@ -426,7 +452,8 @@
       formatTorontoTime,
       normalizeSignal,
       v3bFacts,
-      renderV3BPresentation: applyV3BPresentation
+      renderV3BPresentation: applyV3BPresentation,
+      renderV3BPresentationNow
     };
   }
 })();
