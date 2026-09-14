@@ -10,6 +10,8 @@
   let applyingV3B = false;
   let pendingV3BStatus = null;
   let v3bMicrotaskQueued = false;
+  let v3bFrameQueued = false;
+  let mainPanelWrapperInstalled = false;
 
   function newYorkMonthKey(value) {
     const date = value instanceof Date ? value : new Date(value);
@@ -214,8 +216,17 @@
     );
   }
 
+  function strategyDebugSnapshot(status) {
+    return {
+      ...(asObject(status?.signal_diagnostics) || {}),
+      ...(asObject(status?.entry_strategy_debug) || {}),
+      ...(asObject(status?.strategy_debug) || {})
+    };
+  }
+
   function v3bFacts(status) {
     const liveDetails = asObject(status?.live_v3b_details) || {};
+    const strategyDebug = strategyDebugSnapshot(status);
     const explicitV3BReason = firstText(
       status?.live_v3b_reason,
       liveDetails.live_v3b_reason,
@@ -232,6 +243,11 @@
     const candidateReason = firstText(candidate?.paper_entry_reason, candidate?.live_v3b_reason, candidate?.block_reason);
     const v3bReason = explicitV3BReason || (/^(?:WAIT_)?V3B(?:_|$)/i.test(candidateReason) ? candidateReason : "");
     const genericReason = firstText(
+      strategyDebug.blocked_reason,
+      strategyDebug.block_reason,
+      strategyDebug.reason,
+      strategyDebug.reason_if_wait,
+      strategyDebug.rejection_reason,
       status?.blocked_reason,
       status?.block_reason,
       status?.reason,
@@ -247,7 +263,12 @@
       candidate?.state,
       liveDetails.lifecycle_state,
       liveDetails.event_state,
-      liveDetails.state
+      liveDetails.state,
+      strategyDebug.lifecycle_state,
+      strategyDebug.event_state,
+      strategyDebug.state,
+      strategyDebug.saved_15m_setup_status,
+      strategyDebug.expired_15m_setup?.status
     );
     const currentEvent = Boolean(
       candidate
@@ -349,8 +370,10 @@
     applyingV3B = true;
     try {
       const f = v3bFacts(status || {});
+      const inactiveReason = isInactiveV3BState(f.reason);
+      const effectiveCurrentEvent = f.currentEvent && !inactiveReason;
       const details = document.querySelector("details.entry-strategy-debug");
-      if (details) details.dataset.v3bViewVersion = "3";
+      if (details) details.dataset.v3bViewVersion = "4";
       if (details?.querySelector("summary")) details.querySelector("summary").textContent = "V3B ENTRY STRATEGY CHECKS";
 
       const header = document.querySelector(".main-smc-panel .smc-header");
@@ -368,16 +391,14 @@
         if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
       }
 
-      setCheck("strategy-debug-smc", f.hasBos);
-      setCheck("strategy-debug-swing-break", f.bodyPass);
-      setCheck("strategy-debug-15m-close", f.secondSame);
-      setCheck("strategy-debug-5m-confirm", f.beyond);
-      setCheck("strategy-debug-swing-sl", f.swingSl);
-      setText("strategy-debug-decision", f.signal);
+      setCheck("strategy-debug-smc", effectiveCurrentEvent ? f.hasBos : null);
+      setCheck("strategy-debug-swing-break", effectiveCurrentEvent ? f.bodyPass : null);
+      setCheck("strategy-debug-15m-close", effectiveCurrentEvent ? f.secondSame : null);
+      setCheck("strategy-debug-5m-confirm", effectiveCurrentEvent ? f.beyond : null);
+      setCheck("strategy-debug-swing-sl", effectiveCurrentEvent ? f.swingSl : null);
+      setText("strategy-debug-decision", effectiveCurrentEvent ? f.signal : "WAIT");
       setText("strategy-debug-block-reason", f.reason);
 
-      // updateSmcPlanIntelligence() owns the plan body. This layer only gives
-      // V3B checks final render ownership and rejects reason strings from values.
       const tp2 = document.getElementById("main-tp2");
       const tp2Text = String(tp2?.textContent || "").trim();
       if (tp2 && (!tp2Text || !Number.isFinite(Number(tp2Text)))) {
@@ -404,20 +425,56 @@
     else Promise.resolve().then(run);
   }
 
+  function queueFrameV3BPresentation() {
+    if (v3bFrameQueued || typeof requestAnimationFrame !== "function") return;
+    v3bFrameQueued = true;
+    requestAnimationFrame(() => {
+      v3bFrameQueued = false;
+      renderV3BPresentationNow(pendingV3BStatus || {});
+    });
+  }
+
   function applyV3BPresentation(status) {
     pendingV3BStatus = status || {};
     renderV3BPresentationNow(pendingV3BStatus);
-    // A few legacy dashboard writes happen later in the same synchronous render
-    // turn. Re-apply once after that turn, without polling, observers or timers.
     queueFinalV3BPresentation();
+    queueFrameV3BPresentation();
+  }
+
+  function installMainPanelFinalOwner() {
+    if (mainPanelWrapperInstalled || typeof window.updateMainPanel !== "function") {
+      return mainPanelWrapperInstalled;
+    }
+    const original = window.updateMainPanel;
+    if (original.__NATHAUX_V3B_FINAL_OWNER) {
+      mainPanelWrapperInstalled = true;
+      return true;
+    }
+    const wrapped = function (...args) {
+      const result = original.apply(this, args);
+      if (pendingV3BStatus) {
+        renderV3BPresentationNow(pendingV3BStatus);
+        queueFrameV3BPresentation();
+      }
+      return result;
+    };
+    wrapped.__NATHAUX_V3B_FINAL_OWNER = true;
+    window.updateMainPanel = wrapped;
+    window.__NATHAUX_V3B_FINAL_OWNER = true;
+    mainPanelWrapperInstalled = true;
+    return true;
   }
 
   function install() {
     applyMonthlyPaperLocalStorageWindow();
     let attempts = 0;
+    let historyReady = false;
+    let mainPanelReady = false;
     const historyTimer = setInterval(() => {
       attempts += 1;
-      if (installHistoryRendererOverride() || attempts > 20) clearInterval(historyTimer);
+      historyReady = historyReady || installHistoryRendererOverride();
+      mainPanelReady = mainPanelReady || installMainPanelFinalOwner();
+      if ((historyReady && mainPanelReady) || attempts > 40) clearInterval(historyTimer);
     }, 250);
   }
 
