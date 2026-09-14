@@ -12,7 +12,7 @@
   let lastV3BStatus = null;
   let applyingV3B = false;
   let historyOverrideInstalled = false;
-  let observerInstalled = false;
+  let mainPanelWrapperInstalled = false;
 
   function newYorkMonthKey(value) {
     const date = value instanceof Date ? value : new Date(value);
@@ -355,17 +355,17 @@
     applyV3BPresentation(lastV3BStatus || {});
   }
 
-  function installV3BObserver() {
-    if (observerInstalled || window.__NATHAUX_V3B_OBSERVER) return true;
-    const target = document.querySelector(".main-trade-card") || document.body;
-    if (!target) return false;
-    const observer = new MutationObserver(() => {
-      if (applyingV3B) return;
-      queueMicrotask(enforceV3BNow);
-    });
-    observer.observe(target, { subtree: true, childList: true, characterData: true });
-    window.__NATHAUX_V3B_OBSERVER = observer;
-    observerInstalled = true;
+  function installMainPanelWrapper() {
+    if (mainPanelWrapperInstalled || window.__NATHAUX_V3B_MAIN_PANEL_WRAPPED) return true;
+    if (typeof window.updateMainPanel !== "function") return false;
+    const original = window.updateMainPanel;
+    window.updateMainPanel = function (...args) {
+      const result = original.apply(this, args);
+      enforceV3BNow();
+      return result;
+    };
+    window.__NATHAUX_V3B_MAIN_PANEL_WRAPPED = true;
+    mainPanelWrapperInstalled = true;
     return true;
   }
 
@@ -390,7 +390,6 @@
     window.__NATHAUX_V3B_UI_MODE = true;
     window.__NATHAUX_APPLY_V3B = enforceV3BNow;
 
-    installV3BObserver();
     enforceV3BNow();
     refreshV3B();
 
@@ -400,9 +399,12 @@
       if (installHistoryRendererOverride() || attempts > 40) clearInterval(historyTimer);
     }, 100);
 
-    // Hard presentation lock: legacy script.js can keep calculating, but it can no longer
-    // leave 15m/V1 values painted inside the V3B card between refreshes.
-    setInterval(enforceV3BNow, 100);
+    let panelAttempts = 0;
+    const panelTimer = setInterval(() => {
+      panelAttempts += 1;
+      if (installMainPanelWrapper() || panelAttempts > 80) clearInterval(panelTimer);
+    }, 100);
+
     setInterval(refreshV3B, 5000);
   }
 
@@ -421,8 +423,6 @@
       applyV3BPresentation: enforceV3BNow
     };
 
-    // This file is loaded at the bottom of app.html after the dashboard DOM already exists.
-    // Install immediately so the following legacy script cannot win the first paint.
     install();
   }
 
