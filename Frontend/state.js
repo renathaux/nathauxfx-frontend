@@ -10,86 +10,41 @@
     healthPage: true,
   };
 
-  // Emergency dashboard safety lock.
-  // The legacy FR/ES translator can stall the live dashboard in Safari.
-  // Force the runtime back to English before script.js reads the persisted language,
-  // and block dashboard language-change events from reaching the legacy handler.
+  // Emergency stability guard: keep the live dashboard on English only.
+  // Do not patch MutationObserver or any render primitive here.
   try {
     localStorage.setItem(LANGUAGE_KEY, "en");
-    sessionStorage.removeItem("flowsignal_safe_language");
     document.documentElement.lang = "en";
   } catch (_error) {}
-
-  // The legacy translator in script.js installs a body-wide MutationObserver even
-  // while the dashboard is staying in English. That observer walks every node added
-  // by live/V3B renders and can fight the other dashboard observers until Safari's
-  // UI thread stops painting. Keep every other MutationObserver intact and suppress
-  // only the translator observer whose callback explicitly calls both translation
-  // helpers. The finite one-time English translation pass is still allowed.
-  if (
-    !window.__NATHAUX_TRANSLATION_OBSERVER_GUARD &&
-    typeof window.MutationObserver === "function"
-  ) {
-    const NativeMutationObserver = window.MutationObserver;
-    const functionToString = Function.prototype.toString;
-
-    function GuardedMutationObserver(callback) {
-      let effectiveCallback = callback;
-
-      try {
-        const source = functionToString.call(callback);
-        if (
-          source.includes("translateUiSubtree") &&
-          source.includes("translateUiAttributes")
-        ) {
-          effectiveCallback = function () {};
-          window.__NATHAUX_LEGACY_TRANSLATION_OBSERVER_BLOCKED = true;
-        }
-      } catch (_error) {}
-
-      return new NativeMutationObserver(effectiveCallback);
-    }
-
-    GuardedMutationObserver.prototype = NativeMutationObserver.prototype;
-    try { Object.setPrototypeOf(GuardedMutationObserver, NativeMutationObserver); } catch (_error) {}
-    window.MutationObserver = GuardedMutationObserver;
-    window.__NATHAUX_TRANSLATION_OBSERVER_GUARD = true;
-  }
 
   function forceEnglishLanguageControls() {
     const appSelect = document.getElementById("langSelect");
     if (appSelect) {
       appSelect.value = "en";
-      appSelect.title = "French/Spanish temporarily disabled while the dashboard translator is being repaired";
+      appSelect.title = "French/Spanish temporarily disabled while language switching is repaired";
     }
     const landingSelect = document.getElementById("landingLang");
     if (landingSelect) {
       landingSelect.value = "EN";
-      landingSelect.title = "French/Spanish temporarily disabled while the dashboard translator is being repaired";
+      landingSelect.title = "French/Spanish temporarily disabled while language switching is repaired";
     }
   }
 
-  function blockUnsafeLanguageChange(event) {
+  function blockLanguageChange(event) {
     const target = event.target;
     if (!(target instanceof HTMLSelectElement)) return;
     if (target.id !== "langSelect" && target.id !== "landingLang") return;
-
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
-
     try {
       localStorage.setItem(LANGUAGE_KEY, "en");
-      sessionStorage.removeItem("flowsignal_safe_language");
       document.documentElement.lang = "en";
     } catch (_error) {}
-
     forceEnglishLanguageControls();
   }
 
-  // Capture phase ensures the old script.js language listener never receives the event.
-  document.addEventListener("change", blockUnsafeLanguageChange, true);
-
+  document.addEventListener("change", blockLanguageChange, true);
   if (document.readyState === "complete") {
     forceEnglishLanguageControls();
   } else {
@@ -157,6 +112,5 @@
     loadFeatureFlags,
     saveFeatureFlags,
     languageLockedToEnglish: true,
-    translationObserverGuard: true,
   };
 })();
