@@ -383,8 +383,14 @@
     const sink = document.createElement(visible.tagName || "span");
     sink.id = originalId;
     sink.hidden = true;
+    sink.setAttribute("hidden", "");
     sink.setAttribute("aria-hidden", "true");
-    sink.style.display = "none";
+    sink.style.setProperty("display", "none", "important");
+    sink.style.setProperty("visibility", "hidden", "important");
+    sink.style.setProperty("position", "absolute", "important");
+    sink.style.setProperty("width", "0", "important");
+    sink.style.setProperty("height", "0", "important");
+    sink.style.setProperty("overflow", "hidden", "important");
     visible.parentNode?.appendChild(sink);
     return visible;
   }
@@ -394,20 +400,19 @@
       claimVisibleElement(legacyId, ownedId);
     }
     const details = document.querySelector("details.entry-strategy-debug");
-    if (details) details.dataset.v3bViewVersion = "6";
+    if (details) details.dataset.v3bViewVersion = "7";
     const plan = document.getElementById("main-smc-plan-intel");
-    if (plan) plan.dataset.v3bPlanVersion = "1";
+    if (plan) plan.dataset.v3bPlanVersion = "2";
   }
 
   function setCheck(id, value) {
     const el = document.getElementById(id);
     if (!el) return;
-    const text = value === true ? "YES" : value === false ? "NO" : "WAIT";
+    const text = value === true ? "YES" : "NO";
     el.textContent = text;
     el.classList.toggle("check-pass", text === "YES");
     el.classList.toggle("check-fail", text === "NO");
-    el.classList.toggle("check-waiting", text === "WAIT");
-    el.classList.remove("check-not-checked");
+    el.classList.remove("check-waiting", "check-not-checked");
   }
 
   function setText(id, text) {
@@ -419,7 +424,7 @@
     for (const value of values) {
       if (value == null || value === "") continue;
       const number = Number(value);
-      if (Number.isFinite(number)) return String(value);
+      if (Number.isFinite(number) && number !== 0) return String(value);
     }
     return "--";
   }
@@ -428,7 +433,7 @@
     for (const value of values) {
       if (value == null || value === "") continue;
       const number = Number(value);
-      if (Number.isFinite(number)) return number;
+      if (Number.isFinite(number) && number !== 0) return number;
     }
     return null;
   }
@@ -460,7 +465,7 @@
 
   function formatPrice(symbol, value) {
     const number = Number(value);
-    if (!Number.isFinite(number)) return "--";
+    if (!Number.isFinite(number) || number === 0) return "--";
     return String(symbol || "").includes("XAU") ? number.toFixed(2) : number.toFixed(5);
   }
 
@@ -586,11 +591,11 @@
       if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
     }
 
-    setCheck("v3b-strategy-debug-smc", effectiveCurrentEvent ? f.hasBos : null);
-    setCheck("v3b-strategy-debug-swing-break", effectiveCurrentEvent ? f.bodyPass : null);
-    setCheck("v3b-strategy-debug-15m-close", effectiveCurrentEvent ? f.secondSame : null);
-    setCheck("v3b-strategy-debug-5m-confirm", effectiveCurrentEvent ? f.beyond : null);
-    setCheck("v3b-strategy-debug-swing-sl", effectiveCurrentEvent ? f.swingSl : null);
+    setCheck("v3b-strategy-debug-smc", effectiveCurrentEvent ? f.hasBos : false);
+    setCheck("v3b-strategy-debug-swing-break", effectiveCurrentEvent ? f.bodyPass : false);
+    setCheck("v3b-strategy-debug-15m-close", effectiveCurrentEvent ? f.secondSame : false);
+    setCheck("v3b-strategy-debug-5m-confirm", effectiveCurrentEvent ? f.beyond : false);
+    setCheck("v3b-strategy-debug-swing-sl", effectiveCurrentEvent ? f.swingSl : false);
     setText("v3b-strategy-debug-decision", effectiveCurrentEvent ? f.signal : "WAIT");
     setText("v3b-strategy-debug-block-reason", f.reason);
 
