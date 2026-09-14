@@ -136,15 +136,12 @@
     if (el && el.textContent !== text) el.textContent = text;
   }
 
-  function setRuntimeLanguage(lang) {
+  function pinLegacyLanguageEngineToEnglish() {
     try {
-      // currentLang is declared by the later classic script.js. This function is only
-      // called after that script has initialized (or from a user change after load).
-      currentLang = lang;
-    } catch (_error) {
-      // Keep a harmless mirror for diagnostics if the legacy binding is unavailable.
-      window.__NATHAUX_SAFE_LANGUAGE = lang;
-    }
+      // Keep the old whole-page translator on its proven-stable EN path. The user-facing
+      // preference is rendered separately below without walking the complete live DOM.
+      currentLang = "en";
+    } catch (_error) {}
   }
 
   function applySafeLanguage(value) {
@@ -154,7 +151,8 @@
     sessionStorage.setItem(SAFE_LANGUAGE_KEY, lang);
     localStorage.setItem(LANGUAGE_KEY, lang);
     document.documentElement.lang = lang;
-    setRuntimeLanguage(lang);
+    window.__NATHAUX_SAFE_LANGUAGE = lang;
+    pinLegacyLanguageEngineToEnglish();
 
     const appSelect = document.getElementById("langSelect");
     if (appSelect && appSelect.value !== lang) appSelect.value = lang;
@@ -233,6 +231,15 @@
   } else {
     window.addEventListener("load", restoreRequestedLanguage, { once: true });
   }
+
+  // Live data refreshes can replace a few labels. Re-apply only this small selector set;
+  // never run the legacy full-body translation observer.
+  setInterval(() => {
+    const desired = normalizeLanguage(
+      sessionStorage.getItem(SAFE_LANGUAGE_KEY) || requestedLanguage
+    );
+    if (desired !== "en") applySafeLanguage(desired);
+  }, 1000);
 
   function loadFeatureFlags() {
     try {
