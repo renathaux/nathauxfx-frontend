@@ -247,7 +247,13 @@
       liveDetails.event_state,
       liveDetails.state
     );
-    const currentEvent = Boolean(candidate && eventId && !isInactiveV3BState(lifecycleState) && !isInactiveV3BState(v3bReason));
+    const currentEvent = Boolean(
+      candidate
+      && eventId
+      && !isInactiveV3BState(lifecycleState)
+      && !isInactiveV3BState(v3bReason)
+      && !isInactiveV3BState(genericReason)
+    );
 
     if (!currentEvent) {
       return {
