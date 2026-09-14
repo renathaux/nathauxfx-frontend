@@ -46,6 +46,24 @@ const LANG = {
     back: "Back",
     login: "Login",
     unlock: "Unlock",
+    settings: "Settings",
+    general: "General",
+    riskManagement: "Risk Management",
+    brokerAccounts: "Broker Accounts",
+    notifications: "Notifications",
+    strategy: "Strategy",
+    logout: "Logout",
+    dailyPnl: "DAILY P/L",
+    weeklyPnl: "WEEKLY P/L",
+    monthlyPnl: "MONTHLY P/L",
+    floatingPnl: "LIVE P/L (FLOATING)",
+    openTrades: "OPEN TRADES",
+    blockReason: "Block Reason",
+    entryChecks: "ENTRY STRATEGY CHECKS",
+    dashboard: "Dashboard",
+    markets: "Markets",
+    trades: "Trades",
+    menu: "Menu",
 
     // Top controls
     alerts: "Alerts",
@@ -177,6 +195,24 @@ const LANG = {
     back: "Retour",
     login: "Connexion",
     unlock: "Déverrouiller",
+    settings: "Paramètres",
+    general: "Général",
+    riskManagement: "Gestion du risque",
+    brokerAccounts: "Comptes de courtier",
+    notifications: "Notifications",
+    strategy: "Stratégie",
+    logout: "Déconnexion",
+    dailyPnl: "P/L DU JOUR",
+    weeklyPnl: "P/L HEBDOMADAIRE",
+    monthlyPnl: "P/L MENSUEL",
+    floatingPnl: "P/L RÉEL (FLOTTANT)",
+    openTrades: "TRADES OUVERTS",
+    blockReason: "Raison du blocage",
+    entryChecks: "CONTRÔLES DE STRATÉGIE D’ENTRÉE",
+    dashboard: "Tableau de bord",
+    markets: "Marchés",
+    trades: "Trades",
+    menu: "Menu",
 
     // Top controls
     alerts: "Alertes",
@@ -308,6 +344,24 @@ const LANG = {
     back: "Atrás",
     login: "Iniciar sesión",
     unlock: "Desbloquear",
+    settings: "Configuración",
+    general: "General",
+    riskManagement: "Gestión de riesgo",
+    brokerAccounts: "Cuentas del bróker",
+    notifications: "Notificaciones",
+    strategy: "Estrategia",
+    logout: "Cerrar sesión",
+    dailyPnl: "P/G DIARIO",
+    weeklyPnl: "P/G SEMANAL",
+    monthlyPnl: "P/G MENSUAL",
+    floatingPnl: "P/G REAL (FLOTANTE)",
+    openTrades: "OPERACIONES ABIERTAS",
+    blockReason: "Motivo del bloqueo",
+    entryChecks: "COMPROBACIONES DE ESTRATEGIA DE ENTRADA",
+    dashboard: "Panel",
+    markets: "Mercados",
+    trades: "Operaciones",
+    menu: "Menú",
 
     // Top controls
     alerts: "Alertas",
@@ -792,10 +846,6 @@ const FULL_UI_TRANSLATIONS = Object.fromEntries([
   ["More Creative", "Plus créatif", "Más creativo"],
 ].map(([en, fr, es]) => [en, { en, fr, es }]));
 
-const fullUiTextSources = new WeakMap();
-const fullUiAttributeSources = new WeakMap();
-let fullUiTranslationObserver = null;
-
 function translateDynamicUiText(source, lang) {
   const direct = FULL_UI_TRANSLATIONS[source];
   if (direct) return direct[lang] || direct.en;
@@ -881,88 +931,19 @@ function isTranslatableUiText(text) {
   ].some((pattern) => pattern.test(text));
 }
 
-function translateUiTextNode(node, lang) {
-  if (!node || !node.parentElement || ["SCRIPT", "STYLE"].includes(node.parentElement.tagName)) return;
-  const raw = node.nodeValue || "";
-  const trimmed = raw.trim();
-  let source = fullUiTextSources.get(node);
-  if (!source) {
-    if (!trimmed || !isTranslatableUiText(trimmed)) return;
-    source = trimmed;
-    fullUiTextSources.set(node, source);
-  }
-  const translated = translateDynamicUiText(source, lang);
-  const leading = raw.match(/^\s*/)?.[0] || "";
-  const trailing = raw.match(/\s*$/)?.[0] || "";
-  const nextValue = `${leading}${translated}${trailing}`;
-  if (node.nodeValue !== nextValue) node.nodeValue = nextValue;
-}
-
-function translateUiSubtree(root, lang) {
-  if (!root) return;
-  if (root.nodeType === Node.TEXT_NODE) {
-    translateUiTextNode(root, lang);
-    return;
-  }
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let node = walker.nextNode();
-  while (node) {
-    translateUiTextNode(node, lang);
-    node = walker.nextNode();
-  }
-}
-
-function translateUiAttributes(lang, root = document) {
-  const selector = "input[placeholder], textarea[placeholder], [title], [aria-label]";
-  const elements = [];
-  if (root?.nodeType === Node.ELEMENT_NODE && root.matches?.(selector)) {
-    elements.push(root);
-  }
-  root?.querySelectorAll?.(selector).forEach((element) => elements.push(element));
-  elements.forEach((element) => {
-    let sources = fullUiAttributeSources.get(element);
-    if (!sources) {
-      sources = {};
-      ["placeholder", "title", "aria-label"].forEach((attribute) => {
-        const value = element.getAttribute(attribute)?.trim();
-        if (value && isTranslatableUiText(value)) sources[attribute] = value;
-      });
-      fullUiAttributeSources.set(element, sources);
-    }
-    Object.entries(sources).forEach(([attribute, source]) => {
-      element.setAttribute(attribute, translateDynamicUiText(source, lang));
-    });
-  });
-}
-
-function translateFullInterface(lang) {
-  const safeLang = ["en", "fr", "es"].includes(lang) ? lang : "en";
-  document.documentElement.lang = safeLang;
-  translateUiSubtree(document.body, safeLang);
-  translateUiAttributes(safeLang);
-  if (!fullUiTranslationObserver && document.body) {
-    fullUiTranslationObserver = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          translateUiSubtree(node, currentLang);
-          translateUiAttributes(currentLang, node);
-        });
-      });
-    });
-    fullUiTranslationObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-  }
-}
-
 function tTradeAction(signal) {
   const side = String(signal || "").trim().toUpperCase();
   if (side === "BUY" || side === "SELL") return side;
   return side;
 }
 
-let currentLang = localStorage.getItem("flowsignal_lang") || "en";
+const LANGUAGE_STORAGE_KEY = "nathauxfx_language";
+const SUPPORTED_LANGUAGES = new Set(["en", "fr", "es"]);
+function validatedLanguage(value) {
+  const normalized = String(value || "").toLowerCase();
+  return SUPPORTED_LANGUAGES.has(normalized) ? normalized : "en";
+}
+let currentLang = validatedLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY));
 const TRADE_URL = `${BASE_URL}/execute-trade`;
 
 const statusEl = document.getElementById("status");
@@ -1045,7 +1026,7 @@ if (landingLang) {
   landingLang.addEventListener("change", () => {
     const lang = landingLang.value.toLowerCase();
 
-    localStorage.setItem("flowsignal_lang", lang);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, validatedLanguage(lang));
 
     applyLanguage(lang);
     updateAssistantLanguageUI();
@@ -4735,233 +4716,32 @@ function setAuthMessage(text, isError = false) {
 // HELPERS
 // ==============================
 
+function t(key, lang = currentLang) {
+  const safeLang = validatedLanguage(lang);
+  return LANG[safeLang]?.[key] ?? LANG.en?.[key] ?? key;
+}
+
 function applyLanguage(lang) {
-  currentLang = lang;
-// ==============================
-// LANDING PAGE TRANSLATION
-// ==============================
+  const safeLang = validatedLanguage(lang);
+  currentLang = safeLang;
+  document.documentElement.lang = safeLang;
 
-// HERO TITLE
-const heroTitle = document.querySelector(".hero-left h1");
-if (heroTitle) {
-  heroTitle.innerHTML = `
-    ${LANG[lang].heroTitle1}<br>
-    <span>${LANG[lang].heroTitle2}</span>
-  `;
-}
-
-// HERO TEXT
-const heroText = document.querySelector(".hero-left p");
-if (heroText) {
-  heroText.textContent = LANG[lang].heroText;
-}
-
-// HERO LINE (pill)
-const heroPill = document.querySelector(".hero-pill");
-if (heroPill) {
-  heroPill.innerHTML = `
-    <span>${LANG[lang].liveHero}</span>
-    ${LANG[lang].heroLine}
-  `;
-}
-
-// BUTTONS
-const startBtn = document.getElementById("openAccessBtnHero");
-
-if (startBtn) {
-  startBtn.textContent =
-    window.innerWidth <= 700
-      ? "Get Access →"
-      : LANG[lang].startTrading;
-}
-const getBtn = document.getElementById("openAccessBtn");
-if (getBtn) getBtn.textContent = LANG[lang].getStarted;
-
-const viewBtn = document.querySelector(".hero-secondary");
-if (viewBtn) viewBtn.textContent = LANG[lang].viewFeatures;
-
-// BADGES
-const badges = document.querySelectorAll(".hero-badges span");
-if (badges[0]) badges[0].textContent = LANG[lang].realTimeAlerts;
-if (badges[1]) badges[1].textContent = LANG[lang].highAccuracy;
-if (badges[2]) badges[2].textContent = LANG[lang].riskManaged;
-
-// STATS
-const stats = document.querySelectorAll(".hero-stats span");
-if (stats[0]) stats[0].textContent = LANG[lang].activeTraders;
-if (stats[1]) stats[1].textContent = LANG[lang].signalAccuracy;
-
-// TRUST TEXT
-const trusted = document.querySelector(".trusted-text");
-if (trusted) trusted.textContent = LANG[lang].trustedText;
-// ==============================
-// TOP NAV LINKS (ADD HERE)
-// ==============================
-
-const linkContact = document.getElementById("linkContact");
-const linkSupport = document.getElementById("linkSupport");
-const linkFacebook = document.getElementById("linkFacebook");
-const loginBtn = document.getElementById("openAdminLoginBtn");
-
-if (linkContact) linkContact.textContent = lang === "fr" ? "Contact" : lang === "es" ? "Contacto" : "Contact";
-if (linkSupport) linkSupport.textContent = lang === "fr" ? "Support" : lang === "es" ? "Soporte" : "Support";
-if (linkFacebook) linkFacebook.textContent = lang === "fr" ? "Facebook" : lang === "es" ? "Facebook" : "Facebook";
-if (loginBtn) loginBtn.textContent = LANG[lang].login;
-// ==============================
-// EXTRA TRANSLATIONS - STATIC UI
-// ==============================
-
-// Top status
-document.querySelectorAll("#status, .main-live").forEach((el) => {
-  if (!el) return;
-
-  el.textContent = el.textContent
-    .replace("MARKET CLOSED", LANG[lang].marketClosed)
-    .replace("LIVE", LANG[lang].live);
-});
-
-// Card tags
-document.querySelectorAll(".glow-tag").forEach((el) => {
-  const text = el.textContent.trim().toUpperCase();
-
-  if (text === "MARKET CLOSED") el.textContent = LANG[lang].marketClosed;
-  if (text === "WEAK") el.textContent = LANG[lang].weak;
-  if (text === "NEUTRAL") el.textContent = LANG[lang].neutral;
-  if (text === "MIXED") el.textContent = LANG[lang].mixed;
-  if (text === "CHOPPY") el.textContent = LANG[lang].choppy;
-});
-
-// Main metrics
-const mainMetricLabels = document.querySelectorAll(".main-metrics span");
-if (mainMetricLabels[0]) mainMetricLabels[0].textContent = LANG[lang].buy;
-if (mainMetricLabels[1]) mainMetricLabels[1].textContent = LANG[lang].sell;
-if (mainMetricLabels[2]) mainMetricLabels[2].textContent = LANG[lang].confidence;
-mainMetricLabels.forEach((label) => {
-  label.title = LANG[lang].biasOnlyNote;
-});
-const biasOnlyNote = document.querySelector(".bias-only-note");
-if (biasOnlyNote) biasOnlyNote.textContent = LANG[lang].biasOnlyNote;
-
-// SMC plan title
-const smcHeader = document.querySelector(".smc-header");
-if (smcHeader) smcHeader.textContent = `⚡ ${LANG[lang].smcPlan}`;
-
-// SMC rows
-const smcRows = document.querySelectorAll(".main-smc-panel .smc-row span:first-child");
-if (smcRows[0]) smcRows[0].textContent = LANG[lang].type;
-if (smcRows[1]) smcRows[1].textContent = LANG[lang].bias;
-if (smcRows[2]) smcRows[2].textContent = LANG[lang].entry;
-if (smcRows[3]) smcRows[3].textContent = LANG[lang].sl;
-if (smcRows[4]) smcRows[4].textContent = LANG[lang].tp1;
-if (smcRows[5]) smcRows[5].textContent = LANG[lang].tp2;
-if (smcRows[6]) smcRows[6].textContent = LANG[lang].riskReward;
-if (smcRows[7]) smcRows[7].textContent = LANG[lang].invalidation;
-if (smcRows[8]) smcRows[8].textContent = LANG[lang].reason;
-
-if (fundamentalInsightPollingActive()) {
-  refreshNewsImpact(
-    typeof currentChartSymbol !== "undefined" ? currentChartSymbol : "EURUSD"
-  );
-}
-
-// History empty row
-const noHistoryCell = document.querySelector("#historyBody td");
-if (noHistoryCell) noHistoryCell.textContent = LANG[lang].noHistory;
-
-// Bottom last signal
-const mainLastSignal = document.getElementById("main-last-signal");
-if (mainLastSignal) {
-  const rawSignal = mainLastSignal.textContent.split(":")[1]?.trim() || "WAIT";
-  const translatedSignal =
-    rawSignal === "WAIT" ? LANG[lang].wait :
-    rawSignal === "BUY" ? LANG[lang].buy.toUpperCase() :
-    rawSignal === "SELL" ? LANG[lang].sell.toUpperCase() :
-    rawSignal;
-
-  mainLastSignal.textContent = `${LANG[lang].lastSignal}: ${translatedSignal}`;
-}
-
-  // Feedback modal
-  const feedbackTitle = document.querySelector("#feedbackModal .trade-modal-title");
-  const feedbackText = document.getElementById("feedbackHelpText");
-  const feedbackInput = document.getElementById("feedbackInput");
-  const feedbackSendBtn = document.getElementById("feedbackSendBtn");
-  const feedbackCancelBtn = document.getElementById("feedbackCancelBtn");
-  const feedbackToast = document.getElementById("feedbackToast");
-
-  if (feedbackTitle) feedbackTitle.textContent = LANG[lang].feedbackTitle;
-  if (feedbackText) feedbackText.textContent = LANG[lang].feedbackText;
-  if (feedbackInput) feedbackInput.placeholder = LANG[lang].feedbackPlaceholder;
-  if (feedbackSendBtn) feedbackSendBtn.textContent = LANG[lang].send;
-  if (feedbackCancelBtn) feedbackCancelBtn.textContent = LANG[lang].cancel;
-  if (feedbackToast) feedbackToast.textContent = LANG[lang].thanks;
-
-  // History
-  const historyTitle = document.querySelector(".history-header h2");
-  if (historyTitle) historyTitle.textContent = LANG[lang].history;
-
-  const emptyRow = document.querySelector("#historyBody td");
-  if (emptyRow) emptyRow.textContent = LANG[lang].noHistory;
-
-  // BUY / SELL buttons
-  document.querySelectorAll(".buy-button").forEach((btn) => {
-    btn.textContent = LANG[lang].buy;
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    const key = element.dataset.i18n;
+    if (key) element.textContent = t(key, safeLang);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    const key = element.dataset.i18nPlaceholder;
+    if (key) element.setAttribute("placeholder", t(key, safeLang));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+    const key = element.dataset.i18nTitle;
+    if (key) element.setAttribute("title", t(key, safeLang));
   });
 
-  document.querySelectorAll(".sell-button").forEach((btn) => {
-    btn.textContent = LANG[lang].sell;
-  });
-
-  // WAIT text
-  document.querySelectorAll("#eurusd-signal, #gold-signal").forEach((el) => {
-    const current = el.textContent.trim().toUpperCase();
-
-    // Top controls
-    const alertsLabel = document.querySelector('label[for="alertsToggle"], .switch-wrap span');
-    const switchSpans = document.querySelectorAll(".switch-wrap span");
-    if (switchSpans[0]) switchSpans[0].textContent = LANG[lang].alerts;
-    if (switchSpans[1]) switchSpans[1].textContent = LANG[lang].strong;
-
-    // Menu items
-    const menuFeedbackText = document.querySelector("#menuFeedbackBtn .menu-row-text");
-    const menuAdminText = document.querySelector("#menuAdminBtn .menu-row-text");
-    const menuViewText = document.querySelector("#menuViewBtn .menu-row-text");
-
-    if (menuFeedbackText) menuFeedbackText.textContent = LANG[lang].feedback;
-    if (menuAdminText) menuAdminText.textContent = LANG[lang].adminLock;
-    if (menuViewText) menuViewText.textContent = LANG[lang].fitFullMode;
-
-    // History table headers
-    const historyHeaders = document.querySelectorAll(".history-table thead th");
-    if (historyHeaders[0]) historyHeaders[0].textContent = LANG[lang].time;
-    if (historyHeaders[1]) historyHeaders[1].textContent = LANG[lang].symbol;
-    if (historyHeaders[2]) historyHeaders[2].textContent = LANG[lang].signal;
-    if (historyHeaders[3]) historyHeaders[3].textContent = LANG[lang].confidence;
-    if (historyHeaders[4]) historyHeaders[4].textContent = LANG[lang].result;
-    if (historyHeaders[5]) historyHeaders[5].textContent = LANG[lang].pips;
-
-    if (
-      current === "WAIT" ||
-      current === "ATTENTE" ||
-      current === "ESPERA"
-    ) {
-      el.textContent = LANG[lang].wait;
-    }
-  });
-
-  if (statusEl?.dataset.connectionState) {
-    setConnectionBadge(
-      statusEl.dataset.connectionState,
-      statusEl.dataset.fullStatus || ""
-    );
-  }
-  translateFullInterface(lang);
-  if (confirmedStrategySettings) syncStrategySettingsPresentation();
-  if (strategyFixedRules) renderFixedStrategyRules(strategyFixedRules);
-  if (strategyHistoryItems.length) renderStrategySettingsHistory();
+  if (langSelect) langSelect.value = safeLang;
+  if (landingLang) landingLang.value = safeLang.toUpperCase();
 }
-
-
 
 function clampPct(value) {
   const num = parseInt(value, 10);
@@ -14600,7 +14380,7 @@ if (langSelect) {
 
   langSelect.addEventListener("change", (e) => {
     currentLang = e.target.value;
-    localStorage.setItem("flowsignal_lang", currentLang);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLang);
 
     applyLanguage(currentLang);
     updateAssistantLanguageUI();
@@ -14610,11 +14390,6 @@ if (langSelect) {
       "LANGUAGE"
     );
 
-    if (latestPanelData) {
-      updateCard("EURUSD", latestPanelData.EURUSD);
-      updateCard("XAUUSD", latestPanelData.XAUUSD);
-      updateMainPanel(currentChartSymbol);
-    }
   });
 }
 

@@ -1,6 +1,5 @@
 (function () {
   const FEATURE_FLAGS_KEY = "flowsignal_feature_flags";
-  const LANGUAGE_KEY = "flowsignal_lang";
   const DEFAULT_FLAGS = {
     brokerAccounts: true,
     liveTrading: true,
@@ -9,47 +8,6 @@
     settings: true,
     healthPage: true,
   };
-
-  // Emergency stability guard: keep the live dashboard on English only.
-  // Do not patch MutationObserver or any render primitive here.
-  try {
-    localStorage.setItem(LANGUAGE_KEY, "en");
-    document.documentElement.lang = "en";
-  } catch (_error) {}
-
-  function forceEnglishLanguageControls() {
-    const appSelect = document.getElementById("langSelect");
-    if (appSelect) {
-      appSelect.value = "en";
-      appSelect.title = "French/Spanish temporarily disabled while language switching is repaired";
-    }
-    const landingSelect = document.getElementById("landingLang");
-    if (landingSelect) {
-      landingSelect.value = "EN";
-      landingSelect.title = "French/Spanish temporarily disabled while language switching is repaired";
-    }
-  }
-
-  function blockLanguageChange(event) {
-    const target = event.target;
-    if (!(target instanceof HTMLSelectElement)) return;
-    if (target.id !== "langSelect" && target.id !== "landingLang") return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-    try {
-      localStorage.setItem(LANGUAGE_KEY, "en");
-      document.documentElement.lang = "en";
-    } catch (_error) {}
-    forceEnglishLanguageControls();
-  }
-
-  document.addEventListener("change", blockLanguageChange, true);
-  if (document.readyState === "complete") {
-    forceEnglishLanguageControls();
-  } else {
-    window.addEventListener("load", forceEnglishLanguageControls, { once: true });
-  }
 
   function loadFeatureFlags() {
     try {
@@ -111,6 +69,6 @@
   window.FlowSignalState = {
     loadFeatureFlags,
     saveFeatureFlags,
-    languageLockedToEnglish: true,
+    languageLockedToEnglish: false,
   };
 })();
