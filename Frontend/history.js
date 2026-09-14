@@ -10,6 +10,7 @@
   const OPEN_STATUSES = new Set(["OPEN", "RUNNING", "CLOSING"]);
   let lastV3BStatus = null;
   let applyingV3B = false;
+  let mainPanelWrapperInstalled = false;
 
   function newYorkMonthKey(value) {
     const date = value instanceof Date ? value : new Date(value);
@@ -342,13 +343,27 @@
       }
 
       // Never show a legacy V1 WAIT reason in V3B plan value fields.
-      for (const id of ["main-tp2", "main-risk-reward"]) {
+      for (const id of ["main-tp2", "main-rr"]) {
         const el = document.getElementById(id);
         if (el && /^WAIT_(?!V3B)/i.test(String(el.textContent || "").trim())) el.textContent = "--";
       }
     } finally {
       applyingV3B = false;
     }
+  }
+
+  function installMainPanelWrapper() {
+    if (mainPanelWrapperInstalled || window.__NATHAUX_V3B_MAIN_PANEL_WRAPPED) return true;
+    if (typeof window.updateMainPanel !== "function") return false;
+    const original = window.updateMainPanel;
+    window.updateMainPanel = function (...args) {
+      const result = original.apply(this, args);
+      applyV3BPresentation(lastV3BStatus || {});
+      return result;
+    };
+    window.__NATHAUX_V3B_MAIN_PANEL_WRAPPED = true;
+    mainPanelWrapperInstalled = true;
+    return true;
   }
 
   async function refreshV3B() {
@@ -386,6 +401,14 @@
       attempts += 1;
       if (installHistoryRendererOverride() || attempts > 20) clearInterval(historyTimer);
     }, 250);
+
+    if (!installMainPanelWrapper()) {
+      let panelAttempts = 0;
+      const panelTimer = setInterval(() => {
+        panelAttempts += 1;
+        if (installMainPanelWrapper() || panelAttempts > 40) clearInterval(panelTimer);
+      }, 50);
+    }
 
     refreshV3B();
     setTimeout(installV3BObserver, 500);
