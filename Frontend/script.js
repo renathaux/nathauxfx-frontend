@@ -7346,7 +7346,9 @@ if (priceEl) {
   document.getElementById("main-entry-price").textContent = mainExecutedSnapshot?.entry ?? data.entry_price ?? "--";
   document.getElementById("main-sl").textContent = mainExecutedSnapshot?.sl ?? data.stop_loss ?? "--";
   document.getElementById("main-tp1").textContent = mainExecutedSnapshot?.tp1 ?? data.tp1 ?? "--";
-  document.getElementById("main-tp2").textContent = mainExecutedSnapshot?.tp2 ?? data.tp2 ?? "--";
+  const rawTp2 = mainExecutedSnapshot?.tp2 ?? data.tp2;
+  const numericTp2 = numericValue(rawTp2);
+  document.getElementById("main-tp2").textContent = numericTp2 === null ? "--" : String(rawTp2);
   const rawRiskReward = String(data.risk_reward || "").trim();
   const riskRewardLooksValid =
     rawRiskReward &&
@@ -7466,6 +7468,11 @@ if (priceEl) {
       signal === "BUY" || signal === "SELL" ? "--" : blockReason;
     strategyBlockReason.title = strategyBlockReason.textContent;
   }
+
+  // Render V3B presentation from this same canonical per-symbol snapshot.
+  // The presentation layer only displays backend facts; it does not poll,
+  // observe the DOM, or calculate an independent trading decision.
+  window.FlowSignalHistory?.renderV3BPresentation?.(data);
 
   const showSignalBlocker =
     signal === "WAIT" &&

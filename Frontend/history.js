@@ -5,12 +5,8 @@
   const LEGACY_WEEKLY_RESET_KEY = "paper_reset_time";
   const TIME_ZONE = "America/New_York";
   const TORONTO_TIME_ZONE = "America/Toronto";
-  const BACKEND_URL = "https://flowsignal-backend-3.onrender.com";
   const OPEN_RESULTS = new Set(["RUNNING", "TP1 HIT"]);
   const OPEN_STATUSES = new Set(["OPEN", "RUNNING", "CLOSING"]);
-  let lastV3BStatus = null;
-  let applyingV3B = false;
-  let mainPanelWrapperInstalled = false;
 
   function newYorkMonthKey(value) {
     const date = value instanceof Date ? value : new Date(value);
@@ -184,105 +180,239 @@
     return true;
   }
 
-  function extractCurrentChartSymbol() {
-    const explicit = String(window.currentChartSymbol || "").toUpperCase().replace("/", "");
-    if (["EURUSD", "XAUUSD"].includes(explicit)) return explicit;
-    const selected = document.querySelector("[data-symbol].active, .symbol-tab.active, .pair-tab.active");
-    const text = String(selected?.dataset?.symbol || selected?.textContent || "")
-      .toUpperCase().replace(/[^A-Z]/g, "");
-    return text.includes("XAUUSD") ? "XAUUSD" : "EURUSD";
+  function asObject(value) {
+    return value && typeof value === "object" ? value : null;
   }
 
-  function isV3BObject(value) {
-    if (!value || typeof value !== "object") return false;
-    const model = String(
-      value.live_strategy_model || value.paper_entry_model || value.strategy_model || value.model || ""
-    ).toUpperCase();
-    const reason = String(
-      value.live_v3b_reason || value.paper_entry_reason || value.reason || value.block_reason || ""
-    ).toUpperCase();
-    return model.includes("V3B") || reason.includes("WAIT_V3B");
-  }
-
-  function findV3BStatus(root, symbol) {
-    const wanted = String(symbol || "").toUpperCase().replace("/", "");
-    const queue = [root];
-    const seen = new Set();
-    let fallback = null;
-    while (queue.length && seen.size < 2500) {
-      const value = queue.shift();
-      if (!value || typeof value !== "object" || seen.has(value)) continue;
-      seen.add(value);
-      if (isV3BObject(value)) {
-        const valueSymbol = String(value.symbol || value.pair || "").toUpperCase().replace("/", "");
-        if (!valueSymbol || valueSymbol === wanted) return value;
-        if (!fallback) fallback = value;
-      }
-      for (const child of Object.values(value)) {
-        if (child && typeof child === "object") queue.push(child);
-      }
+  function firstText(...values) {
+    for (const value of values) {
+      if (value == null) continue;
+      const text = String(value).trim();
+      if (text) return text;
     }
-    return fallback;
+    return "";
+  }
+
+  function isInactiveV3BState(value) {
+    return /(?:EXPIRED|INVALIDATED|CONSUMED|INACTIVE|CANCELLED|CANCELED)/i.test(String(value || ""));
+  }
+
+  function currentV3BEventId(candidate, liveDetails) {
+    return firstText(
+      candidate?.source_indicator_event_id,
+      candidate?.indicator_event_id,
+      candidate?.source_event_id,
+      candidate?.event_id,
+      candidate?.stable_event_id,
+      candidate?.m5_bos_id,
+      candidate?.five_m_bos_id,
+      liveDetails?.source_indicator_event_id,
+      liveDetails?.indicator_event_id,
+      liveDetails?.event_id,
+      liveDetails?.stable_event_id,
+      liveDetails?.m5_bos_id,
+      liveDetails?.five_m_bos_id
+    );
+  }
+
+  function strategyDebugSnapshot(status) {
+    return {
+      ...(asObject(status?.signal_diagnostics) || {}),
+      ...(asObject(status?.entry_strategy_debug) || {}),
+      ...(asObject(status?.strategy_debug) || {})
+    };
   }
 
   function v3bFacts(status) {
-    const liveDetails = status?.live_v3b_details || {};
-    const candidate = liveDetails.source_candidate || status?.source_candidate || status?.candidate || status || {};
-    const details = candidate.paper_entry_details || status?.paper_entry_details || liveDetails || {};
-    const reason = String(
-      status?.live_v3b_reason || status?.reason || candidate.paper_entry_reason ||
-      status?.paper_entry_reason || candidate.block_reason || "WAIT_V3B_PAPER_5M_BOS"
+    const liveDetails = asObject(status?.live_v3b_details) || {};
+    const strategyDebug = strategyDebugSnapshot(status);
+    const explicitV3BReason = firstText(
+      status?.live_v3b_reason,
+      liveDetails.live_v3b_reason,
+      liveDetails.reason,
+      liveDetails.block_reason
     );
-    const reasonUpper = reason.toUpperCase();
-    const hasBos = Boolean(
-      candidate.source_indicator_event_id || details.source_indicator_event_id ||
-      candidate.five_m_bos_level || candidate.five_m_break_time ||
-      (reasonUpper.includes("WAIT_V3B") && !reasonUpper.includes("5M_BOS"))
+    const model = firstText(
+      status?.live_strategy_model,
+      status?.strategy_model,
+      liveDetails?.strategy_execution_profile,
+      liveDetails?.paper_entry_model
+    ).toUpperCase();
+
+    let candidate = asObject(liveDetails.source_candidate) || asObject(liveDetails.candidate);
+    if (!candidate && explicitV3BReason && model.includes("V3B")) {
+      candidate = asObject(status?.source_candidate) || asObject(status?.candidate);
+    }
+
+    const candidateReason = firstText(candidate?.paper_entry_reason, candidate?.live_v3b_reason, candidate?.block_reason);
+    const v3bReason = explicitV3BReason || (/^(?:WAIT_)?V3B(?:_|$)/i.test(candidateReason) ? candidateReason : "");
+    const genericReason = firstText(
+      strategyDebug.blocked_reason,
+      strategyDebug.block_reason,
+      strategyDebug.reason,
+      strategyDebug.reason_if_wait,
+      strategyDebug.rejection_reason,
+      status?.blocked_reason,
+      status?.block_reason,
+      status?.reason,
+      status?.plan_reason,
+      "--"
     );
+    const reason = v3bReason || genericReason || "--";
+
+    const eventId = currentV3BEventId(candidate, liveDetails);
+    const lifecycleState = firstText(
+      candidate?.lifecycle_state,
+      candidate?.event_state,
+      candidate?.state,
+      liveDetails.lifecycle_state,
+      liveDetails.event_state,
+      liveDetails.state,
+      strategyDebug.lifecycle_state,
+      strategyDebug.event_state,
+      strategyDebug.state
+    );
+    const currentEvent = Boolean(
+      candidate
+      && eventId
+      && !isInactiveV3BState(lifecycleState)
+      && !isInactiveV3BState(v3bReason)
+      && !isInactiveV3BState(genericReason)
+    );
+
+    if (!currentEvent) {
+      return {
+        candidate: {},
+        liveDetails,
+        reason,
+        v3bReason,
+        genericReason,
+        eventId: "",
+        currentEvent: false,
+        hasBos: null,
+        bodyPass: null,
+        secondSame: null,
+        beyond: null,
+        swingSl: null,
+        signal: "WAIT"
+      };
+    }
+
+    const details = asObject(candidate.paper_entry_details)
+      || asObject(liveDetails.paper_entry_details)
+      || {};
+    const explicitBos = details.five_m_bos_detected
+      ?? candidate.five_m_bos_detected
+      ?? details.bos_detected
+      ?? candidate.bos_detected;
+    const hasBos = typeof explicitBos === "boolean"
+      ? explicitBos
+      : (candidate.five_m_bos_level != null || candidate.five_m_break_time != null || candidate.bos_level != null)
+        ? true
+        : null;
     const bodyRatio = Number(details.bos_body_ratio ?? candidate.bos_body_ratio);
     const bodyMin = Number(details.minimum_bos_body_ratio ?? candidate.minimum_bos_body_ratio ?? 0.5);
     const bodyPass = Number.isFinite(bodyRatio) ? bodyRatio >= bodyMin : null;
     const secondSame = typeof details.second_5m_same_direction === "boolean"
       ? details.second_5m_same_direction
-      : null;
+      : typeof candidate.second_5m_same_direction === "boolean"
+        ? candidate.second_5m_same_direction
+        : null;
     const beyond = typeof details.second_5m_stays_beyond_bos_level === "boolean"
       ? details.second_5m_stays_beyond_bos_level
-      : null;
-    const swingSl = candidate.stop_loss != null || candidate.sl != null || candidate.paper_entry_ready === true
-      ? true
-      : null;
-    return { candidate, reason, hasBos, bodyPass, secondSame, beyond, swingSl };
+      : typeof candidate.second_5m_stays_beyond_bos_level === "boolean"
+        ? candidate.second_5m_stays_beyond_bos_level
+        : null;
+    const explicitSwingSl = details.swing_sl_valid
+      ?? candidate.swing_sl_valid
+      ?? details.swing_sl_found
+      ?? candidate.swing_sl_found;
+    const swingSl = typeof explicitSwingSl === "boolean"
+      ? explicitSwingSl
+      : candidate.stop_loss != null || candidate.sl != null || candidate.paper_entry_ready === true
+        ? true
+        : null;
+    const signal = normalizeSignal(candidate.signal || candidate.final_signal || candidate.final_entry_decision);
+
+    return {
+      candidate,
+      liveDetails,
+      reason,
+      v3bReason,
+      genericReason,
+      eventId,
+      currentEvent: true,
+      hasBos,
+      bodyPass,
+      secondSame,
+      beyond,
+      swingSl,
+      signal
+    };
+  }
+
+  const OWNED_IDS = {
+    "strategy-debug-smc": "v3b-strategy-debug-smc",
+    "strategy-debug-swing-break": "v3b-strategy-debug-swing-break",
+    "strategy-debug-15m-close": "v3b-strategy-debug-15m-close",
+    "strategy-debug-5m-confirm": "v3b-strategy-debug-5m-confirm",
+    "strategy-debug-swing-sl": "v3b-strategy-debug-swing-sl",
+    "strategy-debug-decision": "v3b-strategy-debug-decision",
+    "strategy-debug-block-reason": "v3b-strategy-debug-block-reason",
+    "main-tp2": "v3b-main-tp2",
+    "main-rr": "v3b-main-rr",
+    "main-smc-structure": "v3b-main-smc-structure",
+    "main-smc-trigger": "v3b-main-smc-trigger",
+    "main-smc-waiting-list": "v3b-main-smc-waiting-list",
+    "main-smc-entry-zone": "v3b-main-smc-entry-zone",
+    "main-smc-estimated-sl": "v3b-main-smc-estimated-sl",
+    "main-smc-estimated-tp": "v3b-main-smc-estimated-tp",
+    "main-smc-progress-label": "v3b-main-smc-progress-label",
+    "main-smc-progress-bar": "v3b-main-smc-progress-bar"
+  };
+
+  function claimVisibleElement(originalId, ownedId) {
+    const existingOwned = document.getElementById(ownedId);
+    if (existingOwned) return existingOwned;
+    const visible = document.getElementById(originalId);
+    if (!visible) return null;
+
+    visible.id = ownedId;
+    visible.dataset.v3bOwned = "1";
+
+    const sink = document.createElement(visible.tagName || "span");
+    sink.id = originalId;
+    sink.hidden = true;
+    sink.setAttribute("hidden", "");
+    sink.setAttribute("aria-hidden", "true");
+    sink.style.setProperty("display", "none", "important");
+    sink.style.setProperty("visibility", "hidden", "important");
+    sink.style.setProperty("position", "absolute", "important");
+    sink.style.setProperty("width", "0", "important");
+    sink.style.setProperty("height", "0", "important");
+    sink.style.setProperty("overflow", "hidden", "important");
+    visible.parentNode?.appendChild(sink);
+    return visible;
+  }
+
+  function ensureV3BOwnership() {
+    for (const [legacyId, ownedId] of Object.entries(OWNED_IDS)) {
+      claimVisibleElement(legacyId, ownedId);
+    }
+    const details = document.querySelector("details.entry-strategy-debug");
+    if (details) details.dataset.v3bViewVersion = "7";
+    const plan = document.getElementById("main-smc-plan-intel");
+    if (plan) plan.dataset.v3bPlanVersion = "2";
   }
 
   function setCheck(id, value) {
     const el = document.getElementById(id);
     if (!el) return;
-    const text = value === true ? "YES" : value === false ? "NO" : "WAIT";
+    const text = value === true ? "YES" : "NO";
     el.textContent = text;
     el.classList.toggle("check-pass", text === "YES");
     el.classList.toggle("check-fail", text === "NO");
-    el.classList.toggle("check-waiting", text === "WAIT");
-    el.classList.remove("check-not-checked");
-  }
-
-  function triggerFromReason(reason) {
-    const r = String(reason || "").toUpperCase();
-    if (r.includes("AUTHORITY_DESYNC") || r.includes("AUTHORITY_STALE")) return "5m authority sync";
-    if (r.includes("BOS_BODY")) return "BOS body ≥ 50%";
-    if (r.includes("SECOND_5M")) return "Next 5m confirmation";
-    if (r.includes("RECOVERY_ENTRY_EXPIRED")) return "Fresh 5m BOS";
-    if (r.includes("5M_BOS")) return "Fresh 5m BOS";
-    if (r.includes("DURABLE_IDENTITY")) return "5m setup identity";
-    return "V3B 5m setup";
-  }
-
-  function firstWaitingStep(f) {
-    if (f.hasBos !== true) return "Fresh 5m BOS";
-    if (f.bodyPass !== true) return "BOS body ≥ 50%";
-    if (f.secondSame !== true) return "Next 5m same direction";
-    if (f.beyond !== true) return "Close stays beyond BOS";
-    if (f.swingSl !== true) return "5m swing SL";
-    return "V3B setup ready";
+    el.classList.remove("check-waiting", "check-not-checked");
   }
 
   function setText(id, text) {
@@ -290,130 +420,229 @@
     if (el && el.textContent !== text) el.textContent = text;
   }
 
-  function applyV3BPresentation(status) {
-    if (applyingV3B) return;
-    applyingV3B = true;
-    try {
-      const f = v3bFacts(status || {});
-      const details = document.querySelector("details.entry-strategy-debug");
-      if (details?.querySelector("summary")) details.querySelector("summary").textContent = "V3B ENTRY STRATEGY CHECKS";
-      const labels = [
-        ["strategy-debug-smc", "5m BOS"],
-        ["strategy-debug-swing-break", "BOS body ≥ 50%"],
-        ["strategy-debug-15m-close", "Next 5m same direction"],
-        ["strategy-debug-5m-confirm", "Close stays beyond BOS"],
-        ["strategy-debug-swing-sl", "5m swing SL"]
-      ];
-      for (const [id, label] of labels) {
-        const el = document.getElementById(id);
-        if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
-      }
-      setCheck("strategy-debug-smc", f.hasBos ? true : null);
-      setCheck("strategy-debug-swing-break", f.bodyPass);
-      setCheck("strategy-debug-15m-close", f.secondSame);
-      setCheck("strategy-debug-5m-confirm", f.beyond);
-      setCheck("strategy-debug-swing-sl", f.swingSl);
-      setText("strategy-debug-decision", normalizeSignal(f.candidate.signal || f.candidate.final_signal || status?.signal));
-      setText("strategy-debug-block-reason", f.reason);
+  function numericText(...values) {
+    for (const value of values) {
+      if (value == null || value === "") continue;
+      const number = Number(value);
+      if (Number.isFinite(number) && number !== 0) return String(value);
+    }
+    return "--";
+  }
 
-      const header = document.querySelector(".main-smc-panel .smc-header");
-      if (header) header.textContent = "⚡ V3B PLAN";
-      const structureLabel = document.querySelector("#main-smc-structure")?.previousElementSibling;
-      if (structureLabel) structureLabel.textContent = "5m Structure";
-      const triggerLabel = document.querySelector("#main-smc-trigger")?.previousElementSibling;
-      if (triggerLabel) triggerLabel.textContent = "V3B Next Trigger";
-      const waitingLabel = document.querySelector("#main-smc-waiting-list")?.previousElementSibling;
-      if (waitingLabel) waitingLabel.textContent = "V3B Waiting For";
+  function firstFiniteNumber(...values) {
+    for (const value of values) {
+      if (value == null || value === "") continue;
+      const number = Number(value);
+      if (Number.isFinite(number) && number !== 0) return number;
+    }
+    return null;
+  }
 
-      setText("main-smc-structure", f.hasBos ? "5M BOS FOUND" : "WAITING 5M BOS");
-      setText("main-smc-trigger", triggerFromReason(f.reason) || firstWaitingStep(f));
-      const list = document.getElementById("main-smc-waiting-list");
-      if (list) {
-        const rows = [
-          ["5m BOS", f.hasBos ? true : null],
-          ["BOS body ≥ 50%", f.bodyPass],
-          ["Next 5m same direction", f.secondSame],
-          ["Close stays beyond BOS", f.beyond],
-          ["5m swing SL", f.swingSl]
-        ];
-        const html = rows.map(([label, value]) =>
-          `<li class="${value === true ? "check-pass" : value === false ? "check-fail" : "check-waiting"}">${value === true ? "✓" : value === false ? "✗" : "•"} ${label}</li>`
-        ).join("");
-        if (list.innerHTML !== html) list.innerHTML = html;
-      }
+  function isValidRiskRewardText(value) {
+    const text = String(value || "").trim();
+    if (!text || text === "--") return false;
+    return /^\d+(?:\.\d+)?\s*(?:(?::|\/)\s*\d+(?:\.\d+)?|R)?$/i.test(text);
+  }
 
-      // Never show a legacy V1 WAIT reason in V3B plan value fields.
-      for (const id of ["main-tp2", "main-rr"]) {
-        const el = document.getElementById(id);
-        if (el && /^WAIT_(?!V3B)/i.test(String(el.textContent || "").trim())) el.textContent = "--";
-      }
-    } finally {
-      applyingV3B = false;
+  function riskRewardText(...values) {
+    for (const value of values) {
+      const text = String(value ?? "").trim();
+      if (isValidRiskRewardText(text)) return text;
+    }
+    return "--";
+  }
+
+  function directionText(...values) {
+    const text = firstText(...values).toUpperCase();
+    if (text.includes("BUY") || text.includes("BULL")) return "BULLISH";
+    if (text.includes("SELL") || text.includes("BEAR")) return "BEARISH";
+    return "NEUTRAL";
+  }
+
+  function symbolText(status, candidate, liveDetails) {
+    return firstText(status?.symbol, candidate?.symbol, liveDetails?.symbol).toUpperCase().replace("/", "");
+  }
+
+  function formatPrice(symbol, value) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number === 0) return "--";
+    return String(symbol || "").includes("XAU") ? number.toFixed(2) : number.toFixed(5);
+  }
+
+  function stageState(value, enabled) {
+    if (!enabled || value == null) return "info";
+    return value === true ? "complete" : "missing";
+  }
+
+  function renderV3BWaitingList(items) {
+    const listEl = document.getElementById("v3b-main-smc-waiting-list");
+    if (!listEl) return;
+    listEl.replaceChildren();
+    for (const item of items) {
+      const li = document.createElement("li");
+      li.className = item.state;
+      const mark = document.createElement("b");
+      mark.textContent = item.state === "complete" ? "✓" : item.state === "missing" ? "✗" : "•";
+      const text = document.createElement("span");
+      text.textContent = item.label;
+      li.append(mark, text);
+      listEl.appendChild(li);
     }
   }
 
-  function installMainPanelWrapper() {
-    if (mainPanelWrapperInstalled || window.__NATHAUX_V3B_MAIN_PANEL_WRAPPED) return true;
-    if (typeof window.updateMainPanel !== "function") return false;
-    const original = window.updateMainPanel;
-    window.updateMainPanel = function (...args) {
-      const result = original.apply(this, args);
-      applyV3BPresentation(lastV3BStatus || {});
-      return result;
-    };
-    window.__NATHAUX_V3B_MAIN_PANEL_WRAPPED = true;
-    mainPanelWrapperInstalled = true;
-    return true;
+  function renderV3BPlan(status, f, effectiveCurrentEvent) {
+    const candidate = f.candidate || {};
+    const liveDetails = f.liveDetails || {};
+    const details = asObject(candidate.paper_entry_details) || asObject(liveDetails.paper_entry_details) || {};
+    const symbol = symbolText(status, candidate, liveDetails);
+    const direction = effectiveCurrentEvent
+      ? directionText(candidate.side, candidate.direction, candidate.signal, candidate.final_signal, liveDetails.side, liveDetails.direction)
+      : "NEUTRAL";
+
+    const bosReady = effectiveCurrentEvent && f.hasBos === true;
+    const bodyReady = bosReady && f.bodyPass === true;
+    const secondReady = bodyReady && f.secondSame === true;
+    const beyondReady = secondReady && f.beyond === true;
+    const swingReady = beyondReady && f.swingSl === true;
+
+    let nextTrigger = "Fresh 5m BOS";
+    if (effectiveCurrentEvent) {
+      if (f.hasBos !== true) nextTrigger = "Fresh 5m BOS";
+      else if (f.bodyPass == null) nextTrigger = "Validate BOS body ≥ 50%";
+      else if (f.bodyPass === false) nextTrigger = "BOS body < 50% — wait for fresh 5m BOS";
+      else if (f.secondSame == null) nextTrigger = "Wait for the next 5m candle";
+      else if (f.secondSame === false) nextTrigger = "Next 5m direction failed — wait for fresh 5m BOS";
+      else if (f.beyond == null) nextTrigger = "Confirm next 5m close beyond BOS";
+      else if (f.beyond === false) nextTrigger = "Next 5m closed back inside — wait for fresh 5m BOS";
+      else if (f.swingSl == null) nextTrigger = "Find 5m structural swing SL";
+      else if (f.swingSl === false) nextTrigger = "No valid 5m swing SL";
+      else if (["BUY", "SELL"].includes(f.signal)) nextTrigger = `${f.signal} ENTRY READY`;
+      else nextTrigger = "5m setup confirmed — waiting eligibility";
+    }
+
+    const items = [
+      { label: "Fresh 5m BOS", state: stageState(f.hasBos, effectiveCurrentEvent) },
+      { label: "BOS candle body ≥ 50%", state: stageState(f.bodyPass, bosReady) },
+      { label: "Next 5m candle same direction", state: stageState(f.secondSame, bodyReady) },
+      { label: "Next 5m close stays beyond BOS", state: stageState(f.beyond, secondReady) },
+      { label: "5m structural swing SL", state: stageState(f.swingSl, beyondReady) }
+    ];
+
+    const completed = items.filter((item) => item.state === "complete").length;
+    const progress = Math.round((completed / items.length) * 100);
+    const entry = effectiveCurrentEvent
+      ? firstFiniteNumber(candidate.entry, candidate.entry_price, details.entry, liveDetails.entry)
+      : null;
+    const sl = effectiveCurrentEvent
+      ? firstFiniteNumber(candidate.stop_loss, candidate.sl, details.stop_loss, details.sl, liveDetails.stop_loss, liveDetails.sl)
+      : null;
+    const tp2 = effectiveCurrentEvent
+      ? firstFiniteNumber(candidate.tp2, candidate.take_profit_2, candidate.paper_tp2, details.tp2, liveDetails.tp2)
+      : null;
+
+    const structureEl = document.getElementById("v3b-main-smc-structure");
+    const triggerEl = document.getElementById("v3b-main-smc-trigger");
+    const entryEl = document.getElementById("v3b-main-smc-entry-zone");
+    const slEl = document.getElementById("v3b-main-smc-estimated-sl");
+    const tpEl = document.getElementById("v3b-main-smc-estimated-tp");
+    const progressLabel = document.getElementById("v3b-main-smc-progress-label");
+    const progressBar = document.getElementById("v3b-main-smc-progress-bar");
+
+    if (structureEl?.previousElementSibling) structureEl.previousElementSibling.textContent = "5m Structure";
+    if (triggerEl?.previousElementSibling) triggerEl.previousElementSibling.textContent = "Next Trigger";
+    if (entryEl?.previousElementSibling) entryEl.previousElementSibling.textContent = "Entry (2nd 5m close)";
+    if (slEl?.previousElementSibling) slEl.previousElementSibling.textContent = "5m Swing SL";
+    if (tpEl?.previousElementSibling) tpEl.previousElementSibling.textContent = "TP2 (1.90R)";
+    if (progressLabel?.previousElementSibling) progressLabel.previousElementSibling.textContent = "V3B Progress";
+
+    setText("v3b-main-smc-structure", direction);
+    setText("v3b-main-smc-trigger", nextTrigger);
+    setText("v3b-main-smc-entry-zone", formatPrice(symbol, entry));
+    setText("v3b-main-smc-estimated-sl", formatPrice(symbol, sl));
+    setText("v3b-main-smc-estimated-tp", formatPrice(symbol, tp2));
+    setText("v3b-main-smc-progress-label", `${progress}%`);
+    if (progressBar) progressBar.style.width = `${progress}%`;
+    renderV3BWaitingList(items);
+
+    const planIntel = document.getElementById("main-smc-plan-intel");
+    if (planIntel) planIntel.classList.toggle("is-ready", swingReady && ["BUY", "SELL"].includes(f.signal));
   }
 
-  async function refreshV3B() {
-    try {
-      const response = await fetch(`${BACKEND_URL}/dashboard-feed`, { cache: "no-store", credentials: "omit" });
-      if (response.ok) {
-        const payload = await response.json();
-        const found = findV3BStatus(payload, extractCurrentChartSymbol());
-        if (found) lastV3BStatus = found;
-      }
-    } catch (_error) {}
-    applyV3BPresentation(lastV3BStatus || {});
-  }
+  function renderV3BPresentation(status) {
+    ensureV3BOwnership();
+    const f = v3bFacts(status || {});
+    const effectiveCurrentEvent = f.currentEvent && !isInactiveV3BState(f.reason);
+    const detailsPanel = document.querySelector("details.entry-strategy-debug");
+    const summary = detailsPanel?.querySelector("summary");
+    if (summary) summary.textContent = "V3B ENTRY STRATEGY CHECKS";
 
-  function installV3BObserver() {
-    const target = document.querySelector(".main-smc-panel")?.parentElement || document.body;
-    if (!target || window.__NATHAUX_V3B_OBSERVER) return;
-    let scheduled = false;
-    const observer = new MutationObserver(() => {
-      if (applyingV3B || scheduled) return;
-      scheduled = true;
-      requestAnimationFrame(() => {
-        scheduled = false;
-        applyV3BPresentation(lastV3BStatus || {});
-      });
-    });
-    observer.observe(target, { subtree: true, childList: true, characterData: true });
-    window.__NATHAUX_V3B_OBSERVER = observer;
+    const header = document.querySelector(".main-smc-panel .smc-header");
+    if (header) header.textContent = "⚡ V3B PLAN";
+
+    const labels = [
+      ["v3b-strategy-debug-smc", "5m BOS"],
+      ["v3b-strategy-debug-swing-break", "BOS body ≥ 50%"],
+      ["v3b-strategy-debug-15m-close", "Next 5m same direction"],
+      ["v3b-strategy-debug-5m-confirm", "Close stays beyond BOS"],
+      ["v3b-strategy-debug-swing-sl", "5m swing SL"]
+    ];
+    for (const [id, label] of labels) {
+      const el = document.getElementById(id);
+      if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
+    }
+
+    setCheck("v3b-strategy-debug-smc", effectiveCurrentEvent ? f.hasBos : false);
+    setCheck("v3b-strategy-debug-swing-break", effectiveCurrentEvent ? f.bodyPass : false);
+    setCheck("v3b-strategy-debug-15m-close", effectiveCurrentEvent ? f.secondSame : false);
+    setCheck("v3b-strategy-debug-5m-confirm", effectiveCurrentEvent ? f.beyond : false);
+    setCheck("v3b-strategy-debug-swing-sl", effectiveCurrentEvent ? f.swingSl : false);
+    setText("v3b-strategy-debug-decision", effectiveCurrentEvent ? f.signal : "WAIT");
+    setText("v3b-strategy-debug-block-reason", f.reason);
+
+    const executed = asObject(status?.executed_trade_setup_snapshot) || {};
+    const candidate = f.candidate || {};
+    const candidateDetails = asObject(candidate.paper_entry_details) || asObject(f.liveDetails?.paper_entry_details) || {};
+
+    const tp2 = executed.tp2 != null
+      ? numericText(executed.tp2)
+      : effectiveCurrentEvent
+        ? numericText(
+            candidate.tp2,
+            candidate.take_profit_2,
+            candidate.paper_tp2,
+            candidateDetails.tp2,
+            f.liveDetails?.tp2,
+            status?.tp2
+          )
+        : "--";
+
+    const rr = executed.risk_reward != null || executed.risk_reward_ratio != null
+      ? riskRewardText(executed.risk_reward, executed.risk_reward_ratio)
+      : effectiveCurrentEvent
+        ? riskRewardText(
+            candidate.risk_reward,
+            candidate.risk_reward_ratio,
+            candidateDetails.risk_reward,
+            candidateDetails.risk_reward_ratio,
+            f.liveDetails?.risk_reward,
+            f.liveDetails?.risk_reward_ratio,
+            status?.risk_reward,
+            status?.risk_reward_ratio
+          )
+        : "--";
+
+    setText("v3b-main-tp2", tp2);
+    setText("v3b-main-rr", rr);
+    renderV3BPlan(status || {}, f, effectiveCurrentEvent);
   }
 
   function install() {
     applyMonthlyPaperLocalStorageWindow();
     let attempts = 0;
-    const historyTimer = setInterval(() => {
+    const timer = setInterval(() => {
       attempts += 1;
-      if (installHistoryRendererOverride() || attempts > 20) clearInterval(historyTimer);
+      if (installHistoryRendererOverride() || attempts > 20) clearInterval(timer);
     }, 250);
-
-    if (!installMainPanelWrapper()) {
-      let panelAttempts = 0;
-      const panelTimer = setInterval(() => {
-        panelAttempts += 1;
-        if (installMainPanelWrapper() || panelAttempts > 40) clearInterval(panelTimer);
-      }, 50);
-    }
-
-    refreshV3B();
-    setTimeout(installV3BObserver, 500);
-    setInterval(refreshV3B, 5000);
-    setInterval(() => applyV3BPresentation(lastV3BStatus || {}), 500);
   }
 
   if (typeof window !== "undefined" && window.localStorage) {
@@ -427,7 +656,8 @@
       filterPaperHistoryToCurrentMonth,
       compactSignalHistory,
       formatTorontoTime,
-      newYorkMonthKey
+      newYorkMonthKey,
+      renderV3BPresentation
     };
     if (document.readyState === "loading") {
       window.addEventListener("DOMContentLoaded", install, { once: true });
@@ -444,7 +674,9 @@
       isOpenTrade,
       compactSignalHistory,
       formatTorontoTime,
-      normalizeSignal
+      normalizeSignal,
+      v3bFacts,
+      renderV3BPresentation
     };
   }
 })();
