@@ -5,12 +5,9 @@
   const LEGACY_WEEKLY_RESET_KEY = "paper_reset_time";
   const TIME_ZONE = "America/New_York";
   const TORONTO_TIME_ZONE = "America/Toronto";
-  const BACKEND_URL = "https://flowsignal-backend-3.onrender.com";
   const OPEN_RESULTS = new Set(["RUNNING", "TP1 HIT"]);
   const OPEN_STATUSES = new Set(["OPEN", "RUNNING", "CLOSING"]);
-  let lastV3BStatus = null;
   let applyingV3B = false;
-  let mainPanelWrapperInstalled = false;
 
   function newYorkMonthKey(value) {
     const date = value instanceof Date ? value : new Date(value);
@@ -184,47 +181,6 @@
     return true;
   }
 
-  function extractCurrentChartSymbol() {
-    const explicit = String(window.currentChartSymbol || "").toUpperCase().replace("/", "");
-    if (["EURUSD", "XAUUSD"].includes(explicit)) return explicit;
-    const selected = document.querySelector("[data-symbol].active, .symbol-tab.active, .pair-tab.active");
-    const text = String(selected?.dataset?.symbol || selected?.textContent || "")
-      .toUpperCase().replace(/[^A-Z]/g, "");
-    return text.includes("XAUUSD") ? "XAUUSD" : "EURUSD";
-  }
-
-  function isV3BObject(value) {
-    if (!value || typeof value !== "object") return false;
-    const model = String(
-      value.live_strategy_model || value.paper_entry_model || value.strategy_model || value.model || ""
-    ).toUpperCase();
-    const reason = String(
-      value.live_v3b_reason || value.paper_entry_reason || value.reason || value.block_reason || ""
-    ).toUpperCase();
-    return model.includes("V3B") || reason.includes("WAIT_V3B");
-  }
-
-  function findV3BStatus(root, symbol) {
-    const wanted = String(symbol || "").toUpperCase().replace("/", "");
-    const queue = [root];
-    const seen = new Set();
-    let fallback = null;
-    while (queue.length && seen.size < 2500) {
-      const value = queue.shift();
-      if (!value || typeof value !== "object" || seen.has(value)) continue;
-      seen.add(value);
-      if (isV3BObject(value)) {
-        const valueSymbol = String(value.symbol || value.pair || "").toUpperCase().replace("/", "");
-        if (!valueSymbol || valueSymbol === wanted) return value;
-        if (!fallback) fallback = value;
-      }
-      for (const child of Object.values(value)) {
-        if (child && typeof child === "object") queue.push(child);
-      }
-    }
-    return fallback;
-  }
-
   function v3bFacts(status) {
     const liveDetails = status?.live_v3b_details || {};
     const candidate = liveDetails.source_candidate || status?.source_candidate || status?.candidate || status || {};
@@ -233,12 +189,18 @@
       status?.live_v3b_reason || status?.reason || candidate.paper_entry_reason ||
       status?.paper_entry_reason || candidate.block_reason || "WAIT_V3B_PAPER_5M_BOS"
     );
-    const reasonUpper = reason.toUpperCase();
-    const hasBos = Boolean(
-      candidate.source_indicator_event_id || details.source_indicator_event_id ||
-      candidate.five_m_bos_level || candidate.five_m_break_time ||
-      (reasonUpper.includes("WAIT_V3B") && !reasonUpper.includes("5M_BOS"))
-    );
+    const explicitBos = details.five_m_bos_detected
+      ?? candidate.five_m_bos_detected
+      ?? details.bos_detected
+      ?? candidate.bos_detected;
+    const hasBos = typeof explicitBos === "boolean"
+      ? explicitBos
+      : (
+        candidate.source_indicator_event_id || details.source_indicator_event_id ||
+        candidate.five_m_bos_level || candidate.five_m_break_time
+      )
+        ? true
+        : null;
     const bodyRatio = Number(details.bos_body_ratio ?? candidate.bos_body_ratio);
     const bodyMin = Number(details.minimum_bos_body_ratio ?? candidate.minimum_bos_body_ratio ?? 0.5);
     const bodyPass = Number.isFinite(bodyRatio) ? bodyRatio >= bodyMin : null;
@@ -248,9 +210,15 @@
     const beyond = typeof details.second_5m_stays_beyond_bos_level === "boolean"
       ? details.second_5m_stays_beyond_bos_level
       : null;
-    const swingSl = candidate.stop_loss != null || candidate.sl != null || candidate.paper_entry_ready === true
-      ? true
-      : null;
+    const explicitSwingSl = details.swing_sl_valid
+      ?? candidate.swing_sl_valid
+      ?? details.swing_sl_found
+      ?? candidate.swing_sl_found;
+    const swingSl = typeof explicitSwingSl === "boolean"
+      ? explicitSwingSl
+      : candidate.stop_loss != null || candidate.sl != null || candidate.paper_entry_ready === true
+        ? true
+        : null;
     return { candidate, reason, hasBos, bodyPass, secondSame, beyond, swingSl };
   }
 
@@ -308,7 +276,7 @@
         const el = document.getElementById(id);
         if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
       }
-      setCheck("strategy-debug-smc", f.hasBos ? true : null);
+      setCheck("strategy-debug-smc", f.hasBos);
       setCheck("strategy-debug-swing-break", f.bodyPass);
       setCheck("strategy-debug-15m-close", f.secondSame);
       setCheck("strategy-debug-5m-confirm", f.beyond);
@@ -325,12 +293,12 @@
       const waitingLabel = document.querySelector("#main-smc-waiting-list")?.previousElementSibling;
       if (waitingLabel) waitingLabel.textContent = "V3B Waiting For";
 
-      setText("main-smc-structure", f.hasBos ? "5M BOS FOUND" : "WAITING 5M BOS");
+      setText("main-smc-structure", f.hasBos === true ? "5M BOS FOUND" : "WAITING 5M BOS");
       setText("main-smc-trigger", triggerFromReason(f.reason) || firstWaitingStep(f));
       const list = document.getElementById("main-smc-waiting-list");
       if (list) {
         const rows = [
-          ["5m BOS", f.hasBos ? true : null],
+          ["5m BOS", f.hasBos],
           ["BOS body ≥ 50%", f.bodyPass],
           ["Next 5m same direction", f.secondSame],
           ["Close stays beyond BOS", f.beyond],
@@ -342,56 +310,18 @@
         if (list.innerHTML !== html) list.innerHTML = html;
       }
 
-      // Never show a legacy V1 WAIT reason in V3B plan value fields.
-      for (const id of ["main-tp2", "main-rr"]) {
-        const el = document.getElementById(id);
-        if (el && /^WAIT_(?!V3B)/i.test(String(el.textContent || "").trim())) el.textContent = "--";
+      const tp2 = document.getElementById("main-tp2");
+      if (tp2 && !Number.isFinite(Number(String(tp2.textContent || "").trim()))) {
+        tp2.textContent = "--";
+      }
+      const rr = document.getElementById("main-rr");
+      const rrText = String(rr?.textContent || "").trim();
+      if (rr && (!rrText || rrText.length > 12 || !/^[0-9.:/\-\s]+$/.test(rrText))) {
+        rr.textContent = "--";
       }
     } finally {
       applyingV3B = false;
     }
-  }
-
-  function installMainPanelWrapper() {
-    if (mainPanelWrapperInstalled || window.__NATHAUX_V3B_MAIN_PANEL_WRAPPED) return true;
-    if (typeof window.updateMainPanel !== "function") return false;
-    const original = window.updateMainPanel;
-    window.updateMainPanel = function (...args) {
-      const result = original.apply(this, args);
-      applyV3BPresentation(lastV3BStatus || {});
-      return result;
-    };
-    window.__NATHAUX_V3B_MAIN_PANEL_WRAPPED = true;
-    mainPanelWrapperInstalled = true;
-    return true;
-  }
-
-  async function refreshV3B() {
-    try {
-      const response = await fetch(`${BACKEND_URL}/dashboard-feed`, { cache: "no-store", credentials: "omit" });
-      if (response.ok) {
-        const payload = await response.json();
-        const found = findV3BStatus(payload, extractCurrentChartSymbol());
-        if (found) lastV3BStatus = found;
-      }
-    } catch (_error) {}
-    applyV3BPresentation(lastV3BStatus || {});
-  }
-
-  function installV3BObserver() {
-    const target = document.querySelector(".main-smc-panel")?.parentElement || document.body;
-    if (!target || window.__NATHAUX_V3B_OBSERVER) return;
-    let scheduled = false;
-    const observer = new MutationObserver(() => {
-      if (applyingV3B || scheduled) return;
-      scheduled = true;
-      requestAnimationFrame(() => {
-        scheduled = false;
-        applyV3BPresentation(lastV3BStatus || {});
-      });
-    });
-    observer.observe(target, { subtree: true, childList: true, characterData: true });
-    window.__NATHAUX_V3B_OBSERVER = observer;
   }
 
   function install() {
@@ -402,18 +332,6 @@
       if (installHistoryRendererOverride() || attempts > 20) clearInterval(historyTimer);
     }, 250);
 
-    if (!installMainPanelWrapper()) {
-      let panelAttempts = 0;
-      const panelTimer = setInterval(() => {
-        panelAttempts += 1;
-        if (installMainPanelWrapper() || panelAttempts > 40) clearInterval(panelTimer);
-      }, 50);
-    }
-
-    refreshV3B();
-    setTimeout(installV3BObserver, 500);
-    setInterval(refreshV3B, 5000);
-    setInterval(() => applyV3BPresentation(lastV3BStatus || {}), 500);
   }
 
   if (typeof window !== "undefined" && window.localStorage) {
@@ -427,7 +345,8 @@
       filterPaperHistoryToCurrentMonth,
       compactSignalHistory,
       formatTorontoTime,
-      newYorkMonthKey
+      newYorkMonthKey,
+      renderV3BPresentation: applyV3BPresentation
     };
     if (document.readyState === "loading") {
       window.addEventListener("DOMContentLoaded", install, { once: true });
@@ -444,7 +363,9 @@
       isOpenTrade,
       compactSignalHistory,
       formatTorontoTime,
-      normalizeSignal
+      normalizeSignal,
+      v3bFacts,
+      renderV3BPresentation: applyV3BPresentation
     };
   }
 })();

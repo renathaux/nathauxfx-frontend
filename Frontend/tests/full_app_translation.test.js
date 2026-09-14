@@ -166,7 +166,7 @@ assert.ok(!script.includes("new MutationObserver"), "translation installs no mut
 assert.ok(!state.includes("blockLanguageChange"), "emergency selector lock is removed");
 assert.ok(!state.includes('localStorage.setItem("flowsignal_lang"'), "state does not rewrite legacy language storage");
 assert.ok(script.includes('const LANGUAGE_STORAGE_KEY = "nathauxfx_language"'));
-assert.ok(html.includes('script.js?v=126'), "browser cache is busted for the safe language runtime");
+assert.ok(html.includes('script.js?v=127'), "browser cache is busted for the safe language runtime");
 assert.ok(!functionSource("applyLanguage").includes("updateCard"));
 assert.ok(!functionSource("applyLanguage").includes("refreshNewsImpact"));
 assert.ok(!functionSource("applyLanguage").includes("setTimeout"));
