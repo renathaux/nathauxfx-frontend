@@ -4,6 +4,9 @@ const {
   filterPaperHistoryToCurrentMonth,
   buildPaperMonthStats,
   isOpenTrade,
+  compactSignalHistory,
+  formatTorontoTime,
+  normalizeSignal,
 } = require('../history.js');
 
 const current = new Date('2026-10-15T16:00:00Z');
@@ -29,4 +32,25 @@ assert.strictEqual(stats.total, 3);
 assert.strictEqual(stats.total_pl, 70);
 assert.strictEqual(stats.win_rate, 50);
 
-console.log('monthly-history-window frontend tests: PASS');
+const signalHistory = [
+  { time: '2026-09-14T12:00:00Z', symbol: 'EURUSD', signal: 'WAIT', result: 'RUNNING', pips: 0 },
+  { time: '2026-09-14T11:55:00Z', symbol: 'EURUSD', signal: 'WAIT', result: 'RUNNING', pips: 0 },
+  { time: '2026-09-14T11:50:00Z', symbol: 'XAUUSD', signal: 'SELL', result: 'RUNNING', pips: 0 },
+  { time: '2026-09-14T11:45:00Z', symbol: 'XAUUSD', signal: 'WAIT', result: 'RUNNING', pips: 0 },
+  { time: '2026-09-14T11:40:00Z', symbol: 'EURUSD', signal: 'BUY', result: 'RUNNING', pips: 0 },
+  { time: '2026-09-14T11:35:00Z', symbol: 'EURUSD', signal: 'WAIT', result: 'RUNNING', pips: 0 },
+];
+
+const compact = compactSignalHistory(signalHistory, 10);
+assert.deepStrictEqual(
+  compact.map((item) => `${item.symbol}:${item.signal}`),
+  ['EURUSD:WAIT', 'XAUUSD:SELL', 'XAUUSD:WAIT', 'EURUSD:BUY', 'EURUSD:WAIT']
+);
+assert.strictEqual(compact.filter((item) => item.symbol === 'EURUSD' && item.signal === 'WAIT').length, 2);
+assert.strictEqual(normalizeSignal('buy setup'), 'BUY');
+assert.strictEqual(normalizeSignal('sell'), 'SELL');
+assert.strictEqual(normalizeSignal('anything else'), 'WAIT');
+assert.strictEqual(formatTorontoTime('2026-09-14T12:00:00Z'), '08:00');
+assert.strictEqual(compact[0].time, '08:00');
+
+console.log('monthly-history-window + V3B history frontend tests: PASS');
