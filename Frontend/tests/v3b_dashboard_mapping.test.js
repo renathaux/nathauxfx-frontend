@@ -3,10 +3,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const historyPath = path.join(__dirname, "..", "history.js");
-const scriptPath = path.join(__dirname, "..", "script.js");
 const historySource = fs.readFileSync(historyPath, "utf8");
-const scriptSource = fs.readFileSync(scriptPath, "utf8");
-const { renderV3BPresentation } = require(historyPath);
+const { v3bFacts, renderV3BPresentation } = require(historyPath);
 
 function classList() {
   const values = new Set();
@@ -34,24 +32,18 @@ const ids = [
   "strategy-debug-swing-sl",
   "strategy-debug-decision",
   "strategy-debug-block-reason",
-  "main-smc-structure",
-  "main-smc-trigger",
-  "main-smc-waiting-list",
   "main-tp2",
   "main-rr",
 ];
 const elements = Object.fromEntries(ids.map((id) => [id, element()]));
 const summary = element();
 const details = { querySelector: (selector) => selector === "summary" ? summary : null };
-const header = element();
 
 global.document = {
   getElementById: (id) => elements[id] || null,
   querySelector(selector) {
     if (selector === "details.entry-strategy-debug") return details;
-    if (selector === ".main-smc-panel .smc-header") return header;
-    const match = selector.match(/^#(.+)$/);
-    return match ? elements[match[1]] || null : null;
+    return null;
   },
 };
 
@@ -72,22 +64,63 @@ function render(status, { tp2 = "--", rr = "--" } = {}) {
   };
 }
 
-const noEvent = render({
+// Exact failed preview state: generic indicator expiry, no active V3B event,
+// stale false flags and reason strings must not turn checks into failures.
+const genericExpired = render({
   live_strategy_model: "V3B",
-  live_v3b_reason: "WAIT_V3B_PAPER_5M_BOS",
-}, { tp2: "WAIT_DURABLE_EVENT_WATCH_INACTIVE", rr: "WAIT_DURABLE_EVENT_WATCH_INACTIVE" });
-assert.deepEqual(noEvent, {
+  reason: "WAIT_INDICATOR_EVENT_EXPIRED",
+  block_reason: "WAIT_INDICATOR_EVENT_EXPIRED",
+  risk_reward: "WAIT_INDICATOR_EVENT_EXPIRED",
+  tp2: "WAIT_INDICATOR_EVENT_EXPIRED",
+  five_m_bos_detected: false,
+  bos_detected: false,
+  swing_sl_valid: false,
+}, { tp2: "WAIT_INDICATOR_EVENT_EXPIRED", rr: "WAIT_INDICATOR_EVENT_EXPIRED" });
+assert.deepEqual(genericExpired, {
   bos: "WAIT", body: "WAIT", same: "WAIT", beyond: "WAIT", sl: "WAIT",
-  signal: "WAIT", reason: "WAIT_V3B_PAPER_5M_BOS", tp2: "--", rr: "--",
+  signal: "WAIT", reason: "WAIT_INDICATOR_EVENT_EXPIRED", tp2: "--", rr: "--",
 });
 
-const freshEvent = render({
+const noEventFacts = v3bFacts({
+  live_strategy_model: "V3B",
+  reason: "WAIT_INDICATOR_EVENT_EXPIRED",
+  source_candidate: {
+    source_indicator_event_id: "old-event",
+    lifecycle_state: "EXPIRED",
+    five_m_bos_detected: false,
+    swing_sl_valid: false,
+  },
+});
+assert.equal(noEventFacts.currentEvent, false);
+assert.equal(noEventFacts.hasBos, null);
+assert.equal(noEventFacts.swingSl, null);
+
+const fresh15mEvent = render({
+  live_strategy_model: "V3B",
+  live_v3b_reason: "WAIT_V3B_PAPER_5M_BOS",
+  live_v3b_details: {
+    source_candidate: {
+      source_indicator_event_id: "event-new",
+      lifecycle_state: "WAITING_5M",
+    },
+  },
+});
+assert.equal(fresh15mEvent.bos, "WAIT");
+assert.equal(fresh15mEvent.body, "WAIT");
+
+const fiveMBos = render({
   live_strategy_model: "V3B",
   live_v3b_reason: "WAIT_V3B_PAPER_BOS_BODY",
-  live_v3b_details: { source_candidate: { source_indicator_event_id: "event-new", five_m_bos_level: 1.1534 } },
+  live_v3b_details: {
+    source_candidate: {
+      source_indicator_event_id: "event-new",
+      lifecycle_state: "WAITING_BODY",
+      five_m_bos_level: 1.1534,
+    },
+  },
 });
-assert.equal(freshEvent.bos, "YES");
-assert.equal(freshEvent.body, "WAIT");
+assert.equal(fiveMBos.bos, "YES");
+assert.equal(fiveMBos.body, "WAIT");
 
 const waitingConfirmation = render({
   live_strategy_model: "V3B",
@@ -95,6 +128,7 @@ const waitingConfirmation = render({
   live_v3b_details: {
     source_candidate: {
       source_indicator_event_id: "event-new",
+      lifecycle_state: "WAITING_SECOND_5M",
       five_m_bos_level: 1.1534,
       paper_entry_details: { bos_body_ratio: 0.64, minimum_bos_body_ratio: 0.5 },
     },
@@ -110,6 +144,7 @@ const eligible = render({
   live_v3b_details: {
     source_candidate: {
       source_indicator_event_id: "event-ready",
+      lifecycle_state: "ELIGIBLE",
       five_m_bos_level: 1.1534,
       stop_loss: 1.1544,
       final_signal: "SELL",
@@ -129,28 +164,46 @@ assert.deepEqual(
 assert.equal(eligible.tp2, "1.1504");
 assert.equal(eligible.rr, "1:1.75");
 
+// Expired V3B event must clear its old failed state back to WAIT.
 const expired = render({
   live_strategy_model: "V3B",
   live_v3b_reason: "WAIT_V3B_RECOVERY_ENTRY_EXPIRED",
-  live_v3b_details: { source_candidate: { five_m_bos_detected: false } },
+  live_v3b_details: {
+    source_candidate: {
+      source_indicator_event_id: "event-expired",
+      lifecycle_state: "EXPIRED",
+      five_m_bos_detected: false,
+      swing_sl_valid: false,
+    },
+  },
 });
-assert.equal(expired.bos, "NO");
-assert.equal(expired.body, "WAIT");
+assert.deepEqual(
+  [expired.bos, expired.body, expired.same, expired.beyond, expired.sl, expired.signal],
+  ["WAIT", "WAIT", "WAIT", "WAIT", "WAIT", "WAIT"]
+);
 assert.equal(expired.reason, "WAIT_V3B_RECOVERY_ENTRY_EXPIRED");
 
+// Replacement event starts clean; a 15m event id alone does not mean 5m BOS passed.
 const replacement = render({
   live_strategy_model: "V3B",
-  live_v3b_reason: "WAIT_V3B_PAPER_BOS_BODY",
-  live_v3b_details: { source_candidate: { source_indicator_event_id: "event-replacement" } },
+  live_v3b_reason: "WAIT_V3B_PAPER_5M_BOS",
+  live_v3b_details: {
+    source_candidate: {
+      source_indicator_event_id: "event-replacement",
+      lifecycle_state: "WAITING_5M",
+    },
+  },
 });
-assert.equal(replacement.bos, "YES");
-assert.equal(replacement.body, "WAIT");
-assert.equal(replacement.same, "WAIT");
-assert.equal(replacement.signal, "WAIT");
+assert.deepEqual(
+  [replacement.bos, replacement.body, replacement.same, replacement.beyond, replacement.sl, replacement.signal],
+  ["WAIT", "WAIT", "WAIT", "WAIT", "WAIT", "WAIT"]
+);
 
+// The presentation layer no longer owns the V3B plan body; script.js does.
+assert.doesNotMatch(historySource, /main-smc-structure|main-smc-trigger|main-smc-waiting-list/);
 assert.doesNotMatch(historySource, /installV3BObserver|refreshV3B|__NATHAUX_V3B_OBSERVER|\/dashboard-feed/);
 assert.doesNotMatch(historySource, /setInterval\s*\(\s*\(\)\s*=>\s*applyV3BPresentation/);
-assert.match(scriptSource, /FlowSignalHistory\?\.renderV3BPresentation\?\.\(data\)/);
-assert.match(scriptSource, /numericTp2 === null \? "--"/);
+assert.doesNotMatch(historySource, /\|\|\s*status\s*\|\|\s*\{\}/);
+assert.doesNotMatch(historySource, /status\?\.reason\s*\|\|\s*candidate\.paper_entry_reason/);
 
 console.log("canonical V3B dashboard mapping tests: PASS");
