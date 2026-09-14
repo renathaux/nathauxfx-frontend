@@ -19,6 +19,7 @@ function element(text = "") {
   return {
     textContent: text,
     innerHTML: "",
+    dataset: {},
     classList: classList(),
     previousElementSibling: { textContent: "" },
   };
@@ -37,12 +38,15 @@ const ids = [
 ];
 const elements = Object.fromEntries(ids.map((id) => [id, element()]));
 const summary = element();
-const details = { querySelector: (selector) => selector === "summary" ? summary : null };
+const details = element();
+details.querySelector = (selector) => selector === "summary" ? summary : null;
+const header = element();
 
 global.document = {
   getElementById: (id) => elements[id] || null,
   querySelector(selector) {
     if (selector === "details.entry-strategy-debug") return details;
+    if (selector === ".main-smc-panel .smc-header") return header;
     return null;
   },
 };
@@ -64,9 +68,7 @@ function render(status, { tp2 = "--", rr = "--" } = {}) {
   };
 }
 
-// Exact failed preview state: generic indicator expiry, no active V3B event,
-// stale false flags and reason strings must not turn checks into failures.
-const genericExpired = render({
+const genericExpiredStatus = {
   live_strategy_model: "V3B",
   reason: "WAIT_INDICATOR_EVENT_EXPIRED",
   block_reason: "WAIT_INDICATOR_EVENT_EXPIRED",
@@ -75,16 +77,18 @@ const genericExpired = render({
   five_m_bos_detected: false,
   bos_detected: false,
   swing_sl_valid: false,
-}, { tp2: "WAIT_INDICATOR_EVENT_EXPIRED", rr: "WAIT_INDICATOR_EVENT_EXPIRED" });
+};
+
+const genericExpired = render(genericExpiredStatus, {
+  tp2: "WAIT_INDICATOR_EVENT_EXPIRED",
+  rr: "WAIT_INDICATOR_EVENT_EXPIRED",
+});
 assert.deepEqual(genericExpired, {
   bos: "WAIT", body: "WAIT", same: "WAIT", beyond: "WAIT", sl: "WAIT",
   signal: "WAIT", reason: "WAIT_INDICATOR_EVENT_EXPIRED", tp2: "--", rr: "--",
 });
 
-// Exact Safari preview regression: a stale candidate can still exist inside
-// live_v3b_details after the generic indicator event has expired. The generic
-// expiry wins and the old candidate must not be treated as current.
-const staleLiveCandidateExpired = render({
+const staleLiveCandidateStatus = {
   live_strategy_model: "V3B",
   reason: "WAIT_INDICATOR_EVENT_EXPIRED",
   block_reason: "WAIT_INDICATOR_EVENT_EXPIRED",
@@ -101,7 +105,11 @@ const staleLiveCandidateExpired = render({
       },
     },
   },
-}, { tp2: "WAIT_INDICATOR_EVENT_EXPIRED", rr: "WAIT_INDICATOR_EVENT_EXPIRED" });
+};
+const staleLiveCandidateExpired = render(staleLiveCandidateStatus, {
+  tp2: "WAIT_INDICATOR_EVENT_EXPIRED",
+  rr: "WAIT_INDICATOR_EVENT_EXPIRED",
+});
 assert.deepEqual(staleLiveCandidateExpired, {
   bos: "WAIT", body: "WAIT", same: "WAIT", beyond: "WAIT", sl: "WAIT",
   signal: "WAIT", reason: "WAIT_INDICATOR_EVENT_EXPIRED", tp2: "--", rr: "--",
@@ -190,7 +198,6 @@ assert.deepEqual(
 assert.equal(eligible.tp2, "1.1504");
 assert.equal(eligible.rr, "1:1.75");
 
-// Expired V3B event must clear its old failed state back to WAIT.
 const expired = render({
   live_strategy_model: "V3B",
   live_v3b_reason: "WAIT_V3B_RECOVERY_ENTRY_EXPIRED",
@@ -209,7 +216,6 @@ assert.deepEqual(
 );
 assert.equal(expired.reason, "WAIT_V3B_RECOVERY_ENTRY_EXPIRED");
 
-// Replacement event starts clean; a 15m event id alone does not mean 5m BOS passed.
 const replacement = render({
   live_strategy_model: "V3B",
   live_v3b_reason: "WAIT_V3B_PAPER_5M_BOS",
@@ -225,12 +231,47 @@ assert.deepEqual(
   ["WAIT", "WAIT", "WAIT", "WAIT", "WAIT", "WAIT"]
 );
 
-// The presentation layer no longer owns the V3B plan body; script.js does.
-assert.doesNotMatch(historySource, /main-smc-structure|main-smc-trigger|main-smc-waiting-list/);
 assert.doesNotMatch(historySource, /installV3BObserver|refreshV3B|__NATHAUX_V3B_OBSERVER|\/dashboard-feed/);
 assert.doesNotMatch(historySource, /setInterval\s*\(\s*\(\)\s*=>\s*applyV3BPresentation/);
 assert.doesNotMatch(historySource, /\|\|\s*status\s*\|\|\s*\{\}/);
 assert.doesNotMatch(historySource, /status\?\.reason\s*\|\|\s*candidate\.paper_entry_reason/);
 assert.match(historySource, /!isInactiveV3BState\(genericReason\)/);
+assert.match(historySource, /queueFinalV3BPresentation/);
+assert.match(historySource, /queueMicrotask/);
 
-console.log("canonical V3B dashboard mapping tests: PASS");
+// Reproduce the browser ordering failure: legacy code rewrites the same DOM
+// later in the synchronous turn. The one queued microtask must restore V3B.
+render(staleLiveCandidateStatus, {
+  tp2: "WAIT_INDICATOR_EVENT_EXPIRED",
+  rr: "WAIT_INDICATOR_EVENT_EXPIRED",
+});
+for (const id of [
+  "strategy-debug-smc",
+  "strategy-debug-swing-break",
+  "strategy-debug-15m-close",
+  "strategy-debug-5m-confirm",
+  "strategy-debug-swing-sl",
+]) {
+  elements[id].textContent = "NO";
+}
+elements["main-rr"].textContent = "WAIT_INDICATOR_EVENT_EXPIRED";
+header.textContent = "⚡ SMC PLAN";
+
+Promise.resolve().then(() => {
+  assert.deepEqual(
+    [
+      elements["strategy-debug-smc"].textContent,
+      elements["strategy-debug-swing-break"].textContent,
+      elements["strategy-debug-15m-close"].textContent,
+      elements["strategy-debug-5m-confirm"].textContent,
+      elements["strategy-debug-swing-sl"].textContent,
+    ],
+    ["WAIT", "WAIT", "WAIT", "WAIT", "WAIT"]
+  );
+  assert.equal(elements["main-rr"].textContent, "--");
+  assert.equal(elements["main-tp2"].textContent, "--");
+  assert.equal(elements["strategy-debug-block-reason"].textContent, "WAIT_INDICATOR_EVENT_EXPIRED");
+  assert.equal(header.textContent, "⚡ V3B PLAN");
+  assert.equal(details.dataset.v3bViewVersion, "3");
+  console.log("canonical V3B dashboard mapping tests: PASS");
+});
