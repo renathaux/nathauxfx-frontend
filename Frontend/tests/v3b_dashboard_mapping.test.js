@@ -15,14 +15,45 @@ function classList() {
   };
 }
 
-function element(text = "") {
-  return {
+const registry = [];
+
+function element(text = "", tagName = "STRONG") {
+  const attrs = {};
+  const styleValues = {};
+  const node = {
+    id: "",
+    tagName,
     textContent: text,
     innerHTML: "",
+    hidden: false,
     dataset: {},
     classList: classList(),
     previousElementSibling: { textContent: "" },
+    style: {
+      setProperty(name, value, priority = "") {
+        styleValues[name] = { value, priority };
+      },
+      getPropertyValue(name) { return styleValues[name]?.value || ""; },
+    },
+    setAttribute(name, value) { attrs[name] = value; },
+    getAttribute(name) { return attrs[name]; },
+    append(...children) { this.children = [...(this.children || []), ...children]; },
+    replaceChildren(...children) { this.children = [...children]; },
   };
+  node.parentNode = {
+    appendChild(child) {
+      registry.push(child);
+      child.parentNode = this;
+      return child;
+    },
+  };
+  return node;
+}
+
+function register(id, node = element()) {
+  node.id = id;
+  registry.push(node);
+  return node;
 }
 
 const ids = [
@@ -36,14 +67,16 @@ const ids = [
   "main-tp2",
   "main-rr",
 ];
-const elements = Object.fromEntries(ids.map((id) => [id, element()]));
+const elements = Object.fromEntries(ids.map((id) => [id, register(id)]));
 const summary = element();
-const details = element();
+const details = element("", "DETAILS");
 details.querySelector = (selector) => selector === "summary" ? summary : null;
 const header = element();
+const plan = register("main-smc-plan-intel", element("", "DIV"));
 
 global.document = {
-  getElementById: (id) => elements[id] || null,
+  getElementById: (id) => registry.find((node) => node.id === id) || null,
+  createElement: (tagName) => element("", String(tagName || "span").toUpperCase()),
   querySelector(selector) {
     if (selector === "details.entry-strategy-debug") return details;
     if (selector === ".main-smc-panel .smc-header") return header;
@@ -51,20 +84,24 @@ global.document = {
   },
 };
 
+function visible(id) {
+  return global.document.getElementById(`v3b-${id}`) || elements[id];
+}
+
 function render(status, { tp2 = "--", rr = "--" } = {}) {
-  elements["main-tp2"].textContent = tp2;
-  elements["main-rr"].textContent = rr;
+  visible("main-tp2").textContent = tp2;
+  visible("main-rr").textContent = rr;
   renderV3BPresentation(status);
   return {
-    bos: elements["strategy-debug-smc"].textContent,
-    body: elements["strategy-debug-swing-break"].textContent,
-    same: elements["strategy-debug-15m-close"].textContent,
-    beyond: elements["strategy-debug-5m-confirm"].textContent,
-    sl: elements["strategy-debug-swing-sl"].textContent,
-    signal: elements["strategy-debug-decision"].textContent,
-    reason: elements["strategy-debug-block-reason"].textContent,
-    tp2: elements["main-tp2"].textContent,
-    rr: elements["main-rr"].textContent,
+    bos: visible("strategy-debug-smc").textContent,
+    body: visible("strategy-debug-swing-break").textContent,
+    same: visible("strategy-debug-15m-close").textContent,
+    beyond: visible("strategy-debug-5m-confirm").textContent,
+    sl: visible("strategy-debug-swing-sl").textContent,
+    signal: visible("strategy-debug-decision").textContent,
+    reason: visible("strategy-debug-block-reason").textContent,
+    tp2: visible("main-tp2").textContent,
+    rr: visible("main-rr").textContent,
   };
 }
 
@@ -84,7 +121,7 @@ const genericExpired = render(genericExpiredStatus, {
   rr: "WAIT_INDICATOR_EVENT_EXPIRED",
 });
 assert.deepEqual(genericExpired, {
-  bos: "WAIT", body: "WAIT", same: "WAIT", beyond: "WAIT", sl: "WAIT",
+  bos: "NO", body: "NO", same: "NO", beyond: "NO", sl: "NO",
   signal: "WAIT", reason: "WAIT_INDICATOR_EVENT_EXPIRED", tp2: "--", rr: "--",
 });
 
@@ -111,7 +148,7 @@ const staleLiveCandidateExpired = render(staleLiveCandidateStatus, {
   rr: "WAIT_INDICATOR_EVENT_EXPIRED",
 });
 assert.deepEqual(staleLiveCandidateExpired, {
-  bos: "WAIT", body: "WAIT", same: "WAIT", beyond: "WAIT", sl: "WAIT",
+  bos: "NO", body: "NO", same: "NO", beyond: "NO", sl: "NO",
   signal: "WAIT", reason: "WAIT_INDICATOR_EVENT_EXPIRED", tp2: "--", rr: "--",
 });
 
@@ -129,7 +166,7 @@ assert.equal(noEventFacts.currentEvent, false);
 assert.equal(noEventFacts.hasBos, null);
 assert.equal(noEventFacts.swingSl, null);
 
-const fresh15mEvent = render({
+const waitingForFiveMBos = render({
   live_strategy_model: "V3B",
   live_v3b_reason: "WAIT_V3B_PAPER_5M_BOS",
   live_v3b_details: {
@@ -139,8 +176,8 @@ const fresh15mEvent = render({
     },
   },
 });
-assert.equal(fresh15mEvent.bos, "WAIT");
-assert.equal(fresh15mEvent.body, "WAIT");
+assert.equal(waitingForFiveMBos.bos, "NO");
+assert.equal(waitingForFiveMBos.body, "NO");
 
 const fiveMBos = render({
   live_strategy_model: "V3B",
@@ -154,7 +191,7 @@ const fiveMBos = render({
   },
 });
 assert.equal(fiveMBos.bos, "YES");
-assert.equal(fiveMBos.body, "WAIT");
+assert.equal(fiveMBos.body, "NO");
 
 const waitingConfirmation = render({
   live_strategy_model: "V3B",
@@ -170,7 +207,7 @@ const waitingConfirmation = render({
 });
 assert.equal(waitingConfirmation.bos, "YES");
 assert.equal(waitingConfirmation.body, "YES");
-assert.equal(waitingConfirmation.same, "WAIT");
+assert.equal(waitingConfirmation.same, "NO");
 
 const eligible = render({
   live_strategy_model: "V3B",
@@ -190,13 +227,13 @@ const eligible = render({
       },
     },
   },
-}, { tp2: "1.1504", rr: "1:1.75" });
+}, { tp2: "1.1504", rr: "1:1.9" });
 assert.deepEqual(
   [eligible.bos, eligible.body, eligible.same, eligible.beyond, eligible.sl, eligible.signal],
   ["YES", "YES", "YES", "YES", "YES", "SELL"]
 );
 assert.equal(eligible.tp2, "1.1504");
-assert.equal(eligible.rr, "1:1.75");
+assert.equal(eligible.rr, "1:1.9");
 
 const expired = render({
   live_strategy_model: "V3B",
@@ -212,7 +249,7 @@ const expired = render({
 });
 assert.deepEqual(
   [expired.bos, expired.body, expired.same, expired.beyond, expired.sl, expired.signal],
-  ["WAIT", "WAIT", "WAIT", "WAIT", "WAIT", "WAIT"]
+  ["NO", "NO", "NO", "NO", "NO", "WAIT"]
 );
 assert.equal(expired.reason, "WAIT_V3B_RECOVERY_ENTRY_EXPIRED");
 
@@ -228,50 +265,24 @@ const replacement = render({
 });
 assert.deepEqual(
   [replacement.bos, replacement.body, replacement.same, replacement.beyond, replacement.sl, replacement.signal],
-  ["WAIT", "WAIT", "WAIT", "WAIT", "WAIT", "WAIT"]
+  ["NO", "NO", "NO", "NO", "NO", "WAIT"]
 );
 
 assert.doesNotMatch(historySource, /installV3BObserver|refreshV3B|__NATHAUX_V3B_OBSERVER|\/dashboard-feed/);
-assert.doesNotMatch(historySource, /setInterval\s*\(\s*\(\)\s*=>\s*applyV3BPresentation/);
+assert.doesNotMatch(historySource, /setInterval\s*\(\s*\(\)\s*=>\s*renderV3BPresentation/);
 assert.doesNotMatch(historySource, /\|\|\s*status\s*\|\|\s*\{\}/);
 assert.doesNotMatch(historySource, /status\?\.reason\s*\|\|\s*candidate\.paper_entry_reason/);
 assert.match(historySource, /!isInactiveV3BState\(genericReason\)/);
-assert.match(historySource, /queueFinalV3BPresentation/);
-assert.match(historySource, /queueMicrotask/);
+assert.match(historySource, /const text = value === true \? "YES" : "NO"/);
+assert.match(historySource, /setProperty\("display", "none", "important"\)/);
+assert.equal(details.dataset.v3bViewVersion, "7");
+assert.equal(plan.dataset.v3bPlanVersion, "2");
 
-// Reproduce the browser ordering failure: legacy code rewrites the same DOM
-// later in the synchronous turn. The one queued microtask must restore V3B.
-render(staleLiveCandidateStatus, {
-  tp2: "WAIT_INDICATOR_EVENT_EXPIRED",
-  rr: "WAIT_INDICATOR_EVENT_EXPIRED",
-});
-for (const id of [
-  "strategy-debug-smc",
-  "strategy-debug-swing-break",
-  "strategy-debug-15m-close",
-  "strategy-debug-5m-confirm",
-  "strategy-debug-swing-sl",
-]) {
-  elements[id].textContent = "NO";
+for (const legacyId of ids) {
+  const sink = global.document.getElementById(legacyId);
+  assert.ok(sink, `legacy sink ${legacyId} exists`);
+  assert.equal(sink.hidden, true);
+  assert.equal(sink.style.getPropertyValue("display"), "none");
 }
-elements["main-rr"].textContent = "WAIT_INDICATOR_EVENT_EXPIRED";
-header.textContent = "⚡ SMC PLAN";
 
-Promise.resolve().then(() => {
-  assert.deepEqual(
-    [
-      elements["strategy-debug-smc"].textContent,
-      elements["strategy-debug-swing-break"].textContent,
-      elements["strategy-debug-15m-close"].textContent,
-      elements["strategy-debug-5m-confirm"].textContent,
-      elements["strategy-debug-swing-sl"].textContent,
-    ],
-    ["WAIT", "WAIT", "WAIT", "WAIT", "WAIT"]
-  );
-  assert.equal(elements["main-rr"].textContent, "--");
-  assert.equal(elements["main-tp2"].textContent, "--");
-  assert.equal(elements["strategy-debug-block-reason"].textContent, "WAIT_INDICATOR_EVENT_EXPIRED");
-  assert.equal(header.textContent, "⚡ V3B PLAN");
-  assert.equal(details.dataset.v3bViewVersion, "3");
-  console.log("canonical V3B dashboard mapping tests: PASS");
-});
+console.log("canonical V3B dashboard mapping tests: PASS");
