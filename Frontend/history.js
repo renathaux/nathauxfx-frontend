@@ -7,11 +7,6 @@
   const TORONTO_TIME_ZONE = "America/Toronto";
   const OPEN_RESULTS = new Set(["RUNNING", "TP1 HIT"]);
   const OPEN_STATUSES = new Set(["OPEN", "RUNNING", "CLOSING"]);
-  let applyingV3B = false;
-  let pendingV3BStatus = null;
-  let v3bMicrotaskQueued = false;
-  let v3bFrameQueued = false;
-  let mainPanelWrapperInstalled = false;
 
   function newYorkMonthKey(value) {
     const date = value instanceof Date ? value : new Date(value);
@@ -281,6 +276,7 @@
     if (!currentEvent) {
       return {
         candidate: {},
+        liveDetails,
         reason,
         v3bReason,
         genericReason,
@@ -329,6 +325,7 @@
 
     return {
       candidate,
+      liveDetails,
       reason,
       v3bReason,
       genericReason,
@@ -341,6 +338,44 @@
       swingSl,
       signal
     };
+  }
+
+  const OWNED_IDS = {
+    "strategy-debug-smc": "v3b-strategy-debug-smc",
+    "strategy-debug-swing-break": "v3b-strategy-debug-swing-break",
+    "strategy-debug-15m-close": "v3b-strategy-debug-15m-close",
+    "strategy-debug-5m-confirm": "v3b-strategy-debug-5m-confirm",
+    "strategy-debug-swing-sl": "v3b-strategy-debug-swing-sl",
+    "strategy-debug-decision": "v3b-strategy-debug-decision",
+    "strategy-debug-block-reason": "v3b-strategy-debug-block-reason",
+    "main-tp2": "v3b-main-tp2",
+    "main-rr": "v3b-main-rr"
+  };
+
+  function claimVisibleElement(originalId, ownedId) {
+    const existingOwned = document.getElementById(ownedId);
+    if (existingOwned) return existingOwned;
+    const visible = document.getElementById(originalId);
+    if (!visible) return null;
+
+    visible.id = ownedId;
+    visible.dataset.v3bOwned = "1";
+
+    const sink = document.createElement(visible.tagName || "span");
+    sink.id = originalId;
+    sink.hidden = true;
+    sink.setAttribute("aria-hidden", "true");
+    sink.style.display = "none";
+    visible.parentNode?.appendChild(sink);
+    return visible;
+  }
+
+  function ensureV3BOwnership() {
+    for (const [legacyId, ownedId] of Object.entries(OWNED_IDS)) {
+      claimVisibleElement(legacyId, ownedId);
+    }
+    const details = document.querySelector("details.entry-strategy-debug");
+    if (details) details.dataset.v3bViewVersion = "5";
   }
 
   function setCheck(id, value) {
@@ -359,122 +394,102 @@
     if (el && el.textContent !== text) el.textContent = text;
   }
 
+  function numericText(...values) {
+    for (const value of values) {
+      if (value == null || value === "") continue;
+      const number = Number(value);
+      if (Number.isFinite(number)) return String(value);
+    }
+    return "--";
+  }
+
   function isValidRiskRewardText(value) {
     const text = String(value || "").trim();
     if (!text || text === "--") return false;
     return /^\d+(?:\.\d+)?\s*(?:(?::|\/)\s*\d+(?:\.\d+)?|R)?$/i.test(text);
   }
 
-  function renderV3BPresentationNow(status) {
-    if (applyingV3B) return;
-    applyingV3B = true;
-    try {
-      const f = v3bFacts(status || {});
-      const inactiveReason = isInactiveV3BState(f.reason);
-      const effectiveCurrentEvent = f.currentEvent && !inactiveReason;
-      const details = document.querySelector("details.entry-strategy-debug");
-      if (details) details.dataset.v3bViewVersion = "4";
-      if (details?.querySelector("summary")) details.querySelector("summary").textContent = "V3B ENTRY STRATEGY CHECKS";
-
-      const header = document.querySelector(".main-smc-panel .smc-header");
-      if (header) header.textContent = "⚡ V3B PLAN";
-
-      const labels = [
-        ["strategy-debug-smc", "5m BOS"],
-        ["strategy-debug-swing-break", "BOS body ≥ 50%"],
-        ["strategy-debug-15m-close", "Next 5m same direction"],
-        ["strategy-debug-5m-confirm", "Close stays beyond BOS"],
-        ["strategy-debug-swing-sl", "5m swing SL"]
-      ];
-      for (const [id, label] of labels) {
-        const el = document.getElementById(id);
-        if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
-      }
-
-      setCheck("strategy-debug-smc", effectiveCurrentEvent ? f.hasBos : null);
-      setCheck("strategy-debug-swing-break", effectiveCurrentEvent ? f.bodyPass : null);
-      setCheck("strategy-debug-15m-close", effectiveCurrentEvent ? f.secondSame : null);
-      setCheck("strategy-debug-5m-confirm", effectiveCurrentEvent ? f.beyond : null);
-      setCheck("strategy-debug-swing-sl", effectiveCurrentEvent ? f.swingSl : null);
-      setText("strategy-debug-decision", effectiveCurrentEvent ? f.signal : "WAIT");
-      setText("strategy-debug-block-reason", f.reason);
-
-      const tp2 = document.getElementById("main-tp2");
-      const tp2Text = String(tp2?.textContent || "").trim();
-      if (tp2 && (!tp2Text || !Number.isFinite(Number(tp2Text)))) {
-        tp2.textContent = "--";
-      }
-      const rr = document.getElementById("main-rr");
-      const rrText = String(rr?.textContent || "").trim();
-      if (rr && !isValidRiskRewardText(rrText)) {
-        rr.textContent = "--";
-      }
-    } finally {
-      applyingV3B = false;
+  function riskRewardText(...values) {
+    for (const value of values) {
+      const text = String(value ?? "").trim();
+      if (isValidRiskRewardText(text)) return text;
     }
+    return "--";
   }
 
-  function queueFinalV3BPresentation() {
-    if (v3bMicrotaskQueued) return;
-    v3bMicrotaskQueued = true;
-    const run = () => {
-      v3bMicrotaskQueued = false;
-      renderV3BPresentationNow(pendingV3BStatus || {});
-    };
-    if (typeof queueMicrotask === "function") queueMicrotask(run);
-    else Promise.resolve().then(run);
-  }
+  function renderV3BPresentation(status) {
+    ensureV3BOwnership();
+    const f = v3bFacts(status || {});
+    const effectiveCurrentEvent = f.currentEvent && !isInactiveV3BState(f.reason);
+    const detailsPanel = document.querySelector("details.entry-strategy-debug");
+    const summary = detailsPanel?.querySelector("summary");
+    if (summary) summary.textContent = "V3B ENTRY STRATEGY CHECKS";
 
-  function queueFrameV3BPresentation() {
-    if (v3bFrameQueued || typeof requestAnimationFrame !== "function") return;
-    v3bFrameQueued = true;
-    requestAnimationFrame(() => {
-      v3bFrameQueued = false;
-      renderV3BPresentationNow(pendingV3BStatus || {});
-    });
-  }
+    const header = document.querySelector(".main-smc-panel .smc-header");
+    if (header) header.textContent = "⚡ V3B PLAN";
 
-  function applyV3BPresentation(status) {
-    pendingV3BStatus = status || {};
-    renderV3BPresentationNow(pendingV3BStatus);
-    queueFinalV3BPresentation();
-    queueFrameV3BPresentation();
-  }
-
-  function installMainPanelFinalOwner() {
-    if (mainPanelWrapperInstalled || typeof window.updateMainPanel !== "function") {
-      return mainPanelWrapperInstalled;
+    const labels = [
+      ["v3b-strategy-debug-smc", "5m BOS"],
+      ["v3b-strategy-debug-swing-break", "BOS body ≥ 50%"],
+      ["v3b-strategy-debug-15m-close", "Next 5m same direction"],
+      ["v3b-strategy-debug-5m-confirm", "Close stays beyond BOS"],
+      ["v3b-strategy-debug-swing-sl", "5m swing SL"]
+    ];
+    for (const [id, label] of labels) {
+      const el = document.getElementById(id);
+      if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
     }
-    const original = window.updateMainPanel;
-    if (original.__NATHAUX_V3B_FINAL_OWNER) {
-      mainPanelWrapperInstalled = true;
-      return true;
-    }
-    const wrapped = function (...args) {
-      const result = original.apply(this, args);
-      if (pendingV3BStatus) {
-        renderV3BPresentationNow(pendingV3BStatus);
-        queueFrameV3BPresentation();
-      }
-      return result;
-    };
-    wrapped.__NATHAUX_V3B_FINAL_OWNER = true;
-    window.updateMainPanel = wrapped;
-    window.__NATHAUX_V3B_FINAL_OWNER = true;
-    mainPanelWrapperInstalled = true;
-    return true;
+
+    setCheck("v3b-strategy-debug-smc", effectiveCurrentEvent ? f.hasBos : null);
+    setCheck("v3b-strategy-debug-swing-break", effectiveCurrentEvent ? f.bodyPass : null);
+    setCheck("v3b-strategy-debug-15m-close", effectiveCurrentEvent ? f.secondSame : null);
+    setCheck("v3b-strategy-debug-5m-confirm", effectiveCurrentEvent ? f.beyond : null);
+    setCheck("v3b-strategy-debug-swing-sl", effectiveCurrentEvent ? f.swingSl : null);
+    setText("v3b-strategy-debug-decision", effectiveCurrentEvent ? f.signal : "WAIT");
+    setText("v3b-strategy-debug-block-reason", f.reason);
+
+    const executed = asObject(status?.executed_trade_setup_snapshot) || {};
+    const candidate = f.candidate || {};
+    const candidateDetails = asObject(candidate.paper_entry_details) || asObject(f.liveDetails?.paper_entry_details) || {};
+
+    const tp2 = executed.tp2 != null
+      ? numericText(executed.tp2)
+      : effectiveCurrentEvent
+        ? numericText(
+            candidate.tp2,
+            candidate.take_profit_2,
+            candidate.paper_tp2,
+            candidateDetails.tp2,
+            f.liveDetails?.tp2,
+            status?.tp2
+          )
+        : "--";
+
+    const rr = executed.risk_reward != null || executed.risk_reward_ratio != null
+      ? riskRewardText(executed.risk_reward, executed.risk_reward_ratio)
+      : effectiveCurrentEvent
+        ? riskRewardText(
+            candidate.risk_reward,
+            candidate.risk_reward_ratio,
+            candidateDetails.risk_reward,
+            candidateDetails.risk_reward_ratio,
+            f.liveDetails?.risk_reward,
+            f.liveDetails?.risk_reward_ratio,
+            status?.risk_reward,
+            status?.risk_reward_ratio
+          )
+        : "--";
+
+    setText("v3b-main-tp2", tp2);
+    setText("v3b-main-rr", rr);
   }
 
   function install() {
     applyMonthlyPaperLocalStorageWindow();
     let attempts = 0;
-    let historyReady = false;
-    let mainPanelReady = false;
-    const historyTimer = setInterval(() => {
+    const timer = setInterval(() => {
       attempts += 1;
-      historyReady = historyReady || installHistoryRendererOverride();
-      mainPanelReady = mainPanelReady || installMainPanelFinalOwner();
-      if ((historyReady && mainPanelReady) || attempts > 40) clearInterval(historyTimer);
+      if (installHistoryRendererOverride() || attempts > 20) clearInterval(timer);
     }, 250);
   }
 
@@ -490,7 +505,7 @@
       compactSignalHistory,
       formatTorontoTime,
       newYorkMonthKey,
-      renderV3BPresentation: applyV3BPresentation
+      renderV3BPresentation
     };
     if (document.readyState === "loading") {
       window.addEventListener("DOMContentLoaded", install, { once: true });
@@ -509,8 +524,7 @@
       formatTorontoTime,
       normalizeSignal,
       v3bFacts,
-      renderV3BPresentation: applyV3BPresentation,
-      renderV3BPresentationNow
+      renderV3BPresentation
     };
   }
 })();
