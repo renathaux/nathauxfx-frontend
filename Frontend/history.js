@@ -181,24 +181,101 @@
     return true;
   }
 
-  function v3bFacts(status) {
-    const liveDetails = status?.live_v3b_details || {};
-    const candidate = liveDetails.source_candidate || status?.source_candidate || status?.candidate || status || {};
-    const details = candidate.paper_entry_details || status?.paper_entry_details || liveDetails || {};
-    const reason = String(
-      status?.live_v3b_reason || status?.reason || candidate.paper_entry_reason ||
-      status?.paper_entry_reason || candidate.block_reason || "WAIT_V3B_PAPER_5M_BOS"
+  function asObject(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+
+  function firstText(...values) {
+    for (const value of values) {
+      if (value == null) continue;
+      const text = String(value).trim();
+      if (text) return text;
+    }
+    return "";
+  }
+
+  function isInactiveV3BState(value) {
+    return /(?:EXPIRED|INVALIDATED|CONSUMED|INACTIVE|CANCELLED|CANCELED)/i.test(String(value || ""));
+  }
+
+  function currentV3BEventId(candidate, liveDetails) {
+    return firstText(
+      candidate?.source_indicator_event_id,
+      candidate?.indicator_event_id,
+      candidate?.source_event_id,
+      candidate?.event_id,
+      candidate?.stable_event_id,
+      liveDetails?.source_indicator_event_id,
+      liveDetails?.indicator_event_id,
+      liveDetails?.event_id,
+      liveDetails?.stable_event_id
     );
+  }
+
+  function v3bFacts(status) {
+    const liveDetails = asObject(status?.live_v3b_details) || {};
+    const explicitV3BReason = firstText(
+      status?.live_v3b_reason,
+      liveDetails.live_v3b_reason,
+      liveDetails.reason,
+      liveDetails.block_reason
+    );
+    const model = firstText(status?.live_strategy_model, status?.strategy_model).toUpperCase();
+
+    let candidate = asObject(liveDetails.source_candidate) || asObject(liveDetails.candidate);
+    if (!candidate && explicitV3BReason && model.includes("V3B")) {
+      candidate = asObject(status?.source_candidate) || asObject(status?.candidate);
+    }
+
+    const candidateReason = firstText(candidate?.paper_entry_reason, candidate?.live_v3b_reason, candidate?.block_reason);
+    const v3bReason = explicitV3BReason || (/^(?:WAIT_)?V3B(?:_|$)/i.test(candidateReason) ? candidateReason : "");
+    const genericReason = firstText(
+      status?.blocked_reason,
+      status?.block_reason,
+      status?.reason,
+      status?.plan_reason,
+      "--"
+    );
+    const reason = v3bReason || genericReason || "--";
+
+    const eventId = currentV3BEventId(candidate, liveDetails);
+    const lifecycleState = firstText(
+      candidate?.lifecycle_state,
+      candidate?.event_state,
+      candidate?.state,
+      liveDetails.lifecycle_state,
+      liveDetails.event_state,
+      liveDetails.state
+    );
+    const currentEvent = Boolean(candidate && eventId && !isInactiveV3BState(lifecycleState) && !isInactiveV3BState(v3bReason));
+
+    if (!currentEvent) {
+      return {
+        candidate: {},
+        reason,
+        v3bReason,
+        genericReason,
+        eventId: "",
+        currentEvent: false,
+        hasBos: null,
+        bodyPass: null,
+        secondSame: null,
+        beyond: null,
+        swingSl: null,
+        signal: "WAIT"
+      };
+    }
+
+    const details = asObject(candidate.paper_entry_details)
+      || asObject(liveDetails.paper_entry_details)
+      || {};
     const explicitBos = details.five_m_bos_detected
       ?? candidate.five_m_bos_detected
       ?? details.bos_detected
       ?? candidate.bos_detected;
     const hasBos = typeof explicitBos === "boolean"
       ? explicitBos
-      : (
-        candidate.source_indicator_event_id || details.source_indicator_event_id ||
-        candidate.five_m_bos_level || candidate.five_m_break_time
-      )
+      : (candidate.five_m_bos_level != null || candidate.five_m_break_time != null)
         ? true
         : null;
     const bodyRatio = Number(details.bos_body_ratio ?? candidate.bos_body_ratio);
@@ -219,7 +296,22 @@
       : candidate.stop_loss != null || candidate.sl != null || candidate.paper_entry_ready === true
         ? true
         : null;
-    return { candidate, reason, hasBos, bodyPass, secondSame, beyond, swingSl };
+    const signal = normalizeSignal(candidate.signal || candidate.final_signal || candidate.final_entry_decision);
+
+    return {
+      candidate,
+      reason,
+      v3bReason,
+      genericReason,
+      eventId,
+      currentEvent: true,
+      hasBos,
+      bodyPass,
+      secondSame,
+      beyond,
+      swingSl,
+      signal
+    };
   }
 
   function setCheck(id, value) {
@@ -233,29 +325,15 @@
     el.classList.remove("check-not-checked");
   }
 
-  function triggerFromReason(reason) {
-    const r = String(reason || "").toUpperCase();
-    if (r.includes("AUTHORITY_DESYNC") || r.includes("AUTHORITY_STALE")) return "5m authority sync";
-    if (r.includes("BOS_BODY")) return "BOS body ≥ 50%";
-    if (r.includes("SECOND_5M")) return "Next 5m confirmation";
-    if (r.includes("RECOVERY_ENTRY_EXPIRED")) return "Fresh 5m BOS";
-    if (r.includes("5M_BOS")) return "Fresh 5m BOS";
-    if (r.includes("DURABLE_IDENTITY")) return "5m setup identity";
-    return "V3B 5m setup";
-  }
-
-  function firstWaitingStep(f) {
-    if (f.hasBos !== true) return "Fresh 5m BOS";
-    if (f.bodyPass !== true) return "BOS body ≥ 50%";
-    if (f.secondSame !== true) return "Next 5m same direction";
-    if (f.beyond !== true) return "Close stays beyond BOS";
-    if (f.swingSl !== true) return "5m swing SL";
-    return "V3B setup ready";
-  }
-
   function setText(id, text) {
     const el = document.getElementById(id);
     if (el && el.textContent !== text) el.textContent = text;
+  }
+
+  function isValidRiskRewardText(value) {
+    const text = String(value || "").trim();
+    if (!text || text === "--") return false;
+    return /^\d+(?:\.\d+)?\s*(?:(?::|\/)\s*\d+(?:\.\d+)?|R)?$/i.test(text);
   }
 
   function applyV3BPresentation(status) {
@@ -276,47 +354,25 @@
         const el = document.getElementById(id);
         if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
       }
+
       setCheck("strategy-debug-smc", f.hasBos);
       setCheck("strategy-debug-swing-break", f.bodyPass);
       setCheck("strategy-debug-15m-close", f.secondSame);
       setCheck("strategy-debug-5m-confirm", f.beyond);
       setCheck("strategy-debug-swing-sl", f.swingSl);
-      setText("strategy-debug-decision", normalizeSignal(f.candidate.signal || f.candidate.final_signal || status?.signal));
+      setText("strategy-debug-decision", f.signal);
       setText("strategy-debug-block-reason", f.reason);
 
-      const header = document.querySelector(".main-smc-panel .smc-header");
-      if (header) header.textContent = "⚡ V3B PLAN";
-      const structureLabel = document.querySelector("#main-smc-structure")?.previousElementSibling;
-      if (structureLabel) structureLabel.textContent = "5m Structure";
-      const triggerLabel = document.querySelector("#main-smc-trigger")?.previousElementSibling;
-      if (triggerLabel) triggerLabel.textContent = "V3B Next Trigger";
-      const waitingLabel = document.querySelector("#main-smc-waiting-list")?.previousElementSibling;
-      if (waitingLabel) waitingLabel.textContent = "V3B Waiting For";
-
-      setText("main-smc-structure", f.hasBos === true ? "5M BOS FOUND" : "WAITING 5M BOS");
-      setText("main-smc-trigger", triggerFromReason(f.reason) || firstWaitingStep(f));
-      const list = document.getElementById("main-smc-waiting-list");
-      if (list) {
-        const rows = [
-          ["5m BOS", f.hasBos],
-          ["BOS body ≥ 50%", f.bodyPass],
-          ["Next 5m same direction", f.secondSame],
-          ["Close stays beyond BOS", f.beyond],
-          ["5m swing SL", f.swingSl]
-        ];
-        const html = rows.map(([label, value]) =>
-          `<li class="${value === true ? "check-pass" : value === false ? "check-fail" : "check-waiting"}">${value === true ? "✓" : value === false ? "✗" : "•"} ${label}</li>`
-        ).join("");
-        if (list.innerHTML !== html) list.innerHTML = html;
-      }
-
+      // The main V3B plan remains owned by updateSmcPlanIntelligence().
+      // This renderer only maps canonical V3B event checks and guards value fields.
       const tp2 = document.getElementById("main-tp2");
-      if (tp2 && !Number.isFinite(Number(String(tp2.textContent || "").trim()))) {
+      const tp2Text = String(tp2?.textContent || "").trim();
+      if (tp2 && (!tp2Text || !Number.isFinite(Number(tp2Text)))) {
         tp2.textContent = "--";
       }
       const rr = document.getElementById("main-rr");
       const rrText = String(rr?.textContent || "").trim();
-      if (rr && (!rrText || rrText.length > 12 || !/^[0-9.:/\-\s]+$/.test(rrText))) {
+      if (rr && !isValidRiskRewardText(rrText)) {
         rr.textContent = "--";
       }
     } finally {
@@ -331,7 +387,6 @@
       attempts += 1;
       if (installHistoryRendererOverride() || attempts > 20) clearInterval(historyTimer);
     }, 250);
-
   }
 
   if (typeof window !== "undefined" && window.localStorage) {
