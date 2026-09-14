@@ -8,9 +8,11 @@
   const BACKEND_URL = "https://flowsignal-backend-3.onrender.com";
   const OPEN_RESULTS = new Set(["RUNNING", "TP1 HIT"]);
   const OPEN_STATUSES = new Set(["OPEN", "RUNNING", "CLOSING"]);
+
   let lastV3BStatus = null;
   let applyingV3B = false;
-  let mainPanelWrapperInstalled = false;
+  let historyOverrideInstalled = false;
+  let observerInstalled = false;
 
   function newYorkMonthKey(value) {
     const date = value instanceof Date ? value : new Date(value);
@@ -176,11 +178,13 @@
 
   function installHistoryRendererOverride() {
     const firstHeader = document.querySelector(".history-table thead th:first-child");
-    if (firstHeader) firstHeader.textContent = "Toronto Time";
-    if (window.__NATHAUX_HISTORY_RENDER_OVERRIDE || typeof window.renderHistory !== "function") return false;
+    if (firstHeader && firstHeader.textContent !== "Toronto Time") firstHeader.textContent = "Toronto Time";
+    if (historyOverrideInstalled || window.__NATHAUX_HISTORY_RENDER_OVERRIDE) return true;
+    if (typeof window.renderHistory !== "function") return false;
     const original = window.renderHistory;
     window.renderHistory = (history) => original(compactSignalHistory(history, 10));
     window.__NATHAUX_HISTORY_RENDER_OVERRIDE = true;
+    historyOverrideInstalled = true;
     return true;
   }
 
@@ -254,15 +258,24 @@
     return { candidate, reason, hasBos, bodyPass, secondSame, beyond, swingSl };
   }
 
+  function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el && el.textContent !== text) el.textContent = text;
+  }
+
+  function setNodeText(el, text) {
+    if (el && el.textContent !== text) el.textContent = text;
+  }
+
   function setCheck(id, value) {
     const el = document.getElementById(id);
     if (!el) return;
     const text = value === true ? "YES" : value === false ? "NO" : "WAIT";
-    el.textContent = text;
+    if (el.textContent !== text) el.textContent = text;
     el.classList.toggle("check-pass", text === "YES");
     el.classList.toggle("check-fail", text === "NO");
     el.classList.toggle("check-waiting", text === "WAIT");
-    el.classList.remove("check-not-checked");
+    el.classList.remove("check-not-checked", "check-blocked");
   }
 
   function triggerFromReason(reason) {
@@ -276,27 +289,16 @@
     return "V3B 5m setup";
   }
 
-  function firstWaitingStep(f) {
-    if (f.hasBos !== true) return "Fresh 5m BOS";
-    if (f.bodyPass !== true) return "BOS body ≥ 50%";
-    if (f.secondSame !== true) return "Next 5m same direction";
-    if (f.beyond !== true) return "Close stays beyond BOS";
-    if (f.swingSl !== true) return "5m swing SL";
-    return "V3B setup ready";
-  }
-
-  function setText(id, text) {
-    const el = document.getElementById(id);
-    if (el && el.textContent !== text) el.textContent = text;
-  }
-
   function applyV3BPresentation(status) {
     if (applyingV3B) return;
+    const panel = document.querySelector(".main-smc-panel");
+    if (!panel) return;
     applyingV3B = true;
     try {
       const f = v3bFacts(status || {});
       const details = document.querySelector("details.entry-strategy-debug");
-      if (details?.querySelector("summary")) details.querySelector("summary").textContent = "V3B ENTRY STRATEGY CHECKS";
+      setNodeText(details?.querySelector("summary"), "V3B ENTRY STRATEGY CHECKS");
+
       const labels = [
         ["strategy-debug-smc", "5m BOS"],
         ["strategy-debug-swing-break", "BOS body ≥ 50%"],
@@ -306,8 +308,9 @@
       ];
       for (const [id, label] of labels) {
         const el = document.getElementById(id);
-        if (el?.previousElementSibling) el.previousElementSibling.textContent = label;
+        setNodeText(el?.previousElementSibling, label);
       }
+
       setCheck("strategy-debug-smc", f.hasBos ? true : null);
       setCheck("strategy-debug-swing-break", f.bodyPass);
       setCheck("strategy-debug-15m-close", f.secondSame);
@@ -316,33 +319,29 @@
       setText("strategy-debug-decision", normalizeSignal(f.candidate.signal || f.candidate.final_signal || status?.signal));
       setText("strategy-debug-block-reason", f.reason);
 
-      const header = document.querySelector(".main-smc-panel .smc-header");
-      if (header) header.textContent = "⚡ V3B PLAN";
-      const structureLabel = document.querySelector("#main-smc-structure")?.previousElementSibling;
-      if (structureLabel) structureLabel.textContent = "5m Structure";
-      const triggerLabel = document.querySelector("#main-smc-trigger")?.previousElementSibling;
-      if (triggerLabel) triggerLabel.textContent = "V3B Next Trigger";
-      const waitingLabel = document.querySelector("#main-smc-waiting-list")?.previousElementSibling;
-      if (waitingLabel) waitingLabel.textContent = "V3B Waiting For";
+      setNodeText(panel.querySelector(".smc-header"), "⚡ V3B PLAN");
+      setNodeText(document.querySelector("#main-smc-structure")?.previousElementSibling, "5m Structure");
+      setNodeText(document.querySelector("#main-smc-trigger")?.previousElementSibling, "V3B Next Trigger");
+      setNodeText(document.querySelector("#main-smc-waiting-list")?.previousElementSibling, "V3B Waiting For");
 
       setText("main-smc-structure", f.hasBos ? "5M BOS FOUND" : "WAITING 5M BOS");
-      setText("main-smc-trigger", triggerFromReason(f.reason) || firstWaitingStep(f));
+      setText("main-smc-trigger", triggerFromReason(f.reason));
+
+      const rows = [
+        ["5m BOS", f.hasBos ? true : null],
+        ["BOS body ≥ 50%", f.bodyPass],
+        ["Next 5m same direction", f.secondSame],
+        ["Close stays beyond BOS", f.beyond],
+        ["5m swing SL", f.swingSl]
+      ];
       const list = document.getElementById("main-smc-waiting-list");
       if (list) {
-        const rows = [
-          ["5m BOS", f.hasBos ? true : null],
-          ["BOS body ≥ 50%", f.bodyPass],
-          ["Next 5m same direction", f.secondSame],
-          ["Close stays beyond BOS", f.beyond],
-          ["5m swing SL", f.swingSl]
-        ];
         const html = rows.map(([label, value]) =>
           `<li class="${value === true ? "check-pass" : value === false ? "check-fail" : "check-waiting"}">${value === true ? "✓" : value === false ? "✗" : "•"} ${label}</li>`
         ).join("");
         if (list.innerHTML !== html) list.innerHTML = html;
       }
 
-      // Never show a legacy V1 WAIT reason in V3B plan value fields.
       for (const id of ["main-tp2", "main-rr"]) {
         const el = document.getElementById(id);
         if (el && /^WAIT_(?!V3B)/i.test(String(el.textContent || "").trim())) el.textContent = "--";
@@ -352,68 +351,59 @@
     }
   }
 
-  function installMainPanelWrapper() {
-    if (mainPanelWrapperInstalled || window.__NATHAUX_V3B_MAIN_PANEL_WRAPPED) return true;
-    if (typeof window.updateMainPanel !== "function") return false;
-    const original = window.updateMainPanel;
-    window.updateMainPanel = function (...args) {
-      const result = original.apply(this, args);
-      applyV3BPresentation(lastV3BStatus || {});
-      return result;
-    };
-    window.__NATHAUX_V3B_MAIN_PANEL_WRAPPED = true;
-    mainPanelWrapperInstalled = true;
+  function enforceV3BNow() {
+    applyV3BPresentation(lastV3BStatus || {});
+  }
+
+  function installV3BObserver() {
+    if (observerInstalled || window.__NATHAUX_V3B_OBSERVER) return true;
+    const target = document.querySelector(".main-trade-card") || document.body;
+    if (!target) return false;
+    const observer = new MutationObserver(() => {
+      if (applyingV3B) return;
+      queueMicrotask(enforceV3BNow);
+    });
+    observer.observe(target, { subtree: true, childList: true, characterData: true });
+    window.__NATHAUX_V3B_OBSERVER = observer;
+    observerInstalled = true;
     return true;
   }
 
   async function refreshV3B() {
     try {
-      const response = await fetch(`${BACKEND_URL}/dashboard-feed`, { cache: "no-store", credentials: "omit" });
+      const response = await fetch(`${BACKEND_URL}/dashboard-feed`, {
+        cache: "no-store",
+        credentials: "omit"
+      });
       if (response.ok) {
         const payload = await response.json();
         const found = findV3BStatus(payload, extractCurrentChartSymbol());
         if (found) lastV3BStatus = found;
       }
     } catch (_error) {}
-    applyV3BPresentation(lastV3BStatus || {});
-  }
-
-  function installV3BObserver() {
-    const target = document.querySelector(".main-smc-panel")?.parentElement || document.body;
-    if (!target || window.__NATHAUX_V3B_OBSERVER) return;
-    let scheduled = false;
-    const observer = new MutationObserver(() => {
-      if (applyingV3B || scheduled) return;
-      scheduled = true;
-      requestAnimationFrame(() => {
-        scheduled = false;
-        applyV3BPresentation(lastV3BStatus || {});
-      });
-    });
-    observer.observe(target, { subtree: true, childList: true, characterData: true });
-    window.__NATHAUX_V3B_OBSERVER = observer;
+    enforceV3BNow();
   }
 
   function install() {
-    applyMonthlyPaperLocalStorageWindow();
+    try { applyMonthlyPaperLocalStorageWindow(); } catch (_error) {}
+
+    window.__NATHAUX_V3B_UI_MODE = true;
+    window.__NATHAUX_APPLY_V3B = enforceV3BNow;
+
+    installV3BObserver();
+    enforceV3BNow();
+    refreshV3B();
+
     let attempts = 0;
     const historyTimer = setInterval(() => {
       attempts += 1;
-      if (installHistoryRendererOverride() || attempts > 20) clearInterval(historyTimer);
-    }, 250);
+      if (installHistoryRendererOverride() || attempts > 40) clearInterval(historyTimer);
+    }, 100);
 
-    if (!installMainPanelWrapper()) {
-      let panelAttempts = 0;
-      const panelTimer = setInterval(() => {
-        panelAttempts += 1;
-        if (installMainPanelWrapper() || panelAttempts > 40) clearInterval(panelTimer);
-      }, 50);
-    }
-
-    refreshV3B();
-    setTimeout(installV3BObserver, 500);
+    // Hard presentation lock: legacy script.js can keep calculating, but it can no longer
+    // leave 15m/V1 values painted inside the V3B card between refreshes.
+    setInterval(enforceV3BNow, 100);
     setInterval(refreshV3B, 5000);
-    setInterval(() => applyV3BPresentation(lastV3BStatus || {}), 500);
   }
 
   if (typeof window !== "undefined" && window.localStorage) {
@@ -427,13 +417,13 @@
       filterPaperHistoryToCurrentMonth,
       compactSignalHistory,
       formatTorontoTime,
-      newYorkMonthKey
+      newYorkMonthKey,
+      applyV3BPresentation: enforceV3BNow
     };
-    if (document.readyState === "loading") {
-      window.addEventListener("DOMContentLoaded", install, { once: true });
-    } else {
-      install();
-    }
+
+    // This file is loaded at the bottom of app.html after the dashboard DOM already exists.
+    // Install immediately so the following legacy script cannot win the first paint.
+    install();
   }
 
   if (typeof module !== "undefined" && module.exports) {
