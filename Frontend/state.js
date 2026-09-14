@@ -20,6 +20,42 @@
     document.documentElement.lang = "en";
   } catch (_error) {}
 
+  // The legacy translator in script.js installs a body-wide MutationObserver even
+  // while the dashboard is staying in English. That observer walks every node added
+  // by live/V3B renders and can fight the other dashboard observers until Safari's
+  // UI thread stops painting. Keep every other MutationObserver intact and suppress
+  // only the translator observer whose callback explicitly calls both translation
+  // helpers. The finite one-time English translation pass is still allowed.
+  if (
+    !window.__NATHAUX_TRANSLATION_OBSERVER_GUARD &&
+    typeof window.MutationObserver === "function"
+  ) {
+    const NativeMutationObserver = window.MutationObserver;
+    const functionToString = Function.prototype.toString;
+
+    function GuardedMutationObserver(callback) {
+      let effectiveCallback = callback;
+
+      try {
+        const source = functionToString.call(callback);
+        if (
+          source.includes("translateUiSubtree") &&
+          source.includes("translateUiAttributes")
+        ) {
+          effectiveCallback = function () {};
+          window.__NATHAUX_LEGACY_TRANSLATION_OBSERVER_BLOCKED = true;
+        }
+      } catch (_error) {}
+
+      return new NativeMutationObserver(effectiveCallback);
+    }
+
+    GuardedMutationObserver.prototype = NativeMutationObserver.prototype;
+    try { Object.setPrototypeOf(GuardedMutationObserver, NativeMutationObserver); } catch (_error) {}
+    window.MutationObserver = GuardedMutationObserver;
+    window.__NATHAUX_TRANSLATION_OBSERVER_GUARD = true;
+  }
+
   function forceEnglishLanguageControls() {
     const appSelect = document.getElementById("langSelect");
     if (appSelect) {
@@ -121,5 +157,6 @@
     loadFeatureFlags,
     saveFeatureFlags,
     languageLockedToEnglish: true,
+    translationObserverGuard: true,
   };
 })();
