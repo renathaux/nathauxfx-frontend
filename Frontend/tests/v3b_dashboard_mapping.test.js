@@ -216,10 +216,12 @@ const eligible = render({
     source_candidate: {
       source_indicator_event_id: "event-ready",
       lifecycle_state: "ELIGIBLE",
+      source_structure_event_type: "CHOCH",
       five_m_bos_level: 1.1534,
       stop_loss: 1.1544,
       final_signal: "SELL",
       paper_entry_details: {
+        structure_event_type: "CHOCH",
         bos_body_ratio: 0.7,
         minimum_bos_body_ratio: 0.5,
         second_5m_same_direction: true,
@@ -268,6 +270,10 @@ assert.deepEqual(
   ["NO", "NO", "NO", "NO", "NO", "WAIT"]
 );
 
+assert.equal(visible("strategy-debug-smc").previousElementSibling.textContent, "5m BOS / CHOCH");
+assert.equal(visible("strategy-debug-swing-break").previousElementSibling.textContent, "Break candle body ≥ 50%");
+assert.equal(visible("strategy-debug-5m-confirm").previousElementSibling.textContent, "Close stays beyond broken level");
+assert.match(historySource, /Fresh 5m BOS \/ CHOCH/);
 assert.doesNotMatch(historySource, /installV3BObserver|refreshV3B|__NATHAUX_V3B_OBSERVER|\/dashboard-feed/);
 assert.doesNotMatch(historySource, /setInterval\s*\(\s*\(\)\s*=>\s*renderV3BPresentation/);
 assert.doesNotMatch(historySource, /\|\|\s*status\s*\|\|\s*\{\}/);
@@ -275,8 +281,8 @@ assert.doesNotMatch(historySource, /status\?\.reason\s*\|\|\s*candidate\.paper_e
 assert.match(historySource, /!isInactiveV3BState\(genericReason\)/);
 assert.match(historySource, /const text = value === true \? "YES" : "NO"/);
 assert.match(historySource, /setProperty\("display", "none", "important"\)/);
-assert.equal(details.dataset.v3bViewVersion, "7");
-assert.equal(plan.dataset.v3bPlanVersion, "2");
+assert.equal(details.dataset.v3bViewVersion, "8");
+assert.equal(plan.dataset.v3bPlanVersion, "3");
 
 for (const legacyId of ids) {
   const sink = global.document.getElementById(legacyId);

@@ -400,9 +400,9 @@
       claimVisibleElement(legacyId, ownedId);
     }
     const details = document.querySelector("details.entry-strategy-debug");
-    if (details) details.dataset.v3bViewVersion = "7";
+    if (details) details.dataset.v3bViewVersion = "8";
     const plan = document.getElementById("main-smc-plan-intel");
-    if (plan) plan.dataset.v3bPlanVersion = "2";
+    if (plan) plan.dataset.v3bPlanVersion = "3";
   }
 
   function setCheck(id, value) {
@@ -505,15 +505,15 @@
     const beyondReady = secondReady && f.beyond === true;
     const swingReady = beyondReady && f.swingSl === true;
 
-    let nextTrigger = "Fresh 5m BOS";
+    let nextTrigger = "Fresh 5m BOS / CHOCH";
     if (effectiveCurrentEvent) {
-      if (f.hasBos !== true) nextTrigger = "Fresh 5m BOS";
-      else if (f.bodyPass == null) nextTrigger = "Validate BOS body ≥ 50%";
-      else if (f.bodyPass === false) nextTrigger = "BOS body < 50% — wait for fresh 5m BOS";
+      if (f.hasBos !== true) nextTrigger = "Fresh 5m BOS / CHOCH";
+      else if (f.bodyPass == null) nextTrigger = "Validate break candle body ≥ 50%";
+      else if (f.bodyPass === false) nextTrigger = "Break candle body < 50% — wait for fresh 5m BOS / CHOCH";
       else if (f.secondSame == null) nextTrigger = "Wait for the next 5m candle";
-      else if (f.secondSame === false) nextTrigger = "Next 5m direction failed — wait for fresh 5m BOS";
-      else if (f.beyond == null) nextTrigger = "Confirm next 5m close beyond BOS";
-      else if (f.beyond === false) nextTrigger = "Next 5m closed back inside — wait for fresh 5m BOS";
+      else if (f.secondSame === false) nextTrigger = "Next 5m direction failed — wait for fresh 5m BOS / CHOCH";
+      else if (f.beyond == null) nextTrigger = "Confirm next 5m close beyond broken level";
+      else if (f.beyond === false) nextTrigger = "Next 5m closed back inside — wait for fresh 5m BOS / CHOCH";
       else if (f.swingSl == null) nextTrigger = "Find 5m structural swing SL";
       else if (f.swingSl === false) nextTrigger = "No valid 5m swing SL";
       else if (["BUY", "SELL"].includes(f.signal)) nextTrigger = `${f.signal} ENTRY READY`;
@@ -521,10 +521,10 @@
     }
 
     const items = [
-      { label: "Fresh 5m BOS", state: stageState(f.hasBos, effectiveCurrentEvent) },
-      { label: "BOS candle body ≥ 50%", state: stageState(f.bodyPass, bosReady) },
+      { label: "Fresh 5m BOS / CHOCH", state: stageState(f.hasBos, effectiveCurrentEvent) },
+      { label: "Break candle body ≥ 50%", state: stageState(f.bodyPass, bosReady) },
       { label: "Next 5m candle same direction", state: stageState(f.secondSame, bodyReady) },
-      { label: "Next 5m close stays beyond BOS", state: stageState(f.beyond, secondReady) },
+      { label: "Next 5m close stays beyond broken level", state: stageState(f.beyond, secondReady) },
       { label: "5m structural swing SL", state: stageState(f.swingSl, beyondReady) }
     ];
 
@@ -580,10 +580,10 @@
     if (header) header.textContent = "⚡ V3B PLAN";
 
     const labels = [
-      ["v3b-strategy-debug-smc", "5m BOS"],
-      ["v3b-strategy-debug-swing-break", "BOS body ≥ 50%"],
+      ["v3b-strategy-debug-smc", "5m BOS / CHOCH"],
+      ["v3b-strategy-debug-swing-break", "Break candle body ≥ 50%"],
       ["v3b-strategy-debug-15m-close", "Next 5m same direction"],
-      ["v3b-strategy-debug-5m-confirm", "Close stays beyond BOS"],
+      ["v3b-strategy-debug-5m-confirm", "Close stays beyond broken level"],
       ["v3b-strategy-debug-swing-sl", "5m swing SL"]
     ];
     for (const [id, label] of labels) {
