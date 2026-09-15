@@ -18,16 +18,30 @@ assert.deepEqual(
   { ...api.fromMeta({ stale_data: true }) },
   { displayOnly: false, analysisAvailable: true, statusLabel: 'STALE DATA' },
 );
+
+for (const displayDataSource of [
+  'persisted_ctrader_closed_candles',
+  'in_memory_ctrader_closed_candles',
+  'closed_candle_fallback',
+]) {
+  assert.deepEqual(
+    {
+      ...api.fromMeta({
+        stale_data: true,
+        display_only_fallback: true,
+        analysis_available: false,
+        display_data_source: displayDataSource,
+      }),
+    },
+    { displayOnly: true, analysisAvailable: false, statusLabel: 'ANALYSIS PAUSED' },
+    `display-only UI must not depend on source ${displayDataSource}`,
+  );
+}
+
 assert.deepEqual(
-  {
-    ...api.fromMeta({
-      stale_data: true,
-      display_only_fallback: true,
-      analysis_available: false,
-      display_data_source: 'persisted_ctrader_closed_candles',
-    }),
-  },
+  { ...api.fromMeta({ display_only_fallback: true, analysis_available: false }) },
   { displayOnly: true, analysisAvailable: false, statusLabel: 'ANALYSIS PAUSED' },
+  'display_only_fallback alone is authoritative for paused UI state',
 );
 
 assert.match(html, /display-data-state\.js\?v=1/);
@@ -75,7 +89,21 @@ const payload = {
     stale_data: true,
     display_only_fallback: true,
     analysis_available: false,
-    display_data_source: 'persisted_ctrader_closed_candles',
+    display_data_source: 'closed_candle_fallback',
+    display_stream_sources: {
+      EURUSD: {
+        '5m': {
+          source: 'in_memory_ctrader_closed_candles',
+          latest_candle_time: '2026-09-15T12:10:00Z',
+        },
+      },
+      XAUUSD: {
+        '5m': {
+          source: 'persisted_ctrader_closed_candles',
+          latest_candle_time: '2026-09-15T12:10:00Z',
+        },
+      },
+    },
   },
   EURUSD: {
     signal: 'WAIT',
@@ -179,14 +207,14 @@ vm.runInNewContext(
 );
 
 (async () => {
-  assert.equal(await runtime.refreshPanel(), true, 'actual refreshPanel accepts the display payload');
-  assert.equal(chartInputs.length, 1, 'saved EURUSD candles reach renderChartFromPanel');
+  assert.equal(await runtime.refreshPanel(), true, 'actual refreshPanel accepts mixed display payload');
+  assert.equal(chartInputs.length, 1, 'EURUSD display candles reach renderChartFromPanel');
   assert.match(elements.chartOverlayOhlc.innerHTML, /O <span>1\.17000<\/span>/);
   assert.match(elements.chartOverlayOhlc.innerHTML, /C <span>1\.17500<\/span>/);
   assert.equal(elements.mainLive.textContent, '• ANALYSIS PAUSED');
   runtime.currentChartSymbol = 'XAUUSD';
   assert.equal(await runtime.refreshPanel(), true, 'display refresh also supports XAUUSD');
-  assert.equal(chartInputs.length, 2, 'saved XAUUSD candles also reach renderChartFromPanel');
+  assert.equal(chartInputs.length, 2, 'XAUUSD display candles also reach renderChartFromPanel');
   assert.match(elements.chartOverlayOhlc.innerHTML, /O <span>3650\.00<\/span>/);
   assert.match(elements.chartOverlayOhlc.innerHTML, /C <span>3655\.00<\/span>/);
   assert.deepEqual(renderedSignals, { EURUSD: 'WAIT', XAUUSD: 'WAIT', main: 'WAIT' });
