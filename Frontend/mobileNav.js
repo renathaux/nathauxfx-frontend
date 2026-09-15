@@ -113,17 +113,16 @@
   function renderIsch(data=cache.panel||{}){
     const symbol=selectedSymbol();
     const plan=data?.[symbol]||{};
-    const debug=mergedStrategyDebug(plan);
-    const stages=strategyStages(plan,debug);
-    const bosFallback = debug.bos_detected || debug.choch_detected || ["BUY","SELL"].includes(String(debug.smc_direction||"").toUpperCase());
-    const bos=first(stages.bos,bosFallback);
-    const swingBreak=first(stages.bos,debug.swing_break_confirmed,debug.swing_break,debug.fifteen_m_break_confirmed,debug.break_confirmed,bos);
-    const close15=first(stages.fifteenClose,stages.fifteen_close,debug.fifteen_m_close_confirmed,debug.fifteen_m_candle_close_confirmed);
-    const confirm5=first(stages.fiveMinute,stages.five_minute,debug.five_m_confirmation);
-    const swingSl=first(stages.swingSl,stages.swing_sl,debug.swing_sl_confirmed,debug.swing_sl_valid,debug.sl_valid,plan.swing_sl_confirmed);
-    const decision=first(debug.final_signal,debug.final_entry_decision,plan.strategy_decision,plan.display_signal,plan.final_signal,plan.signal,"WAIT");
-    const reason=first(debug.blocked_reason,plan.blocked_reason,plan.execution_block_reason,"--");
-    openDetail("ISCH", "ENTRY STRATEGY CHECKS", `<div class="detail-card desktop-isch-card"><h3>${symbol} · ENTRY STRATEGY CHECKS</h3>${row("15m BOS/CHOCH",status(bos))}${row("Swing break",status(swingBreak))}${row("15m close",status(close15))}${row("5m confirm",status(confirm5))}${row("Swing SL",status(swingSl))}${row("Signal",String(decision).toUpperCase())}${row("Reason",reason,"strategy-reason")}</div>`);
+    const facts=window.NathauxMobileV3B?.mobileV3bFacts?.(plan)||{
+      hasBos:false,
+      bodyPass:false,
+      secondSame:false,
+      beyond:false,
+      swingSl:false,
+      signal:"WAIT",
+      reason:"WAIT_V3B_MOBILE_STATE_UNAVAILABLE"
+    };
+    openDetail("ISCH", "ENTRY STRATEGY CHECKS", `<div class="detail-card desktop-isch-card"><h3>${symbol} · ENTRY STRATEGY CHECKS</h3>${row("5m BOS / CHOCH",status(facts.hasBos))}${row("Break candle body ≥ 50%",status(facts.bodyPass))}${row("Next 5m same direction",status(facts.secondSame))}${row("Close stays beyond broken level",status(facts.beyond))}${row("5m swing SL",status(facts.swingSl))}${row("Signal",String(facts.signal||"WAIT").toUpperCase())}${row("Reason",facts.reason||"--","strategy-reason")}</div>`);
   }
 
   function ischDetail(){
