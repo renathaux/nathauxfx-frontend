@@ -7090,9 +7090,14 @@ function updateSmcPlanIntelligence(symbol, data, signal, strategyDebug = {}) {
   const liveTriggerLevel = expiredSetupActive ? null : triggerLevel;
 
   const panelMeta = data?._panel_meta || latestPanelMeta || {};
+  const displayState = window.NathauxDisplayDataState?.fromMeta(panelMeta) || {
+    displayOnly: false,
+    analysisAvailable: true,
+    statusLabel: panelMeta.stale_data ? "STALE DATA" : "LIVE",
+  };
   const stalePanel = Boolean(panelMeta.stale_data);
   const triggerText = stalePanel
-    ? "STALE DATA"
+    ? displayState.statusLabel
     : rrBlocked
     ? "TP swing found but RR is outside allowed window"
     : expiredSetupActive
@@ -7185,6 +7190,11 @@ function updateMainPanel(symbol) {
   const mainLive = document.querySelector(".main-live");
   const candleSourceState = data.signal_data_source || {};
   const panelMeta = data?._panel_meta || latestPanelMeta || {};
+  const displayState = window.NathauxDisplayDataState?.fromMeta(panelMeta) || {
+    displayOnly: false,
+    analysisAvailable: true,
+    statusLabel: panelMeta.stale_data ? "STALE DATA" : "LIVE",
+  };
   const stalePanel = Boolean(panelMeta.stale_data);
   const feedAvailable = candleSourceState.available !== false;
   const feedStale =
@@ -7193,7 +7203,7 @@ function updateMainPanel(symbol) {
 
   if (mainLive) {
     mainLive.textContent = stalePanel
-      ? "• STALE DATA"
+      ? `• ${displayState.statusLabel}`
       : marketClosed
       ? `• ${LANG[currentLang].marketClosed}`
       : (!feedAvailable || feedStale)
@@ -10266,7 +10276,12 @@ updateUTC();
       dataAgeMs > 60000;
     const updateDetail = `Last updated: ${local}`;
 
-    if (meta?.source === "fallback_cache" && meta?.error) {
+    if (meta?.display_only_fallback) {
+      setConnectionBadge(
+        "stale",
+        `${updateDetail}; analysis paused — showing saved candles`
+      );
+    } else if (meta?.source === "fallback_cache" && meta?.error) {
       setConnectionBadge("error", `Connection issue: ${meta.error}`);
     } else if (marketClosed) {
       setConnectionBadge("closed", `${updateDetail}; market closed`);
