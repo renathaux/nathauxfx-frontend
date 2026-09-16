@@ -4,7 +4,10 @@ const path = require("node:path");
 
 const historyPath = path.join(__dirname, "..", "history.js");
 const historySource = fs.readFileSync(historyPath, "utf8");
-const { v3bFacts, renderV3BPresentation } = require(historyPath);
+const appHtml = fs.readFileSync(path.join(__dirname, "..", "app.html"), "utf8");
+assert.match(appHtml, /history\.js\?v=3/, "dashboard loads the new V3B presenter");
+assert.match(appHtml, /script\.js\?v=129/, "dashboard loads the new V3B blocker wiring");
+const { v3bFacts, renderV3BPresentation, v3bPanelBlocker } = require(historyPath);
 
 function classList() {
   const values = new Set();
@@ -64,6 +67,11 @@ const ids = [
   "strategy-debug-swing-sl",
   "strategy-debug-decision",
   "strategy-debug-block-reason",
+  "main-plan-type",
+  "main-entry-price",
+  "main-sl",
+  "main-tp1",
+  "main-blocked-reason",
   "main-tp2",
   "main-rr",
 ];
@@ -122,7 +130,7 @@ const genericExpired = render(genericExpiredStatus, {
 });
 assert.deepEqual(genericExpired, {
   bos: "NO", body: "NO", same: "NO", beyond: "NO", sl: "NO",
-  signal: "WAIT", reason: "WAIT_INDICATOR_EVENT_EXPIRED", tp2: "--", rr: "--",
+  signal: "WAIT", reason: "WAIT_V3B_RUNTIME_UNAVAILABLE", tp2: "--", rr: "--",
 });
 
 const staleLiveCandidateStatus = {
@@ -149,7 +157,7 @@ const staleLiveCandidateExpired = render(staleLiveCandidateStatus, {
 });
 assert.deepEqual(staleLiveCandidateExpired, {
   bos: "NO", body: "NO", same: "NO", beyond: "NO", sl: "NO",
-  signal: "WAIT", reason: "WAIT_INDICATOR_EVENT_EXPIRED", tp2: "--", rr: "--",
+  signal: "WAIT", reason: "WAIT_V3B_RUNTIME_UNAVAILABLE", tp2: "--", rr: "--",
 });
 
 const noEventFacts = v3bFacts({
@@ -209,6 +217,45 @@ assert.equal(waitingConfirmation.bos, "YES");
 assert.equal(waitingConfirmation.body, "YES");
 assert.equal(waitingConfirmation.same, "NO");
 
+const recentBos = new Date(Date.now() - 5 * 60_000).toISOString();
+const nestedWaitWithLegacy15mFailure = render({
+  live_strategy_model: "LIVE_V3B_M5_FROZEN",
+  live_v3b_reason: "WAIT_V3B_PAPER_SECOND_5M",
+  block_reason: "WAIT_NO_FRESH_15M_SMC_BREAK",
+  blocked_reason: "WAIT_INDICATOR_EVENT_EXPIRED",
+  live_v3b_details: {
+    source_candidate: {
+      signal: "WAIT",
+      paper_entry_reason: "WAIT_V3B_PAPER_SECOND_5M",
+      paper_entry_details: {
+        source_indicator_event_id: "fresh-5m-event",
+        bos_candle_time: recentBos,
+        broken_level: 1.1534,
+        bos_body_ratio: 0.64,
+        minimum_bos_body_ratio: 0.5,
+        second_5m_same_direction: false,
+        second_5m_stays_beyond_bos_level: true,
+      },
+    },
+  },
+});
+assert.deepEqual(
+  [nestedWaitWithLegacy15mFailure.bos, nestedWaitWithLegacy15mFailure.body,
+    nestedWaitWithLegacy15mFailure.same, nestedWaitWithLegacy15mFailure.beyond,
+    nestedWaitWithLegacy15mFailure.reason, visible("main-blocked-reason").textContent],
+  ["YES", "YES", "NO", "YES", "WAIT_V3B_PAPER_SECOND_5M", "WAIT_V3B_PAPER_SECOND_5M"]
+);
+assert.deepEqual(v3bPanelBlocker({
+  live_strategy_model: "LIVE_V3B_M5_FROZEN",
+  live_v3b_reason: "WAIT_V3B_PAPER_SECOND_5M",
+  blocked_reason: "WAIT_NO_FRESH_15M_SMC_BREAK",
+}, "WAIT"), { show: true, reason: "WAIT_V3B_PAPER_SECOND_5M" });
+assert.deepEqual(v3bPanelBlocker({
+  live_strategy_model: "LIVE_V3B_M5_FROZEN",
+  live_v3b_reason: null,
+  blocked_reason: "WAIT_NO_FRESH_15M_SMC_BREAK",
+}, "WAIT"), { show: false, reason: "" });
+
 const eligible = render({
   live_strategy_model: "V3B",
   live_v3b_reason: "V3B_READY",
@@ -218,7 +265,11 @@ const eligible = render({
       lifecycle_state: "ELIGIBLE",
       source_structure_event_type: "CHOCH",
       five_m_bos_level: 1.1534,
+      entry_price: 1.1524,
       stop_loss: 1.1544,
+      tp1: 1.1514,
+      tp2: 1.1504,
+      risk_reward: "1:1.9",
       final_signal: "SELL",
       paper_entry_details: {
         structure_event_type: "CHOCH",
@@ -236,6 +287,17 @@ assert.deepEqual(
 );
 assert.equal(eligible.tp2, "1.1504");
 assert.equal(eligible.rr, "1:1.9");
+assert.equal(visible("main-plan-type").textContent, "SELL");
+assert.equal(visible("main-entry-price").textContent, "1.15240");
+assert.equal(visible("main-sl").textContent, "1.15440");
+assert.equal(visible("main-tp1").textContent, "1.15140");
+
+const executedDirection = render({
+  live_strategy_model: "V3B",
+  live_v3b_reason: "V3B_READY",
+  executed_trade_setup_snapshot: { status: "OPEN", side: "BUY", entry: 1.1531, sl: 1.1511 },
+});
+assert.equal(visible("main-plan-type").textContent, "BUY");
 
 const expired = render({
   live_strategy_model: "V3B",
@@ -254,6 +316,23 @@ assert.deepEqual(
   ["NO", "NO", "NO", "NO", "NO", "WAIT"]
 );
 assert.equal(expired.reason, "WAIT_V3B_RECOVERY_ENTRY_EXPIRED");
+
+const authorityStale = render({
+  live_strategy_model: "V3B",
+  live_v3b_reason: "WAIT_V3B_5M_AUTHORITY_STALE",
+  live_v3b_details: {
+    source_candidate: {
+      source_indicator_event_id: "stale-authority-event",
+      final_signal: "BUY",
+      five_m_bos_detected: true,
+      stop_loss: 1.1,
+      paper_entry_details: { bos_body_ratio: 0.8, second_5m_same_direction: true, second_5m_stays_beyond_bos_level: true },
+    },
+  },
+});
+assert.equal(authorityStale.signal, "WAIT");
+assert.equal(authorityStale.bos, "NO");
+assert.equal(authorityStale.reason, "WAIT_V3B_5M_AUTHORITY_STALE");
 
 const replacement = render({
   live_strategy_model: "V3B",
@@ -278,7 +357,7 @@ assert.doesNotMatch(historySource, /installV3BObserver|refreshV3B|__NATHAUX_V3B_
 assert.doesNotMatch(historySource, /setInterval\s*\(\s*\(\)\s*=>\s*renderV3BPresentation/);
 assert.doesNotMatch(historySource, /\|\|\s*status\s*\|\|\s*\{\}/);
 assert.doesNotMatch(historySource, /status\?\.reason\s*\|\|\s*candidate\.paper_entry_reason/);
-assert.match(historySource, /!isInactiveV3BState\(genericReason\)/);
+assert.doesNotMatch(historySource, /!isInactiveV3BState\(genericReason\)/);
 assert.match(historySource, /const text = value === true \? "YES" : "NO"/);
 assert.match(historySource, /setProperty\("display", "none", "important"\)/);
 assert.equal(details.dataset.v3bViewVersion, "8");

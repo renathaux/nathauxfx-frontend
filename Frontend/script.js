@@ -7484,9 +7484,13 @@ if (priceEl) {
   // observe the DOM, or calculate an independent trading decision.
   window.FlowSignalHistory?.renderV3BPresentation?.(data);
 
-  const showSignalBlocker =
-    signal === "WAIT" &&
-    Boolean(data.blocked_reason || data.block_reason);
+  const v3bBlocker = window.FlowSignalHistory?.v3bPanelBlocker?.(data, signal);
+  const blockReason = v3bBlocker
+    ? v3bBlocker.reason
+    : String(data.blocked_reason || data.block_reason || "");
+  const showSignalBlocker = v3bBlocker
+    ? v3bBlocker.show
+    : signal === "WAIT" && Boolean(blockReason);
   const blockedReasonRow = document.getElementById("main-blocked-reason-row");
   const blockedReasonEl = document.getElementById("main-blocked-reason");
 
@@ -7496,7 +7500,7 @@ if (priceEl) {
 
   if (blockedReasonEl) {
     blockedReasonEl.textContent = showSignalBlocker
-      ? tMarketText(String(data.blocked_reason || data.block_reason || "--"))
+      ? tMarketText(blockReason)
       : "--";
   }
 

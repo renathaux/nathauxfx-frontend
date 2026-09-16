@@ -194,12 +194,14 @@
   }
 
   function isInactiveV3BState(value) {
-    return /(?:EXPIRED|INVALIDATED|CONSUMED|INACTIVE|CANCELLED|CANCELED)/i.test(String(value || ""));
+    return /(?:EXPIRED|INVALIDATED|CONSUMED|INACTIVE|CANCELLED|CANCELED|AUTHORITY_STALE)/i.test(String(value || ""));
   }
 
   function currentV3BEventId(candidate, liveDetails) {
+    const details = asObject(candidate?.paper_entry_details) || {};
     return firstText(
       candidate?.source_indicator_event_id,
+      details.source_indicator_event_id,
       candidate?.indicator_event_id,
       candidate?.source_event_id,
       candidate?.event_id,
@@ -258,7 +260,9 @@
       status?.plan_reason,
       "--"
     );
-    const reason = v3bReason || genericReason || "--";
+    const reason = model.includes("V3B")
+      ? (v3bReason || (candidate?.live_v3b_ready ? "V3B_READY" : "WAIT_V3B_RUNTIME_UNAVAILABLE"))
+      : (v3bReason || genericReason || "--");
 
     const eventId = currentV3BEventId(candidate, liveDetails);
     const lifecycleState = firstText(
@@ -272,12 +276,20 @@
       strategyDebug.event_state,
       strategyDebug.state
     );
+    const candidateDetails = asObject(candidate?.paper_entry_details) || {};
+    const bosTime = parseDateValue(candidateDetails.bos_candle_time || candidate?.five_m_break_time);
+    const checkedAt = parseDateValue(status?.live_v3b_checked_at) || new Date();
+    const withinConfirmationWindow = !bosTime || (
+      checkedAt.getTime() >= bosTime.getTime()
+      && checkedAt.getTime() - bosTime.getTime() <= 15 * 60_000
+    );
     const currentEvent = Boolean(
       candidate
       && eventId
+      && v3bReason
+      && withinConfirmationWindow
       && !isInactiveV3BState(lifecycleState)
       && !isInactiveV3BState(v3bReason)
-      && !isInactiveV3BState(genericReason)
     );
 
     if (!currentEvent) {
@@ -307,7 +319,7 @@
       ?? candidate.bos_detected;
     const hasBos = typeof explicitBos === "boolean"
       ? explicitBos
-      : (candidate.five_m_bos_level != null || candidate.five_m_break_time != null || candidate.bos_level != null)
+      : (candidate.five_m_bos_level != null || candidate.five_m_break_time != null || candidate.bos_level != null || details.broken_level != null)
         ? true
         : null;
     const bodyRatio = Number(details.bos_body_ratio ?? candidate.bos_body_ratio);
@@ -351,6 +363,13 @@
     };
   }
 
+  function v3bPanelBlocker(status, visibleSignal) {
+    if (!String(status?.live_strategy_model || "").toUpperCase().includes("V3B")
+        && !status?.live_v3b_reason) return null;
+    const reason = firstText(status?.live_v3b_reason);
+    return { show: normalizeSignal(visibleSignal) === "WAIT" && Boolean(reason), reason };
+  }
+
   const OWNED_IDS = {
     "strategy-debug-smc": "v3b-strategy-debug-smc",
     "strategy-debug-swing-break": "v3b-strategy-debug-swing-break",
@@ -359,6 +378,11 @@
     "strategy-debug-swing-sl": "v3b-strategy-debug-swing-sl",
     "strategy-debug-decision": "v3b-strategy-debug-decision",
     "strategy-debug-block-reason": "v3b-strategy-debug-block-reason",
+    "main-plan-type": "v3b-main-plan-type",
+    "main-entry-price": "v3b-main-entry-price",
+    "main-sl": "v3b-main-sl",
+    "main-tp1": "v3b-main-tp1",
+    "main-blocked-reason": "v3b-main-blocked-reason",
     "main-tp2": "v3b-main-tp2",
     "main-rr": "v3b-main-rr",
     "main-smc-structure": "v3b-main-smc-structure",
@@ -598,10 +622,21 @@
     setCheck("v3b-strategy-debug-swing-sl", effectiveCurrentEvent ? f.swingSl : false);
     setText("v3b-strategy-debug-decision", effectiveCurrentEvent ? f.signal : "WAIT");
     setText("v3b-strategy-debug-block-reason", f.reason);
+    setText("v3b-main-blocked-reason", f.reason);
 
     const executed = asObject(status?.executed_trade_setup_snapshot) || {};
     const candidate = f.candidate || {};
     const candidateDetails = asObject(candidate.paper_entry_details) || asObject(f.liveDetails?.paper_entry_details) || {};
+    const symbol = symbolText(status, candidate, f.liveDetails);
+    const side = effectiveCurrentEvent ? normalizeSignal(candidate.signal || candidate.final_signal) : "WAIT";
+
+    setText("v3b-main-plan-type", firstText(executed.side, executed.action, executed.direction, side === "WAIT" ? "--" : side));
+    setText("v3b-main-entry-price", formatPrice(symbol,
+      firstFiniteNumber(executed.entry, effectiveCurrentEvent && candidate.entry_price, effectiveCurrentEvent && candidate.entry)));
+    setText("v3b-main-sl", formatPrice(symbol,
+      firstFiniteNumber(executed.sl, effectiveCurrentEvent && candidate.stop_loss, effectiveCurrentEvent && candidate.sl)));
+    setText("v3b-main-tp1", formatPrice(symbol,
+      firstFiniteNumber(executed.tp1, effectiveCurrentEvent && candidate.tp1)));
 
     const tp2 = executed.tp2 != null
       ? numericText(executed.tp2)
@@ -657,7 +692,8 @@
       compactSignalHistory,
       formatTorontoTime,
       newYorkMonthKey,
-      renderV3BPresentation
+      renderV3BPresentation,
+      v3bPanelBlocker
     };
     if (document.readyState === "loading") {
       window.addEventListener("DOMContentLoaded", install, { once: true });
@@ -676,7 +712,8 @@
       formatTorontoTime,
       normalizeSignal,
       v3bFacts,
-      renderV3BPresentation
+      renderV3BPresentation,
+      v3bPanelBlocker
     };
   }
 })();
