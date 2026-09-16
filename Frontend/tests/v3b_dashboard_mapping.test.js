@@ -113,6 +113,43 @@ function render(status, { tp2 = "--", rr = "--" } = {}) {
   };
 }
 
+// A cached V3B_READY snapshot must not resurrect an old actionable direction.
+function readySnapshot(checkedAt, bosTime) {
+  return {
+    live_strategy_model: "V3B",
+    live_v3b_reason: "V3B_READY",
+    live_v3b_checked_at: checkedAt,
+    live_v3b_details: { source_candidate: {
+      source_indicator_event_id: "freshness-event",
+      final_signal: "BUY",
+      five_m_bos_level: 1.1534,
+      stop_loss: 1.15,
+      paper_entry_details: {
+        bos_candle_time: bosTime,
+        bos_body_ratio: 0.7,
+        second_5m_same_direction: true,
+        second_5m_stays_beyond_bos_level: true,
+      },
+    } },
+  };
+}
+const snapshotNow = Date.now();
+for (const [label, checkedAt, bosTime] of [
+  ["two-day-old ready snapshot", snapshotNow - 2 * 86400_000, snapshotNow - 2 * 86400_000 - 300_000],
+  ["missing BOS timestamp", snapshotNow, undefined],
+  ["malformed BOS timestamp", snapshotNow, "not-a-date"],
+  ["missing evaluation timestamp", undefined, snapshotNow - 300_000],
+  ["malformed evaluation timestamp", "not-a-date", snapshotNow - 300_000],
+  ["future snapshot", snapshotNow + 300_000, snapshotNow + 100_000],
+]) {
+  const stale = readySnapshot(checkedAt, bosTime);
+  assert.equal(v3bFacts(stale).currentEvent, false, label);
+  assert.equal(render(stale).signal, "WAIT", label);
+  assert.equal(visible("main-plan-type").textContent, "--", label);
+}
+assert.equal(render(readySnapshot(snapshotNow / 1000, (snapshotNow - 300_000) / 1000)).signal, "BUY",
+  "fresh production Unix-second timestamps preserve the current candidate");
+
 const genericExpiredStatus = {
   live_strategy_model: "V3B",
   reason: "WAIT_INDICATOR_EVENT_EXPIRED",
@@ -189,11 +226,13 @@ assert.equal(waitingForFiveMBos.body, "NO");
 
 const fiveMBos = render({
   live_strategy_model: "V3B",
+  live_v3b_checked_at: Date.now(),
   live_v3b_reason: "WAIT_V3B_PAPER_BOS_BODY",
   live_v3b_details: {
     source_candidate: {
       source_indicator_event_id: "event-new",
       lifecycle_state: "WAITING_BODY",
+      five_m_break_time: Date.now() - 300_000,
       five_m_bos_level: 1.1534,
     },
   },
@@ -203,11 +242,13 @@ assert.equal(fiveMBos.body, "NO");
 
 const waitingConfirmation = render({
   live_strategy_model: "V3B",
+  live_v3b_checked_at: Date.now(),
   live_v3b_reason: "WAIT_V3B_PAPER_SECOND_5M",
   live_v3b_details: {
     source_candidate: {
       source_indicator_event_id: "event-new",
       lifecycle_state: "WAITING_SECOND_5M",
+      five_m_break_time: Date.now() - 300_000,
       five_m_bos_level: 1.1534,
       paper_entry_details: { bos_body_ratio: 0.64, minimum_bos_body_ratio: 0.5 },
     },
@@ -220,6 +261,7 @@ assert.equal(waitingConfirmation.same, "NO");
 const recentBos = new Date(Date.now() - 5 * 60_000).toISOString();
 const nestedWaitWithLegacy15mFailure = render({
   live_strategy_model: "LIVE_V3B_M5_FROZEN",
+  live_v3b_checked_at: Date.now(),
   live_v3b_reason: "WAIT_V3B_PAPER_SECOND_5M",
   block_reason: "WAIT_NO_FRESH_15M_SMC_BREAK",
   blocked_reason: "WAIT_INDICATOR_EVENT_EXPIRED",
@@ -258,11 +300,13 @@ assert.deepEqual(v3bPanelBlocker({
 
 const eligible = render({
   live_strategy_model: "V3B",
+  live_v3b_checked_at: Date.now(),
   live_v3b_reason: "V3B_READY",
   live_v3b_details: {
     source_candidate: {
       source_indicator_event_id: "event-ready",
       lifecycle_state: "ELIGIBLE",
+      five_m_break_time: Date.now() - 300_000,
       source_structure_event_type: "CHOCH",
       five_m_bos_level: 1.1534,
       entry_price: 1.1524,

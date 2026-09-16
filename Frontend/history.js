@@ -278,11 +278,15 @@
     );
     const candidateDetails = asObject(candidate?.paper_entry_details) || {};
     const bosTime = parseDateValue(candidateDetails.bos_candle_time || candidate?.five_m_break_time);
-    const checkedAt = parseDateValue(status?.live_v3b_checked_at) || new Date();
-    const withinConfirmationWindow = !bosTime || (
+    const checkedAt = parseDateValue(status?.live_v3b_checked_at);
+    const now = Date.now();
+    // Bound the snapshot against wall time, not its own historical evaluation.
+    // Missing timestamps cannot establish that a setup is still current.
+    const withinConfirmationWindow = Boolean(bosTime && checkedAt && (
       checkedAt.getTime() >= bosTime.getTime()
-      && checkedAt.getTime() - bosTime.getTime() <= 15 * 60_000
-    );
+      && checkedAt.getTime() <= now
+      && now - bosTime.getTime() <= 15 * 60_000
+    ));
     const currentEvent = Boolean(
       candidate
       && eventId
