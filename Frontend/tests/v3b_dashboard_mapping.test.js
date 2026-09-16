@@ -6,7 +6,7 @@ const historyPath = path.join(__dirname, "..", "history.js");
 const historySource = fs.readFileSync(historyPath, "utf8");
 const appHtml = fs.readFileSync(path.join(__dirname, "..", "app.html"), "utf8");
 assert.match(appHtml, /history\.js\?v=3/, "dashboard loads the new V3B presenter");
-assert.match(appHtml, /script\.js\?v=129/, "dashboard loads the new V3B blocker wiring");
+assert.match(appHtml, /script\.js\?v=130/, "dashboard loads the new V3B blocker wiring");
 const { v3bFacts, renderV3BPresentation, v3bPanelBlocker } = require(historyPath);
 
 function classList() {

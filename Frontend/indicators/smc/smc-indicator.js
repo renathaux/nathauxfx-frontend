@@ -32,6 +32,15 @@
 
   async function loadStructure() {
     if (!state.enabled || state.requestInFlight) return;
+    if (typeof brokerAccountActionInProgress !== "undefined" && brokerAccountActionInProgress) {
+      schedule();
+      return;
+    }
+    const generation = typeof accountSelectionGeneration === "undefined" ? 0 : accountSelectionGeneration;
+    const symbol = state.symbol;
+    const timeframe = state.timeframe;
+    const isCurrent = () => generation === (typeof accountSelectionGeneration === "undefined" ? 0 : accountSelectionGeneration)
+      && symbol === state.symbol && timeframe === state.timeframe;
     state.requestInFlight = true;
     try {
       const url = new URL(`${base}/chart/smc-structure`);
@@ -41,9 +50,11 @@
       const response = await fetch(url.toString(), { cache: "no-store", suppressErrorPanel: true });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const structure = await response.json();
+      if (!isCurrent()) return;
       state.lastError = null;
       api.applyStructure(structure);
     } catch (error) {
+      if (!isCurrent()) return;
       state.lastError = error?.message || String(error);
       emit("flowsignal:smc-error", api.getState());
     } finally {
@@ -152,6 +163,12 @@
   };
 
   window.FlowSignalSMC = api;
+
+  window.addEventListener("flowsignal:account-changed", () => {
+    api.clear();
+    state.lastError = null;
+    schedule(100);
+  });
 
   window.addEventListener("flowsignal:chart-candle-series", (event) => api.mount(event.detail || {}));
   window.addEventListener("flowsignal:chart-context", (event) => api.setContext(event.detail || {}));

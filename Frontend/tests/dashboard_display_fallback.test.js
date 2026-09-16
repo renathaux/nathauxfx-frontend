@@ -45,7 +45,7 @@ assert.deepEqual(
 );
 
 assert.match(html, /display-data-state\.js\?v=1/);
-assert.match(html, /script\.js\?v=129/);
+assert.match(html, /script\.js\?v=130/);
 assert.match(script, /NathauxDisplayDataState/);
 
 function extractFunction(name) {
@@ -144,6 +144,8 @@ const runtime = {
   API_URL: 'https://api.nathauxfx.com/panel-data',
   fetch: async () => ({ ok: true, status: 200, json: async () => structuredClone(payload) }),
   panelRefreshInProgress: false,
+  accountSelectionGeneration: 0,
+  brokerAccountActionInProgress: false,
   lastGoodPanelData: previousPanel,
   latestRawPanelData: null,
   latestPanelData: null,

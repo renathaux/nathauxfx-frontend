@@ -13,6 +13,6 @@ assert.match(script, /\/chart\/candles-history/);
 assert.match(script, /url\.searchParams\.set\("days", "62"\)/);
 assert.match(script, /headers: newsModeAuthHeaders\(\)/);
 assert.match(script, /\[\.\.\.history, \.\.\.liveCandles\]/);
-assert.ok(html.includes('script.js?v=123'), "two-month chart loader busts the old cache");
+assert.ok(Number(html.match(/script\.js\?v=(\d+)/)?.[1]) >= 123, "two-month chart loader busts the old cache");
 
 console.log("two-month chart history tests passed");
