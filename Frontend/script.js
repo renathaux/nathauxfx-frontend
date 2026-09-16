@@ -17,6 +17,7 @@ const FUNDAMENTAL_INSIGHT_CACHE_MS = 5 * 60 * 1000;
 const FUNDAMENTAL_INSIGHT_FAILURE_BACKOFF_MS = 2 * 60 * 1000;
 let lastGoodBrokerAccountsData = null;
 let brokerAccountActionInProgress = false;
+let accountSelectionGeneration = 0;
 let currentNewsImpactWindow = null;
 let currentUpcomingHighImpactEvents = [];
 const NEWS_PROTECTION_BEFORE_MS = 30 * 60 * 1000;
@@ -9539,6 +9540,7 @@ function applyCtraderStatus(status) {
 }
 
 async function fetchCtraderStatus() {
+  const selectionGeneration = accountSelectionGeneration;
   try {
     const res = await fetch(`${BASE_URL}/ctrader-status`, {
       method: "GET",
@@ -9556,6 +9558,7 @@ async function fetchCtraderStatus() {
     }
 
     const status = await res.json();
+    if (selectionGeneration !== accountSelectionGeneration) return null;
     applyCtraderStatus(status);
     window.FlowSignalStartup?.record("broker_status_loaded", {
       connected: Boolean(status.connected),
@@ -9564,6 +9567,7 @@ async function fetchCtraderStatus() {
     return status;
   } catch (err) {
     console.warn("CTRADER STATUS ERROR:", err);
+    if (selectionGeneration !== accountSelectionGeneration) return null;
     liveConnectionState.degraded = true;
     liveConnectionState.reason = "Broker status delayed; keeping last confirmed state";
     if (runtimeStatusDetail) {
@@ -9750,6 +9754,7 @@ function updateBrokerAccountActionState() {
 }
 
 async function loadBrokerAccounts(refresh = false) {
+  const selectionGeneration = accountSelectionGeneration;
   setBrokerStatusMessage(refresh ? "Connection Status: refreshing accounts..." : "Connection Status: loading accounts...");
 
   if (refreshCtraderAccountsBtn) {
@@ -9766,6 +9771,7 @@ async function loadBrokerAccounts(refresh = false) {
       suppressErrorPanel: true,
     });
     const data = await res.json();
+    if (selectionGeneration !== accountSelectionGeneration) return null;
 
     if (!res.ok || data.ok === false) {
       setBrokerStatusMessage(`Connection Status: ${data.reason || data.message || "Could not load cTrader accounts"}`, true);
@@ -9783,6 +9789,7 @@ async function loadBrokerAccounts(refresh = false) {
     renderBrokerAccounts(data);
     return data;
   } catch (err) {
+    if (selectionGeneration !== accountSelectionGeneration) return null;
     if (lastGoodBrokerAccountsData) {
       renderBrokerAccounts(lastGoodBrokerAccountsData);
       setBrokerStatusMessage(
@@ -9794,7 +9801,7 @@ async function loadBrokerAccounts(refresh = false) {
     }
     return null;
   } finally {
-    if (refreshCtraderAccountsBtn) {
+    if (selectionGeneration === accountSelectionGeneration && refreshCtraderAccountsBtn) {
       refreshCtraderAccountsBtn.disabled = false;
       refreshCtraderAccountsBtn.textContent = "↻ Refresh Accounts";
     }
@@ -9856,6 +9863,7 @@ async function setActiveBrokerAccount(accountId) {
   }
 
   brokerAccountActionInProgress = true;
+  accountSelectionGeneration += 1;
   const actionButton = brokerAccountList?.querySelector(
     `[data-set-active="${CSS.escape(String(selectedAccountId))}"]`
   );
@@ -9878,6 +9886,46 @@ async function setActiveBrokerAccount(accountId) {
       return;
     }
 
+    // Previous-account data must not be used as a signal/chart fallback.
+    lastGoodPanelData = null;
+    latestRawPanelData = null;
+    latestPanelData = null;
+    latestPanelMeta = null;
+    frozenCandlesCache = null;
+    frozenChart = {};
+    lastChartData = {EURUSD: {"5m": [], "15m": [], "1h": []}, XAUUSD: {"5m": [], "15m": [], "1h": []}};
+    activeLiveOrders = {};
+    liveTradeHistory = [];
+    liveTradeStats = {
+      total_today: 0, wins: 0, losses: 0, running: 0, closed: 0,
+      total_pl: 0, total_pnl: 0, daily_realized_pl: 0, daily_total_pl: 0,
+      weekly_realized_pl: 0, weekly_total_pl: 0, monthly_realized_pl: 0,
+      floating_live_pl: 0,
+    };
+    liveAutoStatusBySymbol = {};
+    autoTradeStatus = null;
+    livePrices = {};
+    const pendingPanel = {signal: "WAIT", final_signal: "WAIT",
+      market_condition: "ACCOUNT_SWITCH_PENDING", signal_data_source: {available: false}};
+    for (const symbol of ["EURUSD", "XAUUSD"]) {
+      updateCard(symbol, pendingPanel);
+    }
+    latestPanelMeta = {stale_data: true, account_switch_pending: true};
+    latestPanelData = {
+      EURUSD: {...pendingPanel, _panel_meta: latestPanelMeta},
+      XAUUSD: {...pendingPanel, _panel_meta: latestPanelMeta},
+    };
+    updateMainPanel(currentChartSymbol);
+    latestPanelData = null;
+    latestPanelMeta = null;
+    updateLivePanel({}, [], liveTradeStats);
+    renderDashboardPerformance({});
+    renderAutoTradeStatus();
+    Object.keys(twoMonthChartHistory).forEach(key => delete twoMonthChartHistory[key]);
+    Object.keys(twoMonthChartHistoryRequests).forEach(key => delete twoMonthChartHistoryRequests[key]);
+    if (candleSeries) candleSeries.setData([]);
+    window.dispatchEvent(new CustomEvent("flowsignal:account-changed"));
+    liveConnectionState.account_id = String(selectedAccountId);
     if (lastGoodBrokerAccountsData) {
       lastGoodBrokerAccountsData.active_account_id = String(selectedAccountId);
       renderBrokerAccounts(lastGoodBrokerAccountsData);
@@ -9901,6 +9949,7 @@ async function setActiveBrokerAccount(accountId) {
       row.classList.remove("is-activating");
     });
     updateBrokerAccountActionState();
+    void refreshPanel();
   }
 }
 
@@ -10042,6 +10091,8 @@ function stabilizePanelSignals(rawData, previousData) {
 }
 
 async function refreshPanel() {
+  const selectionGeneration = accountSelectionGeneration;
+  if (brokerAccountActionInProgress) return false;
   if (panelRefreshInProgress) {
     console.log("⏭️ refreshPanel skipped: previous request still running");
     return;
@@ -10073,10 +10124,26 @@ async function refreshPanel() {
       throw new Error(`HTTP ${res.status}`);
     }
 
-   const rawData = stabilizePanelSignals(
-     await res.json(),
-     lastGoodPanelData
-   );
+   const responseData = await res.json();
+   if (selectionGeneration !== accountSelectionGeneration || brokerAccountActionInProgress) {
+     badgeSettled = true;
+     return false;
+   }
+   const responseAccount = responseData?._meta?.account_scope?.split(':')[2];
+   if (responseAccount && liveConnectionState.account_id && responseAccount !== String(liveConnectionState.account_id)) {
+     badgeSettled = true;
+     return false;
+   }
+   if (isAdminAccount()) await fetchCtraderStatus();
+   if (selectionGeneration !== accountSelectionGeneration || brokerAccountActionInProgress) {
+     badgeSettled = true;
+     return false;
+   }
+   if (responseAccount && liveConnectionState.account_id && responseAccount !== String(liveConnectionState.account_id)) {
+     badgeSettled = true;
+     return false;
+   }
+   const rawData = stabilizePanelSignals(responseData, lastGoodPanelData);
 const meta = rawData?._meta || {};
 
 const liveCandles = rawData?.candles?.[currentChartSymbol]?.[currentChartTimeframe] || [];
@@ -10213,10 +10280,6 @@ if (meta.live_account) {
   updateLiveToggleUI();
 }
 
-const ctraderStatus = isAdminAccount()
-  ? await fetchCtraderStatus()
-  : null;
-
 if (paperModal && !paperModal.classList.contains("hidden")) {
   fetchMarketDataSourceStatus();
   fetchAutoTradeStatus();
@@ -10306,6 +10369,10 @@ updateUTC();
     return true;
   } catch (err) {
   console.error("❌ Refresh error:", err);
+  if (selectionGeneration !== accountSelectionGeneration || brokerAccountActionInProgress) {
+    badgeSettled = true;
+    return false;
+  }
   updateUTC();
 
   if (lastGoodPanelData) {
@@ -10361,6 +10428,9 @@ updateUTC();
       setConnectionBadge("error", "Panel refresh ended before status updated");
     }
     panelRefreshInProgress = false;
+    if (selectionGeneration !== accountSelectionGeneration && !brokerAccountActionInProgress) {
+      void refreshPanel();
+    }
   }
 }
    
@@ -11992,6 +12062,7 @@ async function ensureTwoMonthChartHistory(
   symbol = currentChartSymbol,
   timeframe = currentChartTimeframe
 ) {
+  const selectionGeneration = accountSelectionGeneration;
   const normalizedSymbol = normalizeTradeChartSymbol(symbol);
   const normalizedTimeframe = String(timeframe || "15m").toLowerCase();
   const key = `${normalizedSymbol}_${normalizedTimeframe}`;
@@ -12011,6 +12082,7 @@ async function ensureTwoMonthChartHistory(
     });
     if (!response.ok) throw new Error(`Two-month chart history HTTP ${response.status}`);
     const payload = await response.json();
+    if (selectionGeneration !== accountSelectionGeneration) return [];
     const candles = (Array.isArray(payload?.candles) ? payload.candles : [])
       .map((candle) => ({
         time: Math.floor(new Date(candle.timestamp).getTime() / 1000),
@@ -12039,7 +12111,7 @@ async function ensureTwoMonthChartHistory(
     console.warn("Two-month chart history unavailable; using live chart window", error);
     return [];
   }).finally(() => {
-    delete twoMonthChartHistoryRequests[key];
+    if (selectionGeneration === accountSelectionGeneration) delete twoMonthChartHistoryRequests[key];
   });
   return twoMonthChartHistoryRequests[key];
 }
@@ -13062,6 +13134,7 @@ function drawStructureLine(data) {
   ]);
 }
 async function loadChartData(symbol = currentChartSymbol, timeframe = currentChartTimeframe) {
+  const selectionGeneration = accountSelectionGeneration;
   currentChartSymbol = symbol;
   currentChartTimeframe = timeframe;
   currentChartSymbol = symbol;
@@ -13085,6 +13158,7 @@ async function loadChartData(symbol = currentChartSymbol, timeframe = currentCha
     }
 
     const rawData = await res.json();
+    if (selectionGeneration !== accountSelectionGeneration || brokerAccountActionInProgress) return;
 
     if (!rawData) {
       throw new Error("Panel data returned null");

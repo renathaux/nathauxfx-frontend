@@ -66,11 +66,15 @@
       return;
     }
     if (state.requestInFlight) return schedulePoll();
+    if (typeof brokerAccountActionInProgress !== "undefined" && brokerAccountActionInProgress) return schedulePoll();
+    const generation = typeof accountSelectionGeneration === "undefined" ? 0 : accountSelectionGeneration;
+    const isCurrent = () => generation === (typeof accountSelectionGeneration === "undefined" ? 0 : accountSelectionGeneration);
     state.requestInFlight = true;
     try {
       const response = await fetch(state.endpoint, { cache: "no-store", suppressErrorPanel: true });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
+      if (!isCurrent()) return;
       const staleSymbols = Array.isArray(payload?.live_price_stale_symbols)
         ? payload.live_price_stale_symbols.map((value) => String(value).toUpperCase())
         : [];
@@ -79,6 +83,7 @@
         if (tick) api.onTick(tick);
       }
     } catch (error) {
+      if (!isCurrent()) return;
       window.dispatchEvent(new CustomEvent("flowsignal:live-candle-error", {
         detail: { message: error?.message || String(error) },
       }));
@@ -220,6 +225,11 @@
   };
 
   window.FlowSignalLiveCandles = api;
+  window.addEventListener("flowsignal:account-changed", () => {
+    state.candle = null;
+    state.lastTickTimestamp = 0;
+    state.lastTickPrice = null;
+  });
   const base = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
     ? "http://127.0.0.1:8001"
     : "https://flowsignal-backend-3.onrender.com";

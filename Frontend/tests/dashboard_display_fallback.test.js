@@ -45,7 +45,7 @@ assert.deepEqual(
 );
 
 assert.match(html, /display-data-state\.js\?v=1/);
-assert.match(html, /script\.js\?v=129/);
+assert.match(html, /script\.js\?v=130/);
 assert.match(script, /NathauxDisplayDataState/);
 
 function extractFunction(name) {
@@ -144,6 +144,8 @@ const runtime = {
   API_URL: 'https://api.nathauxfx.com/panel-data',
   fetch: async () => ({ ok: true, status: 200, json: async () => structuredClone(payload) }),
   panelRefreshInProgress: false,
+  accountSelectionGeneration: 0,
+  brokerAccountActionInProgress: false,
   lastGoodPanelData: previousPanel,
   latestRawPanelData: null,
   latestPanelData: null,
@@ -221,6 +223,27 @@ vm.runInNewContext(
   assert.notEqual(renderedSignals.EURUSD, previousPanel.EURUSD.signal);
   assert.notEqual(renderedSignals.XAUUSD, previousPanel.XAUUSD.signal);
   assert.deepEqual(executionCalls, [], 'refresh/render never enters trading or execution paths');
+  payload.EURUSD.signal = 'BUY';
+  payload.XAUUSD.signal = 'SELL';
+  payload._meta.display_only_fallback = false;
+  let releaseStatus;
+  let reachedStatus;
+  const statusReached = new Promise(resolve => { reachedStatus = resolve; });
+  runtime.isAdminAccount = () => true;
+  runtime.fetchCtraderStatus = () => {
+    reachedStatus();
+    return new Promise(resolve => { releaseStatus = resolve; });
+  };
+  const candleCountBeforeSwitch = chartInputs.length;
+  const staleRefresh = runtime.refreshPanel();
+  await statusReached;
+  runtime.accountSelectionGeneration += 1;
+  runtime.brokerAccountActionInProgress = true;
+  releaseStatus(null);
+  assert.equal(await staleRefresh, false, 'pre-switch panel stops after broker-status await');
+  assert.deepEqual(renderedSignals, { EURUSD: 'WAIT', XAUUSD: 'WAIT', main: 'WAIT' });
+  assert.equal(chartInputs.length, candleCountBeforeSwitch);
+  assert.equal(runtime.lastGoodPanelData.EURUSD.signal, 'WAIT');
   console.log('dashboard display fallback tests passed');
 })().catch((error) => {
   console.error(error);

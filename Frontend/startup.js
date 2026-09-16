@@ -306,12 +306,12 @@
       document.write('<link rel="stylesheet" href="desktop.css?v=3" media="(min-width: 701px)">');
     }
     if (!window.FlowSignalLiveCandles) {
-      document.write('<script src="chart/live-candles/live-candle-controller.js?v=4"><\/script>');
+      document.write('<script src="chart/live-candles/live-candle-controller.js?v=5"><\/script>');
     }
     document.write('<link rel="stylesheet" href="indicators/smc/smc.css?v=4">');
     document.write('<script src="indicators/smc/smc-settings.js?v=8"><\/script>');
     document.write('<script src="indicators/smc/smc-renderer.js?v=14"><\/script>');
-    document.write('<script src="indicators/smc/smc-indicator.js?v=5"><\/script>');
+    document.write('<script src="indicators/smc/smc-indicator.js?v=6"><\/script>');
     document.write('<script src="indicators/smc/smc-chart-bridge.js?v=6"><\/script>');
     document.write('<script src="indicators/smc/smc-local-engine.js?v=6"><\/script>');
     document.write('<script src="indicators/smc/smc-local-visual.js?v=8"><\/script>');
@@ -609,4 +609,3 @@
   record("smc_overlay_module_ready", { observationOnly: true, affectsStrategy: false, singleInstance: true });
   attachMenu();
 })();
-
