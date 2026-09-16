@@ -223,6 +223,27 @@ vm.runInNewContext(
   assert.notEqual(renderedSignals.EURUSD, previousPanel.EURUSD.signal);
   assert.notEqual(renderedSignals.XAUUSD, previousPanel.XAUUSD.signal);
   assert.deepEqual(executionCalls, [], 'refresh/render never enters trading or execution paths');
+  payload.EURUSD.signal = 'BUY';
+  payload.XAUUSD.signal = 'SELL';
+  payload._meta.display_only_fallback = false;
+  let releaseStatus;
+  let reachedStatus;
+  const statusReached = new Promise(resolve => { reachedStatus = resolve; });
+  runtime.isAdminAccount = () => true;
+  runtime.fetchCtraderStatus = () => {
+    reachedStatus();
+    return new Promise(resolve => { releaseStatus = resolve; });
+  };
+  const candleCountBeforeSwitch = chartInputs.length;
+  const staleRefresh = runtime.refreshPanel();
+  await statusReached;
+  runtime.accountSelectionGeneration += 1;
+  runtime.brokerAccountActionInProgress = true;
+  releaseStatus(null);
+  assert.equal(await staleRefresh, false, 'pre-switch panel stops after broker-status await');
+  assert.deepEqual(renderedSignals, { EURUSD: 'WAIT', XAUUSD: 'WAIT', main: 'WAIT' });
+  assert.equal(chartInputs.length, candleCountBeforeSwitch);
+  assert.equal(runtime.lastGoodPanelData.EURUSD.signal, 'WAIT');
   console.log('dashboard display fallback tests passed');
 })().catch((error) => {
   console.error(error);

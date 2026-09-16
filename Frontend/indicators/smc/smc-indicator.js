@@ -33,7 +33,7 @@
   async function loadStructure() {
     if (!state.enabled || state.requestInFlight) return;
     if (typeof brokerAccountActionInProgress !== "undefined" && brokerAccountActionInProgress) {
-      schedule();
+      schedule(1000);
       return;
     }
     const generation = typeof accountSelectionGeneration === "undefined" ? 0 : accountSelectionGeneration;

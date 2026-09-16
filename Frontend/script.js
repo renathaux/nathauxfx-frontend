@@ -9896,11 +9896,31 @@ async function setActiveBrokerAccount(accountId) {
     lastChartData = {EURUSD: {"5m": [], "15m": [], "1h": []}, XAUUSD: {"5m": [], "15m": [], "1h": []}};
     activeLiveOrders = {};
     liveTradeHistory = [];
+    liveTradeStats = {
+      total_today: 0, wins: 0, losses: 0, running: 0, closed: 0,
+      total_pl: 0, total_pnl: 0, daily_realized_pl: 0, daily_total_pl: 0,
+      weekly_realized_pl: 0, weekly_total_pl: 0, monthly_realized_pl: 0,
+      floating_live_pl: 0,
+    };
+    liveAutoStatusBySymbol = {};
+    autoTradeStatus = null;
     livePrices = {};
+    const pendingPanel = {signal: "WAIT", final_signal: "WAIT",
+      market_condition: "ACCOUNT_SWITCH_PENDING", signal_data_source: {available: false}};
     for (const symbol of ["EURUSD", "XAUUSD"]) {
-      updateCard(symbol, {signal: "WAIT", final_signal: "WAIT", market_condition: "ACCOUNT_SWITCH_PENDING",
-        signal_data_source: {available: false}});
+      updateCard(symbol, pendingPanel);
     }
+    latestPanelMeta = {stale_data: true, account_switch_pending: true};
+    latestPanelData = {
+      EURUSD: {...pendingPanel, _panel_meta: latestPanelMeta},
+      XAUUSD: {...pendingPanel, _panel_meta: latestPanelMeta},
+    };
+    updateMainPanel(currentChartSymbol);
+    latestPanelData = null;
+    latestPanelMeta = null;
+    updateLivePanel({}, [], liveTradeStats);
+    renderDashboardPerformance({});
+    renderAutoTradeStatus();
     Object.keys(twoMonthChartHistory).forEach(key => delete twoMonthChartHistory[key]);
     Object.keys(twoMonthChartHistoryRequests).forEach(key => delete twoMonthChartHistoryRequests[key]);
     if (candleSeries) candleSeries.setData([]);
@@ -10114,6 +10134,15 @@ async function refreshPanel() {
      badgeSettled = true;
      return false;
    }
+   if (isAdminAccount()) await fetchCtraderStatus();
+   if (selectionGeneration !== accountSelectionGeneration || brokerAccountActionInProgress) {
+     badgeSettled = true;
+     return false;
+   }
+   if (responseAccount && liveConnectionState.account_id && responseAccount !== String(liveConnectionState.account_id)) {
+     badgeSettled = true;
+     return false;
+   }
    const rawData = stabilizePanelSignals(responseData, lastGoodPanelData);
 const meta = rawData?._meta || {};
 
@@ -10250,10 +10279,6 @@ if (meta.live_account) {
 
   updateLiveToggleUI();
 }
-
-const ctraderStatus = isAdminAccount()
-  ? await fetchCtraderStatus()
-  : null;
 
 if (paperModal && !paperModal.classList.contains("hidden")) {
   fetchMarketDataSourceStatus();
@@ -10403,6 +10428,9 @@ updateUTC();
       setConnectionBadge("error", "Panel refresh ended before status updated");
     }
     panelRefreshInProgress = false;
+    if (selectionGeneration !== accountSelectionGeneration && !brokerAccountActionInProgress) {
+      void refreshPanel();
+    }
   }
 }
    

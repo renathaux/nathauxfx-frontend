@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 (async () => {
-  let scheduled, resolveFetch, renders = 0;
+  let scheduled, scheduledDelay, resolveFetch, renders = 0;
   const listeners = {};
   const runtime = {
     accountSelectionGeneration: 0, brokerAccountActionInProgress: false,
@@ -13,7 +13,7 @@ const path = require('node:path');
     fetch: () => new Promise(resolve => { resolveFetch = resolve; }),
     window: {
       location: {hostname: 'localhost'}, clearTimeout() {},
-      setTimeout(fn) { scheduled = fn; },
+      setTimeout(fn, delay) { scheduled = fn; scheduledDelay = delay; },
       addEventListener(name, fn) { listeners[name] = fn; },
       dispatchEvent() {},
       FlowSignalSmcRenderer: {mount: () => true, setEnabled() {}, clear() {}, render() { renders++; }},
@@ -28,5 +28,8 @@ const path = require('node:path');
   await pending;
   assert.equal(renders, 0, 'old-account structure must not redraw the new chart');
   assert.equal(runtime.window.FlowSignalSMC.getState().bias, 'NEUTRAL');
+  runtime.brokerAccountActionInProgress = true;
+  scheduled();
+  assert.ok(scheduledDelay <= 1000, 'SMC retries promptly after account activation');
   console.log('SMC account-switch regression passed');
 })();
