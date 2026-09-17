@@ -45,7 +45,7 @@ assert.deepEqual(
 );
 
 assert.match(html, /display-data-state\.js\?v=1/);
-assert.match(html, /script\.js\?v=130/);
+assert.match(html, /script\.js\?v=131/);
 assert.match(script, /NathauxDisplayDataState/);
 
 function extractFunction(name) {
