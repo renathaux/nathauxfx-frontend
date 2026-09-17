@@ -27,6 +27,13 @@
     return /(?:EXPIRED|INVALIDATED|CONSUMED|INACTIVE|CANCELLED|CANCELED)/i.test(String(value || ""));
   }
 
+  function timestampMs(value) {
+    if (value == null || value === "") return NaN;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric < 1e11 ? numeric * 1000 : numeric;
+    return Date.parse(value);
+  }
+
   function strategyDebugSnapshot(plan) {
     return {
       ...(asObject(plan?.signal_diagnostics) || {}),
@@ -93,6 +100,32 @@
       "--"
     );
     const reason = v3bReason || genericReason || "--";
+
+    const canonical = asObject(candidate?.v3b_setup_state);
+    if (canonical) {
+      const checked = timestampMs(plan.live_v3b_checked_at);
+      const bos = timestampMs(canonical.bos_candle_time);
+      const now = Date.now();
+      const currentFailedCondition = canonical.lifecycle_state === "INVALIDATED"
+        && ["WAIT_V3B_PAPER_SECOND_5M", "WAIT_V3B_PAPER_BOS_BODY"].includes(v3bReason);
+      const current = Boolean(
+        firstText(canonical.indicator_event_id, canonical.event_id)
+        && Number.isFinite(checked) && Number.isFinite(bos)
+        && checked >= bos && checked <= now + 30_000
+        && now - checked <= 2 * 60_000
+        && (!isInactiveState(canonical.lifecycle_state) || currentFailedCondition)
+        && !isInactiveState(v3bReason)
+      );
+      return {
+        reason, currentEvent: current,
+        hasBos: current ? canonical.has_bos : false,
+        bodyPass: current ? canonical.bos_body_pass : false,
+        secondSame: current ? canonical.second_5m_same_direction : false,
+        beyond: current ? canonical.second_5m_stays_beyond_bos_level : false,
+        swingSl: current ? canonical.structural_sl_found : false,
+        signal: current ? normalizeSignal(canonical.signal) : "WAIT",
+      };
+    }
 
     const eventId = currentEventId(candidate, liveDetails);
     const lifecycleState = firstText(

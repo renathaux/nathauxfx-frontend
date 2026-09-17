@@ -8,7 +8,7 @@
   const EMPTY = () => ({
     signal: 'WAIT', rawSignal: 'WAIT', fresh: false,
     executionState: 'WAIT', executionStatus: 'NOT_APPLICABLE', executionAllowed: false,
-    blockReason: '', running: false, direction: '', positionId: '', setupId: '', consumedSetupId: '',
+    blockReason: '', running: false, direction: '', positionId: '', setupId: '', consumedSetupId: '', v3b: false,
   });
 
   const state = { EURUSD: EMPTY(), XAUUSD: EMPTY() };
@@ -97,20 +97,34 @@
     if (!symbol || !obj || typeof obj !== 'object') return EMPTY();
 
     const debug = executionDebug(obj);
-    const rawSignal = normalizeSignal(obj.strategy_decision || obj.display_signal || obj.signal_display_state || obj.final_signal || obj.signal);
+    const v3bCandidate = obj.live_v3b_details?.source_candidate;
+    const v3bModel = String(obj.live_strategy_model || '').toUpperCase().includes('V3B');
+    const hasCanonicalV3B = v3bModel && Boolean(v3bCandidate?.v3b_setup_state);
+    const v3bFacts = hasCanonicalV3B ? window.FlowSignalHistory?.v3bFacts?.(obj) : null;
+    const rawSignal = v3bModel
+      ? normalizeSignal(v3bFacts?.signal)
+      : normalizeSignal(obj.strategy_decision || obj.display_signal || obj.signal_display_state || obj.final_signal || obj.signal);
     const snapshot = activeSnapshot(obj);
     const direction = normalizeSignal(snapshot?.direction || snapshot?.side || obj.active_trade_direction || obj.active_trade_side);
     const positionId = firstValue(snapshot?.broker_position_id, snapshot?.position_id, obj.active_trade_id, obj.broker_position_id, obj.position_id);
     const activeStatus = firstValue(obj.active_trade_status, obj.smc_status, snapshot?.status).toUpperCase();
     const running = Boolean(snapshot || (direction !== 'WAIT' && positionId && !activeStatus.includes('CLOSED') && !activeStatus.includes('EXIT')));
 
-    const executionStatus = firstValue(obj.execution_status, debug.execution_status, rawSignal === 'WAIT' ? 'NOT_APPLICABLE' : 'PENDING').toUpperCase();
-    const blockReason = firstValue(obj.execution_block_reason, debug.execution_block_reason, obj.blocked_reason, obj.block_reason, debug.blocked_reason, debug.block_reason);
+    const executionStatus = firstValue(
+      hasCanonicalV3B && obj.live_v3b_status,
+      obj.execution_status, debug.execution_status,
+      rawSignal === 'WAIT' ? 'NOT_APPLICABLE' : 'PENDING'
+    ).toUpperCase();
+    const blockReason = firstValue(
+      hasCanonicalV3B && obj.live_v3b_reason,
+      obj.execution_block_reason, debug.execution_block_reason,
+      obj.blocked_reason, obj.block_reason, debug.blocked_reason, debug.block_reason
+    );
     const explicitAllowed = obj.execution_allowed ?? debug.execution_allowed;
     const executionAllowed = explicitAllowed === true;
     const explicitFresh = obj.fresh_entry_available ?? debug.fresh_entry_available;
 
-    const setupId = effectiveSetupId(obj);
+    const setupId = firstValue(hasCanonicalV3B && v3bCandidate?.signal_setup_id, effectiveSetupId(obj));
     const consumedSetupId = effectiveSetupId(snapshot);
     const sameConsumedSetup = Boolean(running && rawSignal !== 'WAIT' && setupId && consumedSetupId && setupId === consumedSetupId);
     const sameInvalidatedSetup = Boolean(setupId && invalidated[symbol] && setupId === invalidated[symbol]);
@@ -121,7 +135,8 @@
     }
 
     let fresh = rawSignal === 'BUY' || rawSignal === 'SELL';
-    if (explicitFresh === false) fresh = false;
+    if (explicitFresh === false && !hasCanonicalV3B) fresh = false;
+    if (v3bModel && !v3bFacts?.currentEvent) fresh = false;
     if (reasonInvalidatesFreshSignal(blockReason)) fresh = false;
     if (sameConsumedSetup) fresh = false;
     if (sameInvalidatedSetup) fresh = false;
@@ -135,6 +150,7 @@
     return {
       signal, rawSignal, fresh, executionState, executionStatus, executionAllowed, blockReason,
       running, direction: direction !== 'WAIT' ? direction : '', positionId, setupId, consumedSetupId,
+      v3b: v3bModel,
     };
   }
 
@@ -250,6 +266,7 @@
     headers.forEach((header) => {
       const symbol = precedingSymbol(header);
       if (!symbol || state[symbol]?.signal !== 'WAIT') return;
+      if (state[symbol]?.v3b) return;
       const card = header.closest('.entry-strategy-checks, .strategy-checks, .strategy-check-card, .card') || header.parentElement?.parentElement || header.parentElement;
       if (!card) return;
 

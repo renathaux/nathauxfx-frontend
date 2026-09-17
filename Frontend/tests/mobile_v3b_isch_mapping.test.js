@@ -58,6 +58,28 @@ assert.deepEqual(
   [true, true, false, false]
 );
 
+const canonicalWaiting = mobileV3bFacts({
+  live_strategy_model: "V3B",
+  live_v3b_checked_at: Date.now(),
+  live_v3b_reason: "WAIT_V3B_PAPER_SECOND_5M",
+  live_v3b_details: { source_candidate: { v3b_setup_state: {
+    indicator_event_id: "canonical-mobile-event",
+    lifecycle_state: "WAITING_CONFIRMATION",
+    bos_candle_time: new Date(Date.now() - 20 * 60_000).toISOString(),
+    has_bos: true, bos_body_pass: true,
+    second_5m_same_direction: null,
+    second_5m_stays_beyond_bos_level: null,
+    structural_sl_found: null,
+    signal: "WAIT",
+  } } },
+});
+assert.deepEqual(
+  [canonicalWaiting.hasBos, canonicalWaiting.bodyPass, canonicalWaiting.secondSame,
+    canonicalWaiting.beyond, canonicalWaiting.swingSl],
+  [true, true, null, null, null]
+);
+assert.match(renderSource, /v3bStatus\(facts\.secondSame\)/);
+
 const eligible = mobileV3bFacts({
   live_strategy_model: "V3B",
   live_v3b_reason: "V3B_READY",

@@ -291,6 +291,34 @@
     const bosTime = parseDateValue(candidateDetails.bos_candle_time || candidate?.five_m_break_time);
     const checkedAt = parseDateValue(status?.live_v3b_checked_at);
     const now = Date.now();
+    const canonical = asObject(candidate?.v3b_setup_state);
+    if (canonical) {
+      const canonicalBosTime = parseDateValue(canonical.bos_candle_time);
+      const canonicalId = firstText(canonical.indicator_event_id, canonical.event_id);
+      const canonicalLifecycle = firstText(canonical.lifecycle_state);
+      const currentFailedCondition = canonicalLifecycle === "INVALIDATED"
+        && ["WAIT_V3B_PAPER_SECOND_5M", "WAIT_V3B_PAPER_BOS_BODY"].includes(v3bReason);
+      const currentCanonical = Boolean(
+        canonicalId && canonicalBosTime && checkedAt
+        && checkedAt.getTime() >= canonicalBosTime.getTime()
+        && checkedAt.getTime() <= now + 30_000
+        && now - checkedAt.getTime() <= 2 * 60_000
+        && (!isInactiveV3BState(canonicalLifecycle) || currentFailedCondition)
+        && !isInactiveV3BState(v3bReason)
+      );
+      return {
+        candidate: currentCanonical ? candidate : {}, liveDetails, reason,
+        v3bReason, genericReason,
+        eventId: currentCanonical ? canonicalId : "",
+        currentEvent: currentCanonical,
+        hasBos: currentCanonical ? canonical.has_bos : null,
+        bodyPass: currentCanonical ? canonical.bos_body_pass : null,
+        secondSame: currentCanonical ? canonical.second_5m_same_direction : null,
+        beyond: currentCanonical ? canonical.second_5m_stays_beyond_bos_level : null,
+        swingSl: currentCanonical ? canonical.structural_sl_found : null,
+        signal: currentCanonical ? normalizeSignal(canonical.signal) : "WAIT"
+      };
+    }
     // Bound the snapshot against wall time, not its own historical evaluation.
     // Missing timestamps cannot establish that a setup is still current.
     const withinConfirmationWindow = Boolean(bosTime && checkedAt && (
@@ -382,7 +410,8 @@
     if (!String(status?.live_strategy_model || "").toUpperCase().includes("V3B")
         && !status?.live_v3b_reason) return null;
     const reason = firstText(status?.live_v3b_reason);
-    return { show: normalizeSignal(visibleSignal) === "WAIT" && Boolean(reason), reason };
+    const executionBlocked = ["BLOCKED", "RECONCILIATION_REQUIRED"].includes(String(status?.live_v3b_status || "").toUpperCase());
+    return { show: Boolean(reason) && (executionBlocked || normalizeSignal(visibleSignal) === "WAIT"), reason };
   }
 
   const OWNED_IDS = {
@@ -447,11 +476,12 @@
   function setCheck(id, value) {
     const el = document.getElementById(id);
     if (!el) return;
-    const text = value === true ? "YES" : "NO";
+    const text = value === true ? "YES" : value === false ? "NO" : "WAITING";
     el.textContent = text;
     el.classList.toggle("check-pass", text === "YES");
     el.classList.toggle("check-fail", text === "NO");
-    el.classList.remove("check-waiting", "check-not-checked");
+    el.classList.toggle("check-waiting", text === "WAITING");
+    el.classList.remove("check-not-checked");
   }
 
   function setText(id, text) {
@@ -555,6 +585,10 @@
       else if (f.beyond === false) nextTrigger = "Next 5m closed back inside — wait for fresh 5m BOS / CHOCH";
       else if (f.swingSl == null) nextTrigger = "Find 5m structural swing SL";
       else if (f.swingSl === false) nextTrigger = "No valid 5m swing SL";
+      else if (["BUY", "SELL"].includes(f.signal)
+          && ["BLOCKED", "RECONCILIATION_REQUIRED"].includes(candidate.v3b_setup_state?.execution_status)) {
+        nextTrigger = `${f.signal} SETUP COMPLETE · EXECUTION BLOCKED`;
+      }
       else if (["BUY", "SELL"].includes(f.signal)) nextTrigger = `${f.signal} ENTRY READY`;
       else nextTrigger = "5m setup confirmed — waiting eligibility";
     }
@@ -643,7 +677,7 @@
     const candidate = f.candidate || {};
     const candidateDetails = asObject(candidate.paper_entry_details) || asObject(f.liveDetails?.paper_entry_details) || {};
     const symbol = symbolText(status, candidate, f.liveDetails);
-    const side = effectiveCurrentEvent ? normalizeSignal(candidate.signal || candidate.final_signal) : "WAIT";
+    const side = effectiveCurrentEvent ? f.signal : "WAIT";
 
     setText("v3b-main-plan-type", firstText(executed.side, executed.action, executed.direction, side === "WAIT" ? "--" : side));
     setText("v3b-main-entry-price", formatPrice(symbol,
@@ -708,6 +742,7 @@
       historyForLegacyRenderer,
       formatTorontoTime,
       newYorkMonthKey,
+      v3bFacts,
       renderV3BPresentation,
       v3bPanelBlocker
     };

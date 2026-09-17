@@ -10,6 +10,7 @@ const context = {
     fetch: async () => ({ json: async () => ({}) }),
     requestAnimationFrame: (fn) => fn(),
     addEventListener: () => {},
+    FlowSignalHistory: require(path.join(__dirname, '..', 'history.js')),
   },
   document: {
     readyState: 'loading',
@@ -92,5 +93,55 @@ api.ingest({
 assert.equal(api.state.EURUSD.signal, 'WAIT');
 assert.equal(api.state.EURUSD.fresh, false);
 assert.equal(api.displayLabel(api.state.EURUSD), 'WAIT');
+
+// The legacy WAIT/15m diagnostics must not erase a current, broker-blocked V3B BUY.
+const now = Date.now();
+api.ingest({
+  EURUSD: {
+    live_strategy_model: 'LIVE_V3B_M5_FROZEN',
+    live_v3b_checked_at: now,
+    live_v3b_reason: 'WAIT_BROKER_POSITION_EXISTS',
+    live_v3b_status: 'BLOCKED',
+    strategy_decision: 'WAIT',
+    fresh_entry_available: false,
+    blocked_reason: 'WAIT_NO_FRESH_15M_SMC_BREAK',
+    live_v3b_details: { source_candidate: {
+      signal_setup_id: 'setup-canonical',
+      v3b_setup_state: {
+        indicator_event_id: 'event-canonical',
+        m5_confirmation_id: 'confirmation-canonical',
+        lifecycle_state: 'BLOCKED',
+        bos_candle_time: new Date(now - 20 * 60_000).toISOString(),
+        has_bos: true, bos_body_pass: true,
+        second_5m_same_direction: true,
+        second_5m_stays_beyond_bos_level: true,
+        structural_sl_found: true,
+        signal: 'BUY', entry_ready: true,
+      },
+    } },
+  },
+  XAUUSD: { strategy_decision: 'WAIT' },
+});
+assert.equal(api.state.EURUSD.signal, 'BUY');
+assert.equal(api.state.EURUSD.executionStatus, 'BLOCKED');
+assert.equal(api.state.EURUSD.setupId, 'setup-canonical');
+
+api.ingest({ EURUSD: {
+  live_strategy_model: 'LIVE_V3B_M5_FROZEN',
+  live_v3b_checked_at: now - 10 * 60_000,
+  live_v3b_reason: 'V3B_READY',
+  strategy_decision: 'BUY',
+  live_v3b_details: { source_candidate: { v3b_setup_state: {
+    indicator_event_id: 'old-event',
+    lifecycle_state: 'ELIGIBLE',
+    bos_candle_time: new Date(now - 20 * 60_000).toISOString(),
+    signal: 'BUY', entry_ready: true,
+  } } },
+} });
+assert.equal(api.state.EURUSD.signal, 'WAIT', 'an old cached candidate never revives BUY');
+assert.equal(api.canonicalize('EURUSD', {
+  live_strategy_model: 'LIVE_V3B_M5_FROZEN',
+  strategy_decision: 'BUY',
+}).signal, 'WAIT', 'V3B requires a current canonical setup before displaying BUY');
 
 console.log('fresh signal lifecycle display tests passed');

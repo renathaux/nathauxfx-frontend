@@ -5,8 +5,8 @@ const path = require("node:path");
 const historyPath = path.join(__dirname, "..", "history.js");
 const historySource = fs.readFileSync(historyPath, "utf8");
 const appHtml = fs.readFileSync(path.join(__dirname, "..", "app.html"), "utf8");
-assert.match(appHtml, /history\.js\?v=4/, "dashboard loads the new V3B presenter");
-assert.match(appHtml, /script\.js\?v=131/, "dashboard loads the new V3B blocker wiring");
+assert.match(appHtml, /history\.js\?v=5/, "dashboard loads the new V3B presenter");
+assert.match(appHtml, /script\.js\?v=132/, "dashboard loads the new V3B blocker wiring");
 const { v3bFacts, renderV3BPresentation, v3bPanelBlocker } = require(historyPath);
 
 function classList() {
@@ -81,6 +81,7 @@ const details = element("", "DETAILS");
 details.querySelector = (selector) => selector === "summary" ? summary : null;
 const header = element();
 const plan = register("main-smc-plan-intel", element("", "DIV"));
+register("v3b-main-smc-trigger");
 
 global.document = {
   getElementById: (id) => registry.find((node) => node.id === id) || null,
@@ -238,7 +239,7 @@ const fiveMBos = render({
   },
 });
 assert.equal(fiveMBos.bos, "YES");
-assert.equal(fiveMBos.body, "NO");
+assert.equal(fiveMBos.body, "WAITING");
 
 const waitingConfirmation = render({
   live_strategy_model: "V3B",
@@ -256,7 +257,115 @@ const waitingConfirmation = render({
 });
 assert.equal(waitingConfirmation.bos, "YES");
 assert.equal(waitingConfirmation.body, "YES");
-assert.equal(waitingConfirmation.same, "NO");
+assert.equal(waitingConfirmation.same, "WAITING");
+
+const canonicalWaiting = render({
+  live_strategy_model: "LIVE_V3B_M5_FROZEN",
+  live_v3b_checked_at: Date.now(),
+  live_v3b_reason: "WAIT_V3B_PAPER_SECOND_5M",
+  live_v3b_details: {
+    source_candidate: {
+      v3b_setup_state: {
+        indicator_event_id: "canonical-bos",
+        lifecycle_state: "WAITING_CONFIRMATION",
+        bos_candle_time: new Date(Date.now() - 20 * 60_000).toISOString(),
+        has_bos: true,
+        bos_body_pass: true,
+        second_5m_same_direction: null,
+        second_5m_stays_beyond_bos_level: null,
+        structural_sl_found: null,
+        signal: "WAIT",
+        entry_ready: false,
+      },
+    },
+  },
+});
+assert.deepEqual(
+  [canonicalWaiting.bos, canonicalWaiting.body, canonicalWaiting.same,
+    canonicalWaiting.beyond, canonicalWaiting.sl, canonicalWaiting.signal],
+  ["YES", "YES", "WAITING", "WAITING", "WAITING", "WAIT"]
+);
+
+const canonicalBlocked = render({
+  live_strategy_model: "LIVE_V3B_M5_FROZEN",
+  live_v3b_checked_at: Date.now(),
+  live_v3b_reason: "WAIT_BROKER_POSITION_EXISTS",
+  live_v3b_details: {
+    source_candidate: {
+      entry_price: 1.1480, stop_loss: 1.1460, tp1: 1.1494, tp2: 1.1518,
+      v3b_setup_state: {
+        indicator_event_id: "canonical-buy",
+        m5_confirmation_id: "canonical-confirmation",
+        lifecycle_state: "BLOCKED",
+        bos_candle_time: new Date(Date.now() - 20 * 60_000).toISOString(),
+        has_bos: true, bos_body_pass: true,
+        second_5m_same_direction: true,
+        second_5m_stays_beyond_bos_level: true,
+        structural_sl_found: true,
+        signal: "BUY", entry_ready: true,
+        execution_status: "BLOCKED",
+        execution_block_reason: "WAIT_BROKER_POSITION_EXISTS",
+      },
+    },
+  },
+});
+assert.equal(canonicalBlocked.signal, "BUY");
+assert.equal(visible("main-plan-type").textContent, "BUY");
+assert.equal(canonicalBlocked.reason, "WAIT_BROKER_POSITION_EXISTS");
+assert.match(global.document.getElementById("v3b-main-smc-trigger").textContent,
+  /BUY SETUP COMPLETE.*EXECUTION BLOCKED/);
+assert.deepEqual(v3bPanelBlocker({
+  live_strategy_model: "LIVE_V3B_M5_FROZEN",
+  live_v3b_status: "BLOCKED",
+  live_v3b_reason: "WAIT_BROKER_POSITION_EXISTS",
+}, "BUY"), { show: true, reason: "WAIT_BROKER_POSITION_EXISTS" },
+"a valid BUY remains visible with its separate execution blocker");
+assert.deepEqual(v3bPanelBlocker({
+  live_strategy_model: "LIVE_V3B_M5_FROZEN",
+  live_v3b_status: "RECONCILIATION_REQUIRED",
+  live_v3b_reason: "broker outcome ambiguous",
+}, "BUY"), { show: true, reason: "broker outcome ambiguous" },
+"an ambiguous broker outcome must remain visibly blocked pending reconciliation");
+
+const staleCanonical = render({
+  live_strategy_model: "LIVE_V3B_M5_FROZEN",
+  live_v3b_checked_at: Date.now() - 10 * 60_000,
+  live_v3b_reason: "V3B_READY",
+  live_v3b_details: { source_candidate: { v3b_setup_state: {
+    indicator_event_id: "stale-canonical",
+    lifecycle_state: "ELIGIBLE",
+    bos_candle_time: new Date(Date.now() - 20 * 60_000).toISOString(),
+    has_bos: true, bos_body_pass: true,
+    second_5m_same_direction: true,
+    second_5m_stays_beyond_bos_level: true,
+    structural_sl_found: true,
+    signal: "BUY", entry_ready: true,
+  } } },
+});
+assert.equal(staleCanonical.signal, "WAIT", "old cached BUY cannot be resurrected");
+assert.equal(visible("main-plan-type").textContent, "--");
+
+const failedConfirmation = render({
+  live_strategy_model: "LIVE_V3B_M5_FROZEN",
+  live_v3b_checked_at: Date.now(),
+  live_v3b_reason: "WAIT_V3B_PAPER_SECOND_5M",
+  live_v3b_details: { source_candidate: { v3b_setup_state: {
+    indicator_event_id: "failed-confirmation",
+    lifecycle_state: "INVALIDATED",
+    bos_candle_time: new Date(Date.now() - 5 * 60_000).toISOString(),
+    has_bos: true, bos_body_pass: true,
+    second_5m_same_direction: false,
+    second_5m_stays_beyond_bos_level: true,
+    structural_sl_found: null,
+    signal: "WAIT", entry_ready: false,
+  } } },
+});
+assert.deepEqual(
+  [failedConfirmation.bos, failedConfirmation.body, failedConfirmation.same,
+    failedConfirmation.beyond, failedConfirmation.signal],
+  ["YES", "YES", "NO", "YES", "WAIT"],
+  "a failed next candle shows its precise failed condition"
+);
 
 const recentBos = new Date(Date.now() - 5 * 60_000).toISOString();
 const nestedWaitWithLegacy15mFailure = render({
@@ -402,7 +511,7 @@ assert.doesNotMatch(historySource, /setInterval\s*\(\s*\(\)\s*=>\s*renderV3BPres
 assert.doesNotMatch(historySource, /\|\|\s*status\s*\|\|\s*\{\}/);
 assert.doesNotMatch(historySource, /status\?\.reason\s*\|\|\s*candidate\.paper_entry_reason/);
 assert.doesNotMatch(historySource, /!isInactiveV3BState\(genericReason\)/);
-assert.match(historySource, /const text = value === true \? "YES" : "NO"/);
+assert.match(historySource, /value === false \? "NO" : "WAITING"/);
 assert.match(historySource, /setProperty\("display", "none", "important"\)/);
 assert.equal(details.dataset.v3bViewVersion, "8");
 assert.equal(plan.dataset.v3bPlanVersion, "3");
