@@ -17,5 +17,15 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Run simulator frontend tests
-        run: node --test Frontend/strategy-simulator/*.test.cjs
+      - name: Run simulator and Strategy Studio regressions
+        run: |
+          node --test Frontend/strategy-simulator/*.test.cjs \
+            Frontend/tests/strategy_studio_api.test.js \
+            Frontend/tests/strategy_studio_model.test.js \
+            Frontend/tests/strategy_studio_navigation.test.js \
+            Frontend/tests/strategy_studio_page.test.js \
+            Frontend/tests/strategy_lab.test.js
+          node --check Frontend/strategy-simulator/strategy-simulator-api.js
+          node --check Frontend/strategy-simulator/strategy-simulator-model.js
+          node --check Frontend/strategy-simulator/strategy-simulator.js
+          node --check Frontend/strategy-studio/strategy-studio-api.js
