@@ -5,7 +5,16 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
   'use strict';
 
-  const BACKEND = 'https://api.nathauxfx.com';
+  const DIRECT_BACKEND = 'https://api.nathauxfx.com';
+  const LOCAL_BACKEND = 'http://127.0.0.1:8001';
+  const COOKIE_SESSION_SENTINEL = '__flowsignal_cookie_session__';
+
+  function backendBase() {
+    const hostname = String(root?.location?.hostname || '');
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return LOCAL_BACKEND;
+    const origin = String(root?.location?.origin || '').replace(/\/$/, '');
+    return origin ? `${origin}/api/proxy` : DIRECT_BACKEND;
+  }
 
   function ownerToken() {
     if (!root || !root.sessionStorage || !root.localStorage) return '';
@@ -23,27 +32,31 @@
     }
   }
 
-  function authHeaders() {
+  function authHeaders(method = 'GET') {
     if (!root || !root.sessionStorage) return {};
     const owner = ownerToken();
     if (owner) return { Authorization: `Bearer ${owner}` };
-    const token = String(root.sessionStorage.getItem('flowsignal_user_session_token') || '').trim();
+    const rawToken = String(root.sessionStorage.getItem('flowsignal_user_session_token') || '').trim();
+    const token = rawToken === COOKIE_SESSION_SENTINEL ? '' : rawToken;
     const csrf = String(root.sessionStorage.getItem('flowsignal_csrf_token') || '').trim();
     const headers = {};
     if (token) headers.Authorization = `FlowSignalUser ${token}`;
-    if (csrf) headers['X-CSRF-Token'] = csrf;
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(String(method || 'GET').toUpperCase()) && csrf) {
+      headers['X-FlowSignal-CSRF'] = csrf;
+    }
     return headers;
   }
 
   async function request(path, options = {}) {
     if (!root || typeof root.fetch !== 'function') throw new Error('Network client unavailable');
+    const method = String(options.method || 'GET').toUpperCase();
     const headers = {
       Accept: 'application/json',
-      ...authHeaders(),
+      ...authHeaders(method),
       ...(options.headers || {}),
     };
     if (options.body != null) headers['Content-Type'] = 'application/json';
-    const response = await root.fetch(`${BACKEND}${path}`, {
+    const response = await root.fetch(`${backendBase()}${path}`, {
       credentials: 'include',
       ...options,
       headers,
