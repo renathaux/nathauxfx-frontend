@@ -30,8 +30,11 @@ test('simulator api only reads saved strategy and posts to simulator endpoint', 
   }
 });
 
-test('strategy studio simulator button navigates only to a saved strategy', () => {
-  const html = read('strategy-studio.html');
-  assert.match(html, /strategy-simulator\.html\?strategy=/);
-  assert.match(html, /data-strategy-id/);
+test('strategy studio simulator button navigates only to a selected saved strategy', () => {
+  const apiSource = read('strategy-studio/strategy-studio-api.js');
+  const controllerSource = read('strategy-studio/strategy-studio.js');
+  assert.match(apiSource, /strategy-simulator\.html\?strategy=/);
+  assert.match(apiSource, /simulatorBtn/);
+  assert.match(apiSource, /strategy-card\.selected/);
+  assert.match(controllerSource, /data-strategy-id/);
 });
