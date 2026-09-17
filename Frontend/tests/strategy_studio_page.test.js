@@ -44,3 +44,12 @@ test('premium layout has responsive three-column grid and sticky summary', () =>
   assert.match(css, /position:\s*sticky/);
   assert.match(css, /@media\s*\(max-width:\s*1000px\)/);
 });
+
+test('save captures the selected strategy identity before async validation', () => {
+  const source = fs.readFileSync(controllerPath, 'utf8');
+  assert.match(source, /const saveTargetId\s*=\s*state\.currentId/);
+  assert.match(source, /const saveName\s*=\s*state\.name\.trim\(\)/);
+  assert.match(source, /validateStrategy\(saveName, definition\)/);
+  assert.match(source, /updateStrategy\(saveTargetId, saveName,/);
+  assert.match(source, /createStrategy\(saveName,/);
+});
