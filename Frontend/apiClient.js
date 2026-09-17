@@ -99,6 +99,7 @@
     return writeMethod && (
       url.pathname.startsWith("/settings/")
       || url.pathname.startsWith("/strategy/settings")
+      || url.pathname.startsWith("/strategy-studio/")
     );
   }
 
@@ -377,4 +378,32 @@
   } catch (_error) {}
 
   window.NathauxFXBrand = { rebrandText, applyBrand };
+})();
+
+(function installStrategyStudioNavigation() {
+  'use strict';
+
+  function install() {
+    if (document.getElementById("menuStrategyStudioBtn")) return;
+    const liveTrading = document.getElementById("menuPaperBtn");
+    if (!liveTrading) return;
+
+    const button = document.createElement("button");
+    button.id = "menuStrategyStudioBtn";
+    button.className = "menu-row";
+    button.type = "button";
+    button.title = "Strategy Studio";
+    button.innerHTML = '<span class="menu-row-icon">◇</span><span class="menu-row-text">Strategy Studio</span>';
+    button.addEventListener("click", () => {
+      window.location.href = "/strategy-studio.html";
+    });
+    liveTrading.insertAdjacentElement("afterend", button);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", install, { once: true });
+  } else {
+    install();
+  }
+  document.addEventListener("flowsignal:authenticated", install);
 })();

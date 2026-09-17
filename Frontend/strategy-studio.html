@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101f">
+  <title>NathauxFX — Strategy Studio</title>
+  <link rel="stylesheet" href="/strategy-studio.css?v=1">
+</head>
+<body>
+  <div class="studio-shell">
+    <header class="studio-topbar">
+      <a class="brand" href="/app.html" aria-label="Back to NathauxFX dashboard">
+        <span class="brand-mark">N</span>
+        <span><strong>NathauxFX</strong><small>Strategy Studio</small></span>
+      </a>
+      <div class="topbar-copy">
+        <span class="eyebrow">BUILD • SAVE • TEST</span>
+        <h1>Strategy Studio</h1>
+        <p>Build a precise rule set without writing code.</p>
+      </div>
+      <div class="stage-badge"><span></span> Stage 1 • Studio only</div>
+    </header>
+
+    <div id="studioNotice" class="notice hidden" role="status"></div>
+
+    <div class="studio-grid">
+      <aside id="savedStrategiesPanel" class="panel saved-panel">
+        <div class="panel-heading">
+          <div><span class="eyebrow">LIBRARY</span><h2>Saved Strategies</h2></div>
+          <button id="newStrategyBtn" class="icon-button" type="button" title="New Strategy">＋</button>
+        </div>
+        <button id="newStrategyWideBtn" class="new-strategy-button" type="button"><span>＋</span> New Strategy</button>
+        <div id="savedStrategiesList" class="strategy-list" aria-live="polite">
+          <div class="empty-state">Loading saved strategies…</div>
+        </div>
+      </aside>
+
+      <main id="strategyBuilder" class="panel builder-panel">
+        <div class="builder-header">
+          <div><span class="eyebrow">RULE BUILDER</span><h2>Strategy Builder</h2></div>
+          <div id="builderStateBadge" class="state-badge">NEW</div>
+        </div>
+
+        <fieldset id="builderFields" class="builder-fields">
+          <section class="builder-section">
+            <div class="section-title"><span>01</span><div><h3>Strategy Identity</h3><p>Name it and choose where it can trade.</p></div></div>
+            <div class="field-grid two-col">
+              <label class="field"><span>Strategy Name</span><input id="strategyName" type="text" maxlength="120" placeholder="e.g. 5m Structure Break"><small class="field-error" data-error-for="name"></small></label>
+              <div class="field"><span>Symbols</span><div class="choice-row" id="symbolChoices">
+                <label class="choice"><input type="checkbox" value="EURUSD"><span>EURUSD</span></label>
+                <label class="choice"><input type="checkbox" value="XAUUSD"><span>XAUUSD</span></label>
+              </div><small class="field-hint">Select both for the same rules on both symbols.</small><small class="field-error" data-error-for="symbols"></small></div>
+            </div>
+          </section>
+
+          <section class="builder-section">
+            <div class="section-title"><span>02</span><div><h3>Trading Timeframe</h3><p>The structure trigger and swing SL use this timeframe.</p></div></div>
+            <div class="field"><span>Trading Timeframe</span><div class="choice-row" id="timeframeChoices">
+              <label class="choice"><input type="radio" name="tradingTf" value="5m"><span>5m</span></label>
+              <label class="choice"><input type="radio" name="tradingTf" value="15m"><span>15m</span></label>
+              <label class="choice"><input type="radio" name="tradingTf" value="1h"><span>1h</span></label>
+            </div><small class="field-error" data-error-for="trading_timeframe"></small></div>
+          </section>
+
+          <section class="builder-section">
+            <div class="section-title"><span>03</span><div><h3>Trend Filter <em>Optional</em></h3><p>When several filters are selected, every one must agree.</p></div></div>
+            <div class="field"><span>Trend Filter</span><div class="choice-grid" id="trendMethodChoices">
+              <label class="choice"><input type="checkbox" value="ALL"><span>All</span></label>
+              <label class="choice"><input type="checkbox" value="BOS_CHOCH"><span>BOS / CHOCH</span></label>
+              <label class="choice"><input type="checkbox" value="EMA_50"><span>EMA 50</span></label>
+              <label class="choice"><input type="checkbox" value="EMA_200"><span>EMA 200</span></label>
+              <label class="choice"><input type="checkbox" value="SWING_STRUCTURE"><span>Swing Structure</span></label>
+            </div><small class="field-error" data-error-for="trend.methods"></small></div>
+            <label id="trendTimeframeField" class="field conditional hidden"><span>Trend Timeframe</span><select id="trendTimeframe"><option value="">Choose higher timeframe</option></select><small class="field-error" data-error-for="trend.timeframe"></small></label>
+          </section>
+
+          <section class="builder-section">
+            <div class="section-title"><span>04</span><div><h3>Structure & Break Validation</h3><p>BOS and CHOCH use the same downstream strategy path.</p></div></div>
+            <div class="locked-rule"><span class="rule-dot"></span><div><strong>BOS / CHOCH</strong><small>Trading timeframe structure trigger</small></div><span class="lock-mark">FIXED</span></div>
+            <div class="field"><span>Break Validation</span><div class="choice-grid" id="breakValidationChoices">
+              <label class="choice"><input type="checkbox" value="CLOSE_BEYOND"><span>Candle close beyond level</span></label>
+              <label class="choice"><input type="checkbox" value="MIN_BODY_PERCENT"><span>Minimum candle body %</span></label>
+              <label class="choice"><input type="checkbox" value="MIN_DISTANCE"><span>Minimum distance beyond level</span></label>
+            </div><small class="field-hint">No selection = no additional break validation.</small><small class="field-error" data-error-for="structure.break_validation"></small></div>
+            <div class="field-grid two-col">
+              <label id="breakBodyField" class="field conditional hidden"><span>Minimum Body %</span><input id="breakBody" type="number" min="0.01" max="100" step="0.01" list="bodyPresets" placeholder="50"><small class="field-error" data-error-for="structure.minimum_body_percent"></small></label>
+              <label id="breakDistanceField" class="field conditional hidden"><span>Minimum Distance (pips/points)</span><input id="breakDistance" type="number" min="0.0001" step="0.01" list="distancePresets" placeholder="10"><small class="field-error" data-error-for="structure.minimum_distance_pips"></small></label>
+            </div>
+          </section>
+
+          <section class="builder-section">
+            <div class="section-title"><span>05</span><div><h3>Entry Confirmation <em>Optional</em></h3><p>Multiple confirmations use AND logic.</p></div></div>
+            <div class="field"><span>Confirmation Rules</span><div class="choice-grid" id="confirmationChoices">
+              <label class="choice"><input type="checkbox" value="NEXT_SAME_DIRECTION"><span>Next candle closes same direction</span></label>
+              <label class="choice"><input type="checkbox" value="SECOND_CLOSE_BEYOND"><span>Second close beyond broken level</span></label>
+              <label class="choice"><input type="checkbox" value="RETEST_LEVEL"><span>Retest broken level</span></label>
+              <label class="choice"><input type="checkbox" value="MIN_BODY_PERCENT"><span>Minimum candle body %</span></label>
+            </div><small class="field-error" data-error-for="confirmation.rules"></small></div>
+            <label id="confirmationBodyField" class="field conditional hidden"><span>Confirmation Body %</span><input id="confirmationBody" type="number" min="0.01" max="100" step="0.01" list="bodyPresets" placeholder="50"><small class="field-error" data-error-for="confirmation.minimum_body_percent"></small></label>
+          </section>
+
+          <section class="builder-section">
+            <div class="section-title"><span>06</span><div><h3>Entry Method</h3><p>Choose when a valid setup becomes an entry.</p></div></div>
+            <label class="field"><span>Entry Method</span><select id="entryMethod"><option value="">Choose entry method</option><option value="BOS_CHOCH_CLOSE">At BOS / CHOCH candle close</option><option value="CONFIRMATION_CLOSE">At confirmation candle close</option><option value="RETEST">At retest of broken level</option></select><small class="field-error" data-error-for="entry.method"></small></label>
+          </section>
+
+          <section class="builder-section">
+            <div class="section-title"><span>07</span><div><h3>Stop Loss</h3><p>A stop loss is required for every strategy.</p></div></div>
+            <div class="field-grid two-col">
+              <label class="field"><span>Stop Loss Method</span><select id="stopMethod"><option value="">Choose stop loss</option><option value="LAST_SWING">Last Swing</option><option value="FIXED_DISTANCE">Fixed Pips / Points</option></select><small class="field-error" data-error-for="stop_loss.method"></small></label>
+              <label id="stopBufferField" class="field conditional hidden"><span>Swing Buffer (pips/points)</span><input id="stopBuffer" type="number" min="0" step="0.01" list="bufferPresets" placeholder="0"><small class="field-hint">None = leave blank.</small><small class="field-error" data-error-for="stop_loss.buffer_pips"></small></label>
+              <label id="fixedStopField" class="field conditional hidden"><span>Fixed Distance</span><input id="fixedStopDistance" type="number" min="0.0001" step="0.01" placeholder="40"><small class="field-error" data-error-for="stop_loss.fixed_distance"></small></label>
+            </div>
+          </section>
+
+          <section class="builder-section">
+            <div class="section-title"><span>08</span><div><h3>TP1 <em>Optional</em></h3><p>Enabling TP1 automatically requires a partial close and protection.</p></div></div>
+            <label class="toggle-row"><span><strong>Enable TP1</strong><small>Partial close + protected stop</small></span><input id="tp1Enabled" type="checkbox"><i></i></label>
+            <div id="tp1Fields" class="field-grid three-col conditional hidden">
+              <label class="field"><span>TP1 Target (R)</span><input id="tp1Target" type="number" min="0.0001" step="0.01" list="tp1TargetPresets" placeholder="0.75"><small class="field-error" data-error-for="tp1.target_r"></small></label>
+              <label class="field"><span>Close %</span><input id="tp1Close" type="number" min="0.01" max="100" step="0.01" list="tp1ClosePresets" placeholder="80"><small class="field-error" data-error-for="tp1.close_percent"></small></label>
+              <label class="field"><span>Protection (R)</span><input id="tp1Protection" type="number" step="0.01" list="protectionPresets" placeholder="0.2"><small class="field-hint">0 = breakeven.</small><small class="field-error" data-error-for="tp1.protection_r"></small></label>
+            </div>
+          </section>
+
+          <section class="builder-section">
+            <div class="section-title"><span>09</span><div><h3>TP2</h3><p>TP2 is the mandatory final target.</p></div></div>
+            <div class="field-grid two-col">
+              <label class="field"><span>TP2 Method</span><select id="tp2Method"><option value="">Choose TP2 method</option><option value="FIXED_R">Fixed R</option><option value="FIXED_DISTANCE">Fixed Pips / Points</option><option value="OPPOSITE_SWING">Opposite Swing</option></select><small class="field-error" data-error-for="tp2.method"></small></label>
+              <label id="tp2ValueField" class="field conditional hidden"><span>TP2 Value</span><input id="tp2Value" type="number" min="0.0001" step="0.01" list="tp2RPresets" placeholder="2"><small class="field-error" data-error-for="tp2.value"></small></label>
+            </div>
+          </section>
+
+          <section class="builder-section">
+            <div class="section-title"><span>10</span><div><h3>Risk</h3><p>Position size is calculated from the selected cTrader account balance and SL distance.</p></div></div>
+            <div class="field-grid two-col">
+              <label class="field"><span>Risk Method</span><select id="riskMethod"><option value="">Choose risk method</option><option value="PERCENT_BALANCE">Risk % of Balance</option><option value="FIXED_DOLLARS">Fixed $ Risk</option></select><small class="field-error" data-error-for="risk.method"></small></label>
+              <label id="riskValueField" class="field conditional hidden"><span id="riskValueLabel">Risk Value</span><input id="riskValue" type="number" min="0.0001" step="0.01" placeholder="1"><small class="field-error" data-error-for="risk.value"></small></label>
+            </div>
+          </section>
+        </fieldset>
+
+        <div class="builder-actions">
+          <button id="resetDraftBtn" class="button ghost" type="button">Reset</button>
+          <div class="action-spacer"></div>
+          <button id="cloneStrategyBtn" class="button secondary" type="button" disabled>Clone</button>
+          <button id="deleteStrategyBtn" class="button danger-soft" type="button" disabled>Delete</button>
+          <button id="deactivateStrategyBtn" class="button secondary hidden" type="button">Deactivate</button>
+          <button id="activateStrategyBtn" class="button secondary" type="button" disabled>Activate</button>
+          <button id="saveStrategyBtn" class="button primary" type="button" disabled>Save Strategy</button>
+        </div>
+      </main>
+
+      <aside id="strategySummaryPanel" class="panel summary-panel">
+        <div class="summary-sticky">
+          <div class="panel-heading"><div><span class="eyebrow">LIVE PREVIEW</span><h2>Strategy Summary</h2></div><span id="summaryStatus" class="summary-status incomplete">INCOMPLETE</span></div>
+          <div class="summary-name" id="summaryName">Untitled Strategy</div>
+          <div class="flow-card">
+            <div class="flow-header"><span>Readable Flow</span><span class="flow-icon">⌁</span></div>
+            <p id="strategyFlow">Choose your trading timeframe and rules to build the strategy flow.</p>
+          </div>
+          <div class="rule-health">
+            <div class="rule-health-title"><span>Rule Health</span><strong id="ruleHealthCount">0 / 6 ready</strong></div>
+            <div id="ruleHealthList" class="health-list"></div>
+          </div>
+          <div class="summary-note"><strong>Stage 1 safety</strong><p>Saving or activating here does not change LIVE trading. Current V3B remains authoritative.</p></div>
+          <button id="simulatorBtn" class="button simulator-button" type="button" disabled>Simulator</button>
+          <p class="simulator-help">Simulator becomes available after the shared evaluator is installed.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal-card"><span class="eyebrow">CONFIRM ACTION</span><h2 id="confirmTitle">Confirm</h2><p id="confirmMessage"></p><div class="modal-actions"><button id="confirmCancel" class="button ghost" type="button">Cancel</button><button id="confirmAccept" class="button primary" type="button">Confirm</button></div></div>
+  </div>
+
+  <datalist id="bodyPresets"><option value="40"><option value="50"><option value="60"></datalist>
+  <datalist id="distancePresets"><option value="5"><option value="10"><option value="20"></datalist>
+  <datalist id="bufferPresets"><option value="0"><option value="5"><option value="10"></datalist>
+  <datalist id="tp1TargetPresets"><option value="0.5"><option value="0.75"><option value="1"></datalist>
+  <datalist id="tp1ClosePresets"><option value="50"><option value="70"><option value="80"></datalist>
+  <datalist id="protectionPresets"><option value="0"><option value="0.2"><option value="0.4"></datalist>
+  <datalist id="tp2RPresets"><option value="1"><option value="1.5"><option value="2"></datalist>
+
+  <script src="/apiClient.js?v=1"></script>
+  <script src="/strategy-studio/strategy-studio-model.js?v=1"></script>
+  <script src="/strategy-studio/strategy-studio-api.js?v=1"></script>
+  <script src="/strategy-studio/strategy-studio.js?v=1"></script>
+</body>
+</html>
