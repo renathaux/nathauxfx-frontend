@@ -133,12 +133,17 @@
   function formatTorontoTime(value) {
     const date = value instanceof Date ? value : parseDateValue(value);
     if (!date) return "--";
-    return new Intl.DateTimeFormat("en-CA", {
+    const parts = new Intl.DateTimeFormat("en-CA", {
       timeZone: TORONTO_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
       hour12: false
-    }).format(date);
+    }).formatToParts(date);
+    const valueByType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${valueByType.year}-${valueByType.month}-${valueByType.day} ${valueByType.hour}:${valueByType.minute}`;
   }
 
   function compactSignalHistory(history, limit = 10) {
@@ -170,12 +175,18 @@
     });
   }
 
+  function historyForLegacyRenderer(history, limit = 10) {
+    // script.js reverses its input when building rows; give it chronological
+    // transitions so the visible table remains newest first.
+    return compactSignalHistory(history, limit).reverse();
+  }
+
   function installHistoryRendererOverride() {
     const firstHeader = document.querySelector(".history-table thead th:first-child");
-    if (firstHeader) firstHeader.textContent = "Toronto Time";
+    if (firstHeader) firstHeader.textContent = "Date / Time (Toronto)";
     if (window.__NATHAUX_HISTORY_RENDER_OVERRIDE || typeof window.renderHistory !== "function") return false;
     const original = window.renderHistory;
-    window.renderHistory = (history) => original(compactSignalHistory(history, 10));
+    window.renderHistory = (history) => original(historyForLegacyRenderer(history, 10));
     window.__NATHAUX_HISTORY_RENDER_OVERRIDE = true;
     return true;
   }
@@ -694,6 +705,7 @@
       applyMonthlyPaperLocalStorageWindow,
       filterPaperHistoryToCurrentMonth,
       compactSignalHistory,
+      historyForLegacyRenderer,
       formatTorontoTime,
       newYorkMonthKey,
       renderV3BPresentation,
@@ -713,6 +725,7 @@
       buildPaperMonthStats,
       isOpenTrade,
       compactSignalHistory,
+      historyForLegacyRenderer,
       formatTorontoTime,
       normalizeSignal,
       v3bFacts,

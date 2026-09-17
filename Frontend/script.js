@@ -8039,6 +8039,8 @@ function renderHistory(history) {
 function formatHistoryTime(rawTime) {
   if (!rawTime || rawTime === "--") return "--";
   const text = String(rawTime).trim();
+  const torontoDateTime = text.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  if (torontoDateTime) return torontoDateTime[0];
   const timeMatch = text.match(/\b(\d{2}):(\d{2})(?::\d{2})?\b/);
   if (timeMatch) return `${timeMatch[1]}:${timeMatch[2]}`;
   const dateMatch = text.match(/\b\d{4}-(\d{2})-(\d{2})\b/);
