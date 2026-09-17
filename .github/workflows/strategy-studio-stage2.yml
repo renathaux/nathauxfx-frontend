@@ -1,0 +1,31 @@
+name: Strategy Studio Stage 2
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  simulator-ui-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run simulator and Strategy Studio regressions
+        run: |
+          node --test Frontend/strategy-simulator/*.test.cjs \
+            Frontend/tests/strategy_studio_api.test.js \
+            Frontend/tests/strategy_studio_model.test.js \
+            Frontend/tests/strategy_studio_navigation.test.js \
+            Frontend/tests/strategy_studio_page.test.js \
+            Frontend/tests/strategy_lab.test.js
+          node --check Frontend/strategy-simulator/strategy-simulator-api.js
+          node --check Frontend/strategy-simulator/strategy-simulator-model.js
+          node --check Frontend/strategy-simulator/strategy-simulator.js
+          node --check Frontend/strategy-studio/strategy-studio-api.js
