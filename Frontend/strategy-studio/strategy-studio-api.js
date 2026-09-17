@@ -7,8 +7,26 @@
 
   const BACKEND = 'https://api.nathauxfx.com';
 
+  function ownerToken() {
+    if (!root || !root.sessionStorage || !root.localStorage) return '';
+    if (String(root.sessionStorage.getItem('flowsignal_tab_role') || '').toLowerCase() !== 'admin') return '';
+    const prefix = 'flowsignal-tab:';
+    const windowName = String(root.name || '');
+    if (!windowName.startsWith(prefix)) return '';
+    const tabId = windowName.slice(prefix.length);
+    if (!tabId) return '';
+    try {
+      const saved = JSON.parse(root.localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null');
+      return String(saved?.token || '').trim();
+    } catch (_error) {
+      return '';
+    }
+  }
+
   function authHeaders() {
     if (!root || !root.sessionStorage) return {};
+    const owner = ownerToken();
+    if (owner) return { Authorization: `Bearer ${owner}` };
     const token = String(root.sessionStorage.getItem('flowsignal_user_session_token') || '').trim();
     const csrf = String(root.sessionStorage.getItem('flowsignal_csrf_token') || '').trim();
     const headers = {};
