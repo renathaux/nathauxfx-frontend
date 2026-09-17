@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101f">
+  <title>NathauxFX — Strategy Simulator</title>
+  <link rel="stylesheet" href="/strategy-simulator/strategy-simulator.css?v=1">
+</head>
+<body>
+  <div class="sim-shell">
+    <header class="sim-topbar">
+      <a class="brand" href="/strategy-studio.html"><span class="brand-mark">N</span><span><strong>NathauxFX</strong><small>Strategy Simulator</small></span></a>
+      <div><span class="eyebrow">STAGE 2 • SIMULATOR ONLY</span><h1>Backtest a saved strategy</h1><p>Fast Run and Replay use the same evaluator and closed-candle history.</p></div>
+      <div class="safety-badge">LIVE trading remains OFF</div>
+    </header>
+
+    <div id="simNotice" class="notice hidden" role="status"></div>
+
+    <section class="panel controls-panel">
+      <div class="panel-title"><div><span class="eyebrow">TEST SETUP</span><h2 id="strategyTitle">Loading strategy…</h2></div><a class="button ghost" href="/strategy-studio.html">Back to Studio</a></div>
+      <p id="strategyMeta" class="muted">Simulator only. Running a test does not enable LIVE trading or modify V3B.</p>
+      <div class="control-grid">
+        <label><span>Symbol</span><select id="symbolSelect"></select></label>
+        <label><span>Start</span><input id="startDate" type="datetime-local"></label>
+        <label><span>End</span><input id="endDate" type="datetime-local"></label>
+        <label class="risk-toggle"><span>Temporary Risk Override</span><input id="riskOverrideEnabled" type="checkbox"></label>
+        <label id="riskMethodField" class="hidden"><span>Override Method</span><select id="riskMethod"><option value="PERCENT_BALANCE">% Balance</option><option value="FIXED_DOLLARS">Fixed $</option></select></label>
+        <label id="riskValueField" class="hidden"><span>Override Value</span><input id="riskValue" type="number" min="0.0001" step="0.01" value="1"></label>
+      </div>
+      <div class="action-row"><button id="fastRunBtn" class="button primary" type="button">Fast Run</button><button id="replayRunBtn" class="button secondary" type="button">Run Replay</button><span id="runState" class="muted"></span></div>
+    </section>
+
+    <section class="metric-grid">
+      <article class="metric-card"><span>Net P/L</span><strong id="metricNetPl">—</strong></article>
+      <article class="metric-card"><span>Ending Balance</span><strong id="metricEndingBalance">—</strong></article>
+      <article class="metric-card"><span>Win Rate</span><strong id="metricWinRate">—</strong></article>
+      <article class="metric-card"><span>Resolved Trades</span><strong id="metricTrades">—</strong></article>
+      <article class="metric-card"><span>Average R</span><strong id="metricAverageR">—</strong></article>
+      <article class="metric-card"><span>Max Drawdown</span><strong id="metricDrawdown">—</strong></article>
+      <article class="metric-card"><span>Profit Factor</span><strong id="metricProfitFactor">—</strong></article>
+      <article class="metric-card"><span>Ambiguous</span><strong id="metricAmbiguous">—</strong></article>
+    </section>
+
+    <div class="results-grid">
+      <section class="panel chart-panel">
+        <div class="panel-title"><div><span class="eyebrow">EQUITY</span><h2>Equity Curve</h2></div></div>
+        <svg id="equityChart" viewBox="0 0 700 260" role="img" aria-label="Simulation equity curve"></svg>
+      </section>
+      <section class="panel assumptions-panel">
+        <div class="panel-title"><div><span class="eyebrow">ASSUMPTIONS</span><h2>Stage 2 Safety</h2></div></div>
+        <ul id="assumptionList"><li>Closed candles only</li><li>No spread, commission, or slippage in v1</li><li>Ambiguous intrabar outcomes are excluded</li><li>Simulator does not enable LIVE trading</li></ul>
+      </section>
+    </div>
+
+    <section id="replayPanel" class="panel replay-panel hidden">
+      <div class="panel-title"><div><span class="eyebrow">REPLAY</span><h2>Bar-by-bar Replay</h2></div><span id="replayProgress" class="muted">0 / 0</span></div>
+      <svg id="replayChart" viewBox="0 0 900 360" role="img" aria-label="Replay candle chart"></svg>
+      <div class="replay-controls"><button id="replayPrevBtn" class="button ghost" type="button">Previous</button><input id="replaySlider" type="range" min="0" max="0" value="0"><button id="replayNextBtn" class="button ghost" type="button">Next</button></div>
+      <div id="replayFacts" class="replay-facts muted">Run Replay to inspect evaluator decisions candle by candle.</div>
+    </section>
+
+    <section class="panel trades-panel">
+      <div class="panel-title"><div><span class="eyebrow">TRADES</span><h2>Virtual Trade Log</h2></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Side</th><th>Entry Time</th><th>Entry</th><th>SL</th><th>TP1</th><th>TP2</th><th>Outcome</th><th>R</th><th>P/L</th></tr></thead><tbody id="tradeTableBody"><tr><td colspan="9" class="empty">Run a simulation to see trades.</td></tr></tbody></table></div>
+    </section>
+  </div>
+
+  <script src="/strategy-simulator/strategy-simulator-model.js?v=1"></script>
+  <script src="/strategy-simulator/strategy-simulator-api.js?v=1"></script>
+  <script src="/strategy-simulator/strategy-simulator.js?v=1"></script>
+</body>
+</html>
