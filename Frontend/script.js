@@ -4844,6 +4844,11 @@ function getSignalSide(signal) {
 }
 
 function getVisibleSignal(data) {
+  const canonical = data?.live_v3b_details?.source_candidate?.v3b_setup_state;
+  if (String(data?.live_strategy_model || "").toUpperCase().includes("V3B")) {
+    const facts = canonical && typeof window !== "undefined" ? window.FlowSignalHistory?.v3bFacts?.(data) : null;
+    return facts?.currentEvent ? facts.signal : "WAIT";
+  }
   const displaySignal = String(
     data?.strategy_decision
     || data?.display_signal
@@ -5200,8 +5205,14 @@ function updateCard(symbol, data) {
   const entryQuality = String(data.entry_quality || "WEAK").trim().toUpperCase();
   const entryTiming = String(data.entry_timing || "NEUTRAL").trim().toUpperCase();
   const marketClosed = Boolean(data.market_closed);
+  const currentV3BSetup = Boolean(
+    data?.live_v3b_details?.source_candidate?.v3b_setup_state
+    && window.FlowSignalHistory?.v3bFacts?.(data)?.currentEvent
+  );
 
-  const noData = marketCondition === "UNKNOWN" && buyPct === 0 && sellPct === 0 && confidence === 0;
+  const noData = !["BUY", "SELL"].includes(signal)
+    && !currentV3BSetup
+    && marketCondition === "UNKNOWN" && buyPct === 0 && sellPct === 0 && confidence === 0;
 
   if (marketClosed) {
     signal = "WAIT";

@@ -122,7 +122,8 @@
       signal:"WAIT",
       reason:"WAIT_V3B_MOBILE_STATE_UNAVAILABLE"
     };
-    openDetail("ISCH", "ENTRY STRATEGY CHECKS", `<div class="detail-card desktop-isch-card"><h3>${symbol} · ENTRY STRATEGY CHECKS</h3>${row("5m BOS / CHOCH",status(facts.hasBos))}${row("Break candle body ≥ 50%",status(facts.bodyPass))}${row("Next 5m same direction",status(facts.secondSame))}${row("Close stays beyond broken level",status(facts.beyond))}${row("5m swing SL",status(facts.swingSl))}${row("Signal",String(facts.signal||"WAIT").toUpperCase())}${row("Reason",facts.reason||"--","strategy-reason")}</div>`);
+    const v3bStatus = value => value == null ? "WAITING" : status(value);
+    openDetail("ISCH", "ENTRY STRATEGY CHECKS", `<div class="detail-card desktop-isch-card"><h3>${symbol} · ENTRY STRATEGY CHECKS</h3>${row("5m BOS / CHOCH",v3bStatus(facts.hasBos))}${row("Break candle body ≥ 50%",v3bStatus(facts.bodyPass))}${row("Next 5m same direction",v3bStatus(facts.secondSame))}${row("Close stays beyond broken level",v3bStatus(facts.beyond))}${row("5m swing SL",v3bStatus(facts.swingSl))}${row("Signal",String(facts.signal||"WAIT").toUpperCase())}${row("Reason",facts.reason||"--","strategy-reason")}</div>`);
   }
 
   function ischDetail(){
