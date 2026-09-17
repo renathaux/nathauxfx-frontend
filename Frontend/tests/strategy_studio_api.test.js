@@ -21,3 +21,49 @@ test('customer auth token and csrf are attached without LIVE execution endpoints
   assert.match(source, /FlowSignalUser/);
   assert.doesNotMatch(source, /execute-live-order|place_market_order|live-auto-toggle/);
 });
+
+test('owner admin token authenticates Strategy Studio reads', async () => {
+  const old = {
+    sessionStorage: globalThis.sessionStorage,
+    localStorage: globalThis.localStorage,
+    name: globalThis.name,
+    fetch: globalThis.fetch,
+    api: globalThis.StrategyStudioApi,
+  };
+  const calls = [];
+  globalThis.name = 'flowsignal-tab:owner-tab-1';
+  globalThis.sessionStorage = {
+    getItem(key) {
+      if (key === 'flowsignal_tab_role') return 'admin';
+      return null;
+    },
+  };
+  globalThis.localStorage = {
+    getItem(key) {
+      if (key === 'flowsignal_tab_admin_session:owner-tab-1') {
+        return JSON.stringify({ token: 'owner-secret-token' });
+      }
+      return null;
+    },
+  };
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, json: async () => ({ ok: true, strategies: [] }) };
+  };
+
+  const modulePath = require.resolve('../strategy-studio/strategy-studio-api.js');
+  delete require.cache[modulePath];
+  try {
+    const api = require(modulePath);
+    await api.listStrategies();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].init.headers.Authorization, 'Bearer owner-secret-token');
+  } finally {
+    delete require.cache[modulePath];
+    globalThis.sessionStorage = old.sessionStorage;
+    globalThis.localStorage = old.localStorage;
+    globalThis.name = old.name;
+    globalThis.fetch = old.fetch;
+    globalThis.StrategyStudioApi = old.api;
+  }
+});
