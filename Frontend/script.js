@@ -9890,9 +9890,21 @@ async function setActiveBrokerAccount(accountId) {
   updateBrokerAccountActionState();
 
   try {
-    const result = await postBrokerAccountAction("ctrader/accounts/active", {
+    let result = await postBrokerAccountAction("ctrader/accounts/active", {
       accountId: selectedAccountId,
     });
+
+    if (result.confirmation_required) {
+      const confirmed = confirm(result.warning || 'Switch accounts and suspend Strategy Studio app management for the current account?');
+      if (!confirmed) {
+        setBrokerStatusMessage('Connection Status: account switch cancelled; current cTrader account remains active.');
+        return;
+      }
+      result = await postBrokerAccountAction("ctrader/accounts/active", {
+        accountId: selectedAccountId,
+        confirmed: true,
+      });
+    }
 
     if (!result.ok) {
       setBrokerStatusMessage(`Connection Status: ${result.reason || "Could not set active account."}`, true);

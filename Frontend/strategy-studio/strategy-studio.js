@@ -14,6 +14,7 @@
     baselineName: '',
     serverErrors: {},
     busy: false,
+    liveStatus: { enabled: false, parity_status: 'REQUIRES_VERIFICATION' },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -27,6 +28,61 @@
 
   function currentStrategy() {
     return state.strategies.find((item) => item.strategy_id === state.currentId) || null;
+  }
+
+  function parityVerified(status = state.liveStatus) {
+    const value = String(status?.parity_status || '').toUpperCase();
+    return status?.parity_verified === true || ['VERIFIED', 'PASS', 'GREEN', 'MATCH', 'MATCHED'].includes(value);
+  }
+
+  function renderLiveHandoffState() {
+    const node = $('studioLiveReadiness');
+    const button = $('goLiveStrategyBtn');
+    if (!node || !button) return;
+    const current = currentStrategy();
+    const status = state.liveStatus || {};
+    const locked = Boolean(current?.locked);
+    const live_handoff_enabled = Boolean(
+      current?.live_handoff_enabled
+      || (status.enabled && (!status.enabled_strategy_id || status.enabled_strategy_id === current?.strategy_id))
+    );
+    if (live_handoff_enabled) {
+      node.textContent = 'Strategy Studio LIVE enabled — this saved strategy is the gated LIVE candidate source.';
+      node.className = 'notice studio-live-readiness success';
+      button.textContent = 'Studio LIVE Enabled';
+    } else if (parityVerified(status)) {
+      node.textContent = 'Parity verified — Go Live requires confirmation';
+      node.className = 'notice studio-live-readiness success';
+      button.textContent = 'Go Live';
+    } else {
+      node.textContent = 'Simulator ready — LIVE still uses current V3B';
+      node.className = 'notice studio-live-readiness';
+      button.textContent = 'Go Live';
+    }
+    button.disabled = Boolean(
+      state.busy || !current || current.state !== 'ACTIVE' || locked
+      || live_handoff_enabled || !parityVerified(status)
+    );
+    button.title = !current
+      ? 'Select and activate a saved strategy first'
+      : current.state !== 'ACTIVE'
+        ? 'Activate this strategy in Studio first'
+        : locked
+          ? 'This strategy is locked while its Studio-managed position is open'
+          : live_handoff_enabled
+            ? 'Strategy Studio LIVE is already enabled for this strategy'
+            : parityVerified(status)
+              ? 'Review and explicitly confirm the Strategy Studio LIVE handoff'
+              : 'Parity verification is required before Go Live';
+  }
+
+  async function loadLiveStatus() {
+    try {
+      state.liveStatus = await Api.getLiveStatus();
+    } catch (error) {
+      state.liveStatus = { enabled: false, parity_status: 'REQUIRES_VERIFICATION', error: error.message };
+    }
+    renderLiveHandoffState();
   }
 
   function notice(message, kind = '') {
@@ -185,16 +241,20 @@
   function renderActionState(errors) {
     const current = currentStrategy();
     const active = current?.state === 'ACTIVE';
+    const locked = Boolean(current?.locked);
     const valid = Object.keys(errors).length === 0;
-    builderFields.disabled = Boolean(active || state.busy);
-    $('builderStateBadge').textContent = active ? 'ACTIVE • LOCKED' : current ? 'INACTIVE' : 'NEW';
+    builderFields.disabled = Boolean(active || locked || state.busy);
+    $('builderStateBadge').textContent = locked
+      ? 'LIVE • LOCKED'
+      : active ? 'ACTIVE • LOCKED' : current ? 'INACTIVE' : 'NEW';
     $('cloneStrategyBtn').disabled = !current || state.busy;
-    $('deleteStrategyBtn').disabled = !current || active || state.busy;
-    $('activateStrategyBtn').disabled = !current || active || state.busy;
+    $('deleteStrategyBtn').disabled = !current || active || locked || state.busy;
+    $('activateStrategyBtn').disabled = !current || active || locked || state.busy;
     $('activateStrategyBtn').classList.toggle('hidden', Boolean(active));
     $('deactivateStrategyBtn').classList.toggle('hidden', !active);
-    $('deactivateStrategyBtn').disabled = !active || state.busy;
-    saveButton.disabled = !valid || active || state.busy;
+    $('deactivateStrategyBtn').disabled = !active || locked || state.busy;
+    saveButton.disabled = !valid || active || locked || state.busy;
+    renderLiveHandoffState();
   }
 
   function renderDraftState() {
@@ -254,7 +314,11 @@
     state.serverErrors = {};
     renderSavedStrategies();
     assignDraftToForm();
-    notice(strategy.state === 'ACTIVE' ? 'Active strategies are locked. Deactivate it before editing, or Clone it to create an editable copy.' : '');
+    notice(strategy.locked
+      ? 'This strategy is locked while its Studio-managed position is open. Edit, delete, and deactivate are blocked; Clone remains available.'
+      : strategy.state === 'ACTIVE'
+        ? 'Active strategies are locked. Deactivate it before editing, or Clone it to create an editable copy.'
+        : '');
   }
 
   async function loadStrategies(selectId = state.currentId) {
@@ -387,6 +451,43 @@
     await runSensitiveAction(() => Api.deleteStrategy(current.strategy_id), 'Strategy deleted.', true);
   }
 
+  async function goLiveCurrent() {
+    const current = currentStrategy();
+    if (!current) return;
+    if (current.state !== 'ACTIVE') {
+      notice('Activate this strategy inside Strategy Studio before Go Live.', 'error');
+      return;
+    }
+    if (current.locked) {
+      notice('This strategy is locked while its Studio-managed position is open.', 'error');
+      return;
+    }
+    if (!parityVerified()) {
+      notice('Parity verification is required before Strategy Studio can Go Live.', 'error');
+      return;
+    }
+    const ok = await showConfirmation({
+      title: 'Go Live with this Strategy?',
+      message: `Future LIVE entries will use “${current.name}” as the Strategy Studio candidate source. This does not toggle LIVE Auto and does not modify an existing broker position.`,
+      confirmLabel: 'Go Live',
+    });
+    if (!ok) return;
+    state.busy = true;
+    renderDraftState();
+    try {
+      const response = await Api.setLiveHandoff(current.strategy_id, true);
+      state.liveStatus = response.state || response.live_state || response;
+      notice('Strategy Studio LIVE handoff enabled for this strategy.', 'success');
+      await loadStrategies(current.strategy_id);
+      await loadLiveStatus();
+    } catch (error) {
+      notice(`Go Live blocked: ${error.message}`, 'error');
+    } finally {
+      state.busy = false;
+      renderDraftState();
+    }
+  }
+
   async function resetDraft() {
     const ok = await showConfirmation({
       title: 'Reset Draft?',
@@ -454,6 +555,7 @@
     $('deactivateStrategyBtn').addEventListener('click', deactivateCurrent);
     $('deleteStrategyBtn').addEventListener('click', deleteCurrent);
     $('resetDraftBtn').addEventListener('click', resetDraft);
+    $('goLiveStrategyBtn').addEventListener('click', goLiveCurrent);
     $('simulatorBtn').title = simulatorUnavailableText;
   }
 
@@ -461,4 +563,5 @@
   bindActions();
   assignDraftToForm();
   loadStrategies();
+  loadLiveStatus();
 })();
