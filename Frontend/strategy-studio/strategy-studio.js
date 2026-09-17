@@ -304,20 +304,22 @@
     collectDraft();
     const localErrors = combinedErrors();
     if (Object.keys(localErrors).length) return;
+    const saveTargetId = state.currentId;
+    const saveName = state.name.trim();
+    const definition = Model.normalizeForApi(state.draft);
     state.busy = true;
     renderDraftState();
     try {
-      const definition = Model.normalizeForApi(state.draft);
-      const validation = await Api.validateStrategy(state.name.trim(), definition);
+      const validation = await Api.validateStrategy(saveName, definition);
       if (!validation.valid) {
         state.serverErrors = validation.errors || {};
         renderDraftState();
         notice('Fix the highlighted settings before saving.', 'error');
         return;
       }
-      const response = state.currentId
-        ? await Api.updateStrategy(state.currentId, state.name.trim(), validation.normalized_definition)
-        : await Api.createStrategy(state.name.trim(), validation.normalized_definition);
+      const response = saveTargetId
+        ? await Api.updateStrategy(saveTargetId, saveName, validation.normalized_definition)
+        : await Api.createStrategy(saveName, validation.normalized_definition);
       const saved = response.strategy;
       notice(`Saved ${saved.name}.`, 'success');
       await loadStrategies(saved.strategy_id);
