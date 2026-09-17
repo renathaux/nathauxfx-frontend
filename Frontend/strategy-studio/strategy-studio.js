@@ -1,0 +1,462 @@
+(() => {
+  'use strict';
+
+  const Model = window.StrategyStudioModel;
+  const Api = window.StrategyStudioApi;
+  if (!Model || !Api) return;
+
+  const state = {
+    strategies: [],
+    currentId: null,
+    draft: Model.blankStrategy(),
+    baseline: Model.blankStrategy(),
+    name: '',
+    baselineName: '',
+    serverErrors: {},
+    busy: false,
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const builderFields = $('builderFields');
+  const saveButton = $('saveStrategyBtn');
+  const simulatorUnavailableText = 'Simulator becomes available after the shared evaluator is installed.';
+
+  function copy(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function currentStrategy() {
+    return state.strategies.find((item) => item.strategy_id === state.currentId) || null;
+  }
+
+  function notice(message, kind = '') {
+    const node = $('studioNotice');
+    node.textContent = message || '';
+    node.className = `notice ${kind}`.trim();
+    node.classList.toggle('hidden', !message);
+  }
+
+  function toNumber(id) {
+    const raw = $(id).value.trim();
+    if (raw === '') return null;
+    const number = Number(raw);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function checkedValues(containerId) {
+    return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map((input) => input.value);
+  }
+
+  function setCheckedValues(containerId, values) {
+    const selected = new Set(values || []);
+    document.querySelectorAll(`#${containerId} input`).forEach((input) => {
+      input.checked = selected.has(input.value);
+    });
+  }
+
+  function collectDraft() {
+    const draft = state.draft;
+    state.name = $('strategyName').value;
+    draft.symbols = checkedValues('symbolChoices');
+    draft.trading_timeframe = document.querySelector('input[name="tradingTf"]:checked')?.value || null;
+    draft.trend.methods = checkedValues('trendMethodChoices');
+    draft.trend.timeframe = $('trendTimeframe').value || null;
+    draft.structure.break_validation = checkedValues('breakValidationChoices');
+    draft.structure.minimum_body_percent = toNumber('breakBody');
+    draft.structure.minimum_distance_pips = toNumber('breakDistance');
+    draft.confirmation.rules = checkedValues('confirmationChoices');
+    draft.confirmation.minimum_body_percent = toNumber('confirmationBody');
+    draft.entry.method = $('entryMethod').value || null;
+    draft.stop_loss.method = $('stopMethod').value || null;
+    draft.stop_loss.buffer_pips = toNumber('stopBuffer');
+    draft.stop_loss.fixed_distance = toNumber('fixedStopDistance');
+    draft.tp1.enabled = $('tp1Enabled').checked;
+    draft.tp1.target_r = toNumber('tp1Target');
+    draft.tp1.close_percent = toNumber('tp1Close');
+    draft.tp1.protection_r = toNumber('tp1Protection');
+    draft.tp2.method = $('tp2Method').value || null;
+    draft.tp2.value = toNumber('tp2Value');
+    draft.risk.method = $('riskMethod').value || null;
+    draft.risk.value = toNumber('riskValue');
+    state.serverErrors = {};
+    renderDraftState();
+  }
+
+  function assignDraftToForm() {
+    const value = state.draft;
+    $('strategyName').value = state.name || '';
+    setCheckedValues('symbolChoices', value.symbols);
+    document.querySelectorAll('input[name="tradingTf"]').forEach((input) => {
+      input.checked = input.value === value.trading_timeframe;
+    });
+    setCheckedValues('trendMethodChoices', value.trend.methods);
+    populateTrendTimeframes(value.trading_timeframe, value.trend.timeframe);
+    setCheckedValues('breakValidationChoices', value.structure.break_validation);
+    $('breakBody').value = value.structure.minimum_body_percent ?? '';
+    $('breakDistance').value = value.structure.minimum_distance_pips ?? '';
+    setCheckedValues('confirmationChoices', value.confirmation.rules);
+    $('confirmationBody').value = value.confirmation.minimum_body_percent ?? '';
+    $('entryMethod').value = value.entry.method || '';
+    $('stopMethod').value = value.stop_loss.method || '';
+    $('stopBuffer').value = value.stop_loss.buffer_pips ?? '';
+    $('fixedStopDistance').value = value.stop_loss.fixed_distance ?? '';
+    $('tp1Enabled').checked = Boolean(value.tp1.enabled);
+    $('tp1Target').value = value.tp1.target_r ?? '';
+    $('tp1Close').value = value.tp1.close_percent ?? '';
+    $('tp1Protection').value = value.tp1.protection_r ?? '';
+    $('tp2Method').value = value.tp2.method || '';
+    $('tp2Value').value = value.tp2.value ?? '';
+    $('riskMethod').value = value.risk.method || '';
+    $('riskValue').value = value.risk.value ?? '';
+    renderDraftState();
+  }
+
+  function populateTrendTimeframes(tradingTimeframe, selected) {
+    const select = $('trendTimeframe');
+    const options = Model.trendTimeframeOptions(tradingTimeframe);
+    select.innerHTML = '<option value="">Choose higher timeframe</option>' +
+      options.map((item) => `<option value="${item}">${item}</option>`).join('');
+    select.value = options.includes(selected) ? selected : '';
+    if (selected && !options.includes(selected)) state.draft.trend.timeframe = null;
+  }
+
+  function renderConditionalFields() {
+    const visible = Model.visibleFields(state.draft);
+    $('trendTimeframeField').classList.toggle('hidden', !visible.trendTimeframe);
+    $('breakBodyField').classList.toggle('hidden', !visible.breakBody);
+    $('breakDistanceField').classList.toggle('hidden', !visible.breakDistance);
+    $('confirmationBodyField').classList.toggle('hidden', !visible.confirmationBody);
+    $('stopBufferField').classList.toggle('hidden', !visible.stopBuffer);
+    $('fixedStopField').classList.toggle('hidden', !visible.fixedStopDistance);
+    $('tp1Fields').classList.toggle('hidden', !visible.tp1);
+    $('tp2ValueField').classList.toggle('hidden', !visible.tp2Value);
+    $('riskValueField').classList.toggle('hidden', !visible.riskValue);
+    $('riskValueLabel').textContent = state.draft.risk.method === 'FIXED_DOLLARS' ? 'Fixed $ Risk' : 'Risk % of Balance';
+
+    const confirmations = state.draft.confirmation.rules || [];
+    Array.from($('entryMethod').options).forEach((option) => {
+      if (!option.value) return;
+      option.disabled = (
+        (option.value === 'CONFIRMATION_CLOSE' && confirmations.length === 0) ||
+        (option.value === 'RETEST' && !confirmations.includes('RETEST_LEVEL')) ||
+        (option.value === 'BOS_CHOCH_CLOSE' && confirmations.length > 0)
+      );
+    });
+  }
+
+  function combinedErrors() {
+    const errors = Model.clientValidation(state.draft);
+    if (!state.name.trim()) errors.name = 'Strategy name is required';
+    if (state.name.trim().length > 120) errors.name = 'Strategy name must be 120 characters or fewer';
+    return { ...errors, ...state.serverErrors };
+  }
+
+  function renderErrors() {
+    const errors = combinedErrors();
+    document.querySelectorAll('[data-error-for]').forEach((node) => {
+      node.textContent = errors[node.dataset.errorFor] || '';
+    });
+    return errors;
+  }
+
+  function renderSummary(errors) {
+    const summary = Model.buildSummary(state.draft);
+    $('summaryName').textContent = state.name.trim() || 'Untitled Strategy';
+    $('strategyFlow').textContent = summary || 'Choose your trading timeframe and rules to build the strategy flow.';
+
+    const checks = [
+      ['Symbols', !errors.symbols],
+      ['Timeframe', !errors.trading_timeframe],
+      ['Entry', !errors['entry.method']],
+      ['Stop Loss', !errors['stop_loss.method'] && !errors['stop_loss.fixed_distance']],
+      ['TP2', !errors['tp2.method'] && !errors['tp2.value']],
+      ['Risk', !errors['risk.method'] && !errors['risk.value']],
+    ];
+    const ready = checks.filter((item) => item[1]).length;
+    $('ruleHealthCount').textContent = `${ready} / ${checks.length} ready`;
+    $('ruleHealthList').innerHTML = checks.map(([label, ok]) =>
+      `<div class="health-row ${ok ? 'ready' : ''}"><span><i class="health-dot"></i>${label}</span><b>${ok ? 'READY' : 'MISSING'}</b></div>`
+    ).join('');
+    const complete = Object.keys(errors).length === 0;
+    $('summaryStatus').textContent = complete ? 'READY TO SAVE' : 'INCOMPLETE';
+    $('summaryStatus').className = `summary-status ${complete ? 'ready' : 'incomplete'}`;
+  }
+
+  function renderActionState(errors) {
+    const current = currentStrategy();
+    const active = current?.state === 'ACTIVE';
+    const valid = Object.keys(errors).length === 0;
+    builderFields.disabled = Boolean(active || state.busy);
+    $('builderStateBadge').textContent = active ? 'ACTIVE • LOCKED' : current ? 'INACTIVE' : 'NEW';
+    $('cloneStrategyBtn').disabled = !current || state.busy;
+    $('deleteStrategyBtn').disabled = !current || active || state.busy;
+    $('activateStrategyBtn').disabled = !current || active || state.busy;
+    $('activateStrategyBtn').classList.toggle('hidden', Boolean(active));
+    $('deactivateStrategyBtn').classList.toggle('hidden', !active);
+    $('deactivateStrategyBtn').disabled = !active || state.busy;
+    saveButton.disabled = !valid || active || state.busy;
+  }
+
+  function renderDraftState() {
+    renderConditionalFields();
+    const errors = renderErrors();
+    renderSummary(errors);
+    renderActionState(errors);
+  }
+
+  function renderSavedStrategies() {
+    const list = $('savedStrategiesList');
+    if (!state.strategies.length) {
+      list.innerHTML = '<div class="empty-state">No saved strategies yet.<br>Create a blank strategy to begin.</div>';
+      return;
+    }
+    list.innerHTML = state.strategies.map((item) => {
+      const tf = item.definition?.trading_timeframe || '—';
+      const symbols = (item.definition?.symbols || []).join(' + ') || 'No symbols';
+      const risk = item.definition?.risk || {};
+      const riskText = risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : risk.method === 'FIXED_DOLLARS' ? `$${risk.value}` : 'Risk —';
+      return `<article class="strategy-card ${item.strategy_id === state.currentId ? 'selected' : ''} ${item.state === 'ACTIVE' ? 'active' : ''}" data-strategy-id="${item.strategy_id}">
+        <div class="strategy-card-top"><strong>${escapeHtml(item.name)}</strong><span class="mini-status ${item.state === 'ACTIVE' ? 'active' : ''}">${item.state}</span></div>
+        <small>${symbols} • ${tf}<br>${riskText}</small>
+      </article>`;
+    }).join('');
+    list.querySelectorAll('[data-strategy-id]').forEach((card) => {
+      card.addEventListener('click', () => openSaved(card.dataset.strategyId));
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+    })[char]);
+  }
+
+  function newStrategy() {
+    state.currentId = null;
+    state.name = '';
+    state.baselineName = '';
+    state.draft = Model.blankStrategy();
+    state.baseline = copy(state.draft);
+    state.serverErrors = {};
+    renderSavedStrategies();
+    assignDraftToForm();
+    notice('');
+  }
+
+  function openSaved(id) {
+    const strategy = state.strategies.find((item) => item.strategy_id === id);
+    if (!strategy) return;
+    state.currentId = id;
+    state.name = strategy.name;
+    state.baselineName = strategy.name;
+    state.draft = copy(strategy.definition);
+    state.baseline = copy(strategy.definition);
+    state.serverErrors = {};
+    renderSavedStrategies();
+    assignDraftToForm();
+    notice(strategy.state === 'ACTIVE' ? 'Active strategies are locked. Deactivate it before editing, or Clone it to create an editable copy.' : '');
+  }
+
+  async function loadStrategies(selectId = state.currentId) {
+    state.busy = true;
+    renderDraftState();
+    try {
+      const payload = await Api.listStrategies();
+      state.strategies = Array.isArray(payload.strategies) ? payload.strategies : [];
+      renderSavedStrategies();
+      const target = state.strategies.find((item) => item.strategy_id === selectId);
+      if (target) openSaved(target.strategy_id);
+      else if (!state.currentId) newStrategy();
+    } catch (error) {
+      notice(`Strategy Studio could not load: ${error.message}`, 'error');
+      renderSavedStrategies();
+    } finally {
+      state.busy = false;
+      renderDraftState();
+    }
+  }
+
+  function showConfirmation({ title, message, confirmLabel = 'Confirm', danger = false }) {
+    return new Promise((resolve) => {
+      const modal = $('confirmModal');
+      const accept = $('confirmAccept');
+      const cancel = $('confirmCancel');
+      $('confirmTitle').textContent = title;
+      $('confirmMessage').textContent = message;
+      accept.textContent = confirmLabel;
+      accept.classList.toggle('danger-soft', danger);
+      modal.classList.remove('hidden');
+
+      const finish = (value) => {
+        modal.classList.add('hidden');
+        accept.removeEventListener('click', onAccept);
+        cancel.removeEventListener('click', onCancel);
+        resolve(value);
+      };
+      const onAccept = () => finish(true);
+      const onCancel = () => finish(false);
+      accept.addEventListener('click', onAccept);
+      cancel.addEventListener('click', onCancel);
+    });
+  }
+
+  async function saveStrategy() {
+    collectDraft();
+    const localErrors = combinedErrors();
+    if (Object.keys(localErrors).length) return;
+    state.busy = true;
+    renderDraftState();
+    try {
+      const definition = Model.normalizeForApi(state.draft);
+      const validation = await Api.validateStrategy(state.name.trim(), definition);
+      if (!validation.valid) {
+        state.serverErrors = validation.errors || {};
+        renderDraftState();
+        notice('Fix the highlighted settings before saving.', 'error');
+        return;
+      }
+      const response = state.currentId
+        ? await Api.updateStrategy(state.currentId, state.name.trim(), validation.normalized_definition)
+        : await Api.createStrategy(state.name.trim(), validation.normalized_definition);
+      const saved = response.strategy;
+      notice(`Saved ${saved.name}.`, 'success');
+      await loadStrategies(saved.strategy_id);
+    } catch (error) {
+      notice(`Save failed: ${error.message}`, 'error');
+    } finally {
+      state.busy = false;
+      renderDraftState();
+    }
+  }
+
+  async function cloneCurrent() {
+    const current = currentStrategy();
+    if (!current) return;
+    const proposed = window.prompt('Name the cloned strategy:', `${current.name} Copy`);
+    if (!proposed?.trim()) return;
+    state.busy = true;
+    renderDraftState();
+    try {
+      const response = await Api.cloneStrategy(current.strategy_id, proposed.trim());
+      notice('Strategy cloned. The copy is inactive and editable.', 'success');
+      await loadStrategies(response.strategy.strategy_id);
+    } catch (error) {
+      notice(`Clone failed: ${error.message}`, 'error');
+    } finally {
+      state.busy = false;
+      renderDraftState();
+    }
+  }
+
+  async function activateCurrent() {
+    const current = currentStrategy();
+    if (!current) return;
+    const ok = await showConfirmation({
+      title: 'Activate Strategy in Studio?',
+      message: 'Stage 1 activation only marks this saved strategy as active inside Strategy Studio. It does not change LIVE trading or the current V3B strategy.',
+      confirmLabel: 'Activate',
+    });
+    if (!ok) return;
+    await runSensitiveAction(() => Api.activateStrategy(current.strategy_id), 'Strategy activated inside Studio only.');
+  }
+
+  async function deactivateCurrent() {
+    const current = currentStrategy();
+    if (!current) return;
+    const ok = await showConfirmation({
+      title: 'Deactivate Strategy?',
+      message: 'This removes the active marker inside Strategy Studio. It does not change LIVE trading or the current V3B strategy.',
+      confirmLabel: 'Deactivate',
+    });
+    if (!ok) return;
+    await runSensitiveAction(() => Api.deactivateStrategy(current.strategy_id), 'Strategy deactivated.');
+  }
+
+  async function deleteCurrent() {
+    const current = currentStrategy();
+    if (!current) return;
+    const ok = await showConfirmation({
+      title: 'Delete Strategy Permanently?',
+      message: `Delete “${current.name}”? This is permanent and there is no restore or trash.`,
+      confirmLabel: 'Delete permanently',
+      danger: true,
+    });
+    if (!ok) return;
+    await runSensitiveAction(() => Api.deleteStrategy(current.strategy_id), 'Strategy deleted.', true);
+  }
+
+  async function resetDraft() {
+    const ok = await showConfirmation({
+      title: 'Reset Draft?',
+      message: 'Reset all unsaved changes and restore the last saved strategy values. For a new strategy, this returns to a blank builder.',
+      confirmLabel: 'Reset',
+    });
+    if (!ok) return;
+    state.name = state.baselineName;
+    state.draft = copy(state.baseline);
+    state.serverErrors = {};
+    assignDraftToForm();
+    notice('Draft reset.');
+  }
+
+  async function runSensitiveAction(action, successMessage, clearSelection = false) {
+    state.busy = true;
+    renderDraftState();
+    try {
+      const response = await action();
+      notice(successMessage, 'success');
+      const id = clearSelection ? null : response.strategy?.strategy_id || state.currentId;
+      if (clearSelection) newStrategy();
+      await loadStrategies(id);
+    } catch (error) {
+      notice(error.message, 'error');
+    } finally {
+      state.busy = false;
+      renderDraftState();
+    }
+  }
+
+  function bindInputs() {
+    $('strategyName').addEventListener('input', collectDraft);
+    document.querySelectorAll('#symbolChoices input, input[name="tradingTf"], #breakValidationChoices input, #confirmationChoices input').forEach((input) => input.addEventListener('change', () => {
+      const previousTf = state.draft.trading_timeframe;
+      collectDraft();
+      if (previousTf !== state.draft.trading_timeframe) {
+        populateTrendTimeframes(state.draft.trading_timeframe, state.draft.trend.timeframe);
+        state.draft.trend.timeframe = $('trendTimeframe').value || null;
+        renderDraftState();
+      }
+    }));
+
+    document.querySelectorAll('#trendMethodChoices input').forEach((input) => input.addEventListener('change', (event) => {
+      if (event.target.value === 'ALL' && event.target.checked) {
+        document.querySelectorAll('#trendMethodChoices input').forEach((other) => { other.checked = other === event.target; });
+      } else if (event.target.checked) {
+        const all = document.querySelector('#trendMethodChoices input[value="ALL"]');
+        if (all) all.checked = false;
+      }
+      collectDraft();
+    }));
+
+    ['trendTimeframe', 'entryMethod', 'stopMethod', 'tp2Method', 'riskMethod'].forEach((id) => $(id).addEventListener('change', collectDraft));
+    ['breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
+    $('tp1Enabled').addEventListener('change', collectDraft);
+  }
+
+  function bindActions() {
+    $('newStrategyBtn').addEventListener('click', newStrategy);
+    $('newStrategyWideBtn').addEventListener('click', newStrategy);
+    $('saveStrategyBtn').addEventListener('click', saveStrategy);
+    $('cloneStrategyBtn').addEventListener('click', cloneCurrent);
+    $('activateStrategyBtn').addEventListener('click', activateCurrent);
+    $('deactivateStrategyBtn').addEventListener('click', deactivateCurrent);
+    $('deleteStrategyBtn').addEventListener('click', deleteCurrent);
+    $('resetDraftBtn').addEventListener('click', resetDraft);
+    $('simulatorBtn').title = simulatorUnavailableText;
+  }
+
+  bindInputs();
+  bindActions();
+  assignDraftToForm();
+  loadStrategies();
+})();
