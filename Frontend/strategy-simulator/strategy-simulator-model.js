@@ -51,12 +51,18 @@
     return { index, total: items.length, frame: items[index] };
   }
 
+  function fixed2(value) {
+    const number = Number(value);
+    const rounded = Math.sign(number || 1) * Math.round((Math.abs(number) + Number.EPSILON) * 100) / 100;
+    return rounded.toFixed(2);
+  }
+
   function formatMetric(value, type = 'number') {
     if (value == null || value === '' || !Number.isFinite(Number(value))) return '—';
     const number = Number(value);
-    if (type === 'money') return `$${number.toFixed(2)}`;
-    if (type === 'percent') return `${number.toFixed(2)}%`;
-    if (type === 'r') return `${number.toFixed(2)}R`;
+    if (type === 'money') return `$${fixed2(number)}`;
+    if (type === 'percent') return `${fixed2(number)}%`;
+    if (type === 'r') return `${fixed2(number)}R`;
     return number.toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
 
