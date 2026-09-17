@@ -132,6 +132,11 @@
   const deleteStrategy = (id) => request(`/strategy-studio/strategies/${encodeURIComponent(id)}`, {
     method: 'DELETE', body: { confirm: true },
   });
+  const getLiveStatus = () => request('/strategy-studio/live-status');
+  const setLiveHandoff = (id, enabled) => request('/strategy-studio/live-handoff', {
+    method: 'POST',
+    body: { strategy_id: id, enabled: Boolean(enabled), confirm: true },
+  });
 
   return {
     listStrategies,
@@ -143,5 +148,7 @@
     activateStrategy,
     deactivateStrategy,
     deleteStrategy,
+    getLiveStatus,
+    setLiveHandoff,
   };
 });
