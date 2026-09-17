@@ -53,7 +53,11 @@
 
   function fixed2(value) {
     const number = Number(value);
-    const rounded = Math.sign(number || 1) * Math.round((Math.abs(number) + Number.EPSILON) * 100) / 100;
+    const magnitude = Math.abs(number);
+    // Shift in decimal notation before rounding so display values such as
+    // 52.345 do not fall to 52.34 because of binary floating-point storage.
+    const roundedMagnitude = Number(`${Math.round(Number(`${magnitude}e2`))}e-2`);
+    const rounded = number < 0 ? -roundedMagnitude : roundedMagnitude;
     return rounded.toFixed(2);
   }
 
