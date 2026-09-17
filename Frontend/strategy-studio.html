@@ -19,10 +19,11 @@
         <h1>Strategy Studio</h1>
         <p>Build a precise rule set without writing code.</p>
       </div>
-      <div class="stage-badge"><span></span> Stage 1 • Studio only</div>
+      <div class="stage-badge"><span></span> Stage 3 • Gated LIVE</div>
     </header>
 
     <div id="studioNotice" class="notice hidden" role="status"></div>
+    <div id="studioLiveReadiness" class="notice studio-live-readiness" role="status">Simulator ready — LIVE still uses current V3B</div>
 
     <div class="studio-grid">
       <aside id="savedStrategiesPanel" class="panel saved-panel">
@@ -164,7 +165,8 @@
             <div class="rule-health-title"><span>Rule Health</span><strong id="ruleHealthCount">0 / 6 ready</strong></div>
             <div id="ruleHealthList" class="health-list"></div>
           </div>
-          <div class="summary-note"><strong>Stage 1 safety</strong><p>Saving or activating here does not change LIVE trading. Current V3B remains authoritative.</p></div>
+          <div class="summary-note"><strong>Gated LIVE safety</strong><p>V3B remains the LIVE authority until parity is verified and you explicitly confirm Go Live.</p></div>
+          <button id="goLiveStrategyBtn" class="button primary" type="button" disabled>Go Live</button>
           <button id="simulatorBtn" class="button simulator-button" type="button" disabled>Simulator</button>
           <p class="simulator-help">Simulator becomes available after the shared evaluator is installed.</p>
         </div>
