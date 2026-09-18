@@ -12,7 +12,8 @@ test('manual replay is standalone and does not require a strategy', () => {
   assert.match(html, /Manual Trading Replay/);
   assert.match(html, /NO STRATEGY/);
   assert.doesNotMatch(html, /strategy_id/);
-  assert.match(api, /strategy-simulator\/manual-history/);
+  assert.match(api, /STATIC_ROOT = '\/replay-data'/);
+  assert.doesNotMatch(api, /strategy-simulator\/manual-history/);
 });
 
 test('manual replay frontend contains no broker mutation endpoints', () => {
@@ -38,10 +39,10 @@ test('manual replay exposes manual buy sell and close controls', () => {
 });
 
 
-test('manual replay restores persisted NathauxFX auth on a fresh tab', () => {
-  assert.match(api, /restoreStandaloneAuth/);
-  assert.match(api, /flowsignal_session_token/);
-  assert.match(api, /flowsignal_user_session_persist/);
-  assert.match(api, /flowsignal_login_hint=1/);
-  assert.match(api, /restoreStandaloneAuth\(\)/);
+test('manual replay static history does not require backend auth', () => {
+  assert.doesNotMatch(api, /restoreStandaloneAuth/);
+  assert.doesNotMatch(api, /flowsignal_session_token/);
+  assert.doesNotMatch(api, /\/api\/proxy/);
+  assert.match(api, /fetchJson/);
+  assert.match(api, /STATIC_REPLAY_HISTORY/);
 });
