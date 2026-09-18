@@ -3,7 +3,11 @@
     {
       "source": "/:path*",
       "has": [
-        { "type": "header", "key": "host", "value": "flowsignalfx.com" }
+        {
+          "type": "header",
+          "key": "host",
+          "value": "flowsignalfx.com"
+        }
       ],
       "destination": "https://www.nathauxfx.com/:path*",
       "permanent": true
@@ -11,7 +15,11 @@
     {
       "source": "/:path*",
       "has": [
-        { "type": "header", "key": "host", "value": "www.flowsignalfx.com" }
+        {
+          "type": "header",
+          "key": "host",
+          "value": "www.flowsignalfx.com"
+        }
       ],
       "destination": "https://www.nathauxfx.com/:path*",
       "permanent": true
@@ -19,8 +27,16 @@
     {
       "source": "/index.html",
       "has": [
-        { "type": "query", "key": "desktop", "value": "1" },
-        { "type": "query", "key": "open", "value": "menuPaperBtn" }
+        {
+          "type": "query",
+          "key": "desktop",
+          "value": "1"
+        },
+        {
+          "type": "query",
+          "key": "open",
+          "value": "menuPaperBtn"
+        }
       ],
       "destination": "/app.html?desktop=1&open=menuPaperBtn",
       "permanent": false
@@ -28,8 +44,16 @@
     {
       "source": "/app",
       "has": [
-        { "type": "query", "key": "brokerAccounts", "value": "1" },
-        { "type": "query", "key": "ctrader", "value": "connected" }
+        {
+          "type": "query",
+          "key": "brokerAccounts",
+          "value": "1"
+        },
+        {
+          "type": "query",
+          "key": "ctrader",
+          "value": "connected"
+        }
       ],
       "destination": "/ctrader-return.html?ctrader=connected",
       "permanent": false
@@ -37,8 +61,16 @@
     {
       "source": "/app",
       "has": [
-        { "type": "query", "key": "brokerAccounts", "value": "1" },
-        { "type": "query", "key": "ctrader", "value": "error" }
+        {
+          "type": "query",
+          "key": "brokerAccounts",
+          "value": "1"
+        },
+        {
+          "type": "query",
+          "key": "ctrader",
+          "value": "error"
+        }
       ],
       "destination": "/ctrader-return.html?ctrader=error",
       "permanent": false
@@ -46,8 +78,16 @@
     {
       "source": "/app/",
       "has": [
-        { "type": "query", "key": "brokerAccounts", "value": "1" },
-        { "type": "query", "key": "ctrader", "value": "connected" }
+        {
+          "type": "query",
+          "key": "brokerAccounts",
+          "value": "1"
+        },
+        {
+          "type": "query",
+          "key": "ctrader",
+          "value": "connected"
+        }
       ],
       "destination": "/ctrader-return.html?ctrader=connected",
       "permanent": false
@@ -55,77 +95,154 @@
     {
       "source": "/app/",
       "has": [
-        { "type": "query", "key": "brokerAccounts", "value": "1" },
-        { "type": "query", "key": "ctrader", "value": "error" }
+        {
+          "type": "query",
+          "key": "brokerAccounts",
+          "value": "1"
+        },
+        {
+          "type": "query",
+          "key": "ctrader",
+          "value": "error"
+        }
       ],
       "destination": "/ctrader-return.html?ctrader=error",
       "permanent": false
     },
-    { "source": "/app", "destination": "/app.html", "permanent": false },
-    { "source": "/app/", "destination": "/app.html", "permanent": false }
+    {
+      "source": "/app",
+      "destination": "/app.html",
+      "permanent": false
+    },
+    {
+      "source": "/app/",
+      "destination": "/app.html",
+      "permanent": false
+    },
+    {
+      "source": "/manual-replay",
+      "destination": "/manual-replay.html",
+      "permanent": false
+    },
+    {
+      "source": "/manual-replay/",
+      "destination": "/manual-replay.html",
+      "permanent": false
+    }
   ],
   "rewrites": [
-    { "source": "/api/proxy/:path*", "destination": "/api/backend-proxy?path=:path*" }
+    {
+      "source": "/api/proxy/:path*",
+      "destination": "/api/backend-proxy?path=:path*"
+    }
   ],
   "headers": [
     {
       "source": "/app.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     },
     {
       "source": "/mobile.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     },
     {
       "source": "/ctrader-return.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     },
     {
       "source": "/startup.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     },
     {
       "source": "/user-auth.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     },
     {
       "source": "/tab-role-session.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     },
     {
       "source": "/strategy-studio.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     },
     {
       "source": "/strategy-studio/strategy-studio-model.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     },
     {
       "source": "/strategy-studio/strategy-studio-api.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     },
     {
       "source": "/strategy-studio/strategy-studio.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/manual-replay.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/manual-replay/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     }
   ]
