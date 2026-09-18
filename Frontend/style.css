@@ -3209,6 +3209,16 @@ body.fit-mode .dashboard-grid {
   border-radius: 8px;
 }
 
+#sideMenu .menu-row[href] {
+  text-decoration: none;
+}
+
+#sideMenu .menu-row.is-active,
+body.fit-mode #mainApp.app:not(.locked) > #sideMenu.app-sidebar .menu-row.is-active {
+  background: rgba(30, 185, 102, 0.16) !important;
+  color: #62f27b !important;
+}
+
 .assistant-settings {
   width: 100%;
   display: grid;

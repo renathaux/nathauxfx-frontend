@@ -6,6 +6,13 @@
   <meta name="theme-color" content="#07101f">
   <title>NathauxFX — Manual Replay</title>
   <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=1">
+  <style>
+    .nav-actions .button.is-active {
+      border-color: #f5bd48;
+      background: rgba(245, 189, 72, .15);
+      color: #ffd46b;
+    }
+  </style>
 </head>
 <body>
   <div class="shell">
@@ -20,7 +27,7 @@
     <section class="panel setup-panel">
       <div class="panel-title">
         <div><span class="eyebrow">HISTORICAL SESSION</span><h2>Replay Setup</h2></div>
-        <div class="nav-actions"><a class="button ghost" href="/strategy-simulator.html">Strategy Simulator</a><a class="button ghost" href="/strategy-studio.html">Strategy Studio</a></div>
+        <div class="nav-actions"><a id="manualReplayNavLink" href="/manual-replay" class="button ghost">Manual Replay</a><a class="button ghost" href="/strategy-simulator.html">Strategy Simulator</a><a class="button ghost" href="/strategy-studio.html">Strategy Studio</a></div>
       </div>
       <div class="setup-grid">
         <label><span>Symbol</span><select id="symbol"><option>EURUSD</option><option>XAUUSD</option></select></label>
@@ -108,6 +115,7 @@
     </section>
   </div>
 
+  <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=1"></script>
   <script src="/manual-replay/manual-replay.js?v=1"></script>
 </body>
