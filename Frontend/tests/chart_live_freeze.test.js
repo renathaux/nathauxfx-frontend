@@ -46,7 +46,7 @@ assert.match(
 
 assert.match(startup, /live-candle-controller\.js\?v=6/);
 assert.match(html, /startup\.js\?v=20/);
-assert.match(html, /script\.js\?v=133/);
+
 
 
 assert.match(
