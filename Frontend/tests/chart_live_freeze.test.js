@@ -44,8 +44,8 @@ assert.match(
   "display price prefers the freshest live-candle controller tick",
 );
 
-assert.match(startup, /live-candle-controller\.js\?v=6/);
-assert.match(html, /startup\.js\?v=20/);
+assert.match(startup, /live-candle-controller\.js\?v=7/);
+assert.match(html, /startup\.js\?v=21/);
 
 
 
@@ -54,7 +54,7 @@ assert.match(
   /window\.FlowSignalLiveCandles\?\.mount\?\.\(\{[\s\S]*candleSeries,[\s\S]*symbol: currentChartSymbol,[\s\S]*timeframe: currentChartTimeframe/,
   "every chart creation explicitly mounts the live-candle controller",
 );
-assert.match(html, /script\.js\?v=134/);
+assert.match(html, /script\.js\?v=135/);
 
 
 assert.match(
