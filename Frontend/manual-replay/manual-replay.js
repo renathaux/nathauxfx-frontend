@@ -323,7 +323,7 @@
       state.peak = starting;
       state.maxDrawdown = 0;
       $('chartTitle').textContent = `${result.symbol} • ${result.timeframe} • Manual Replay`;
-      $('chartMeta').textContent = `${result.candles.length.toLocaleString()} closed candles • future candles hidden • strategy required: NO`;
+      $('chartMeta').textContent = `${result.candles.length.toLocaleString()} closed candles • static replay data • future candles hidden • strategy required: NO`;
       notice('Manual replay loaded. You control every trade.', 'success');
       renderAll();
     } catch (error) {
