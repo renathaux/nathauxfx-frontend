@@ -13456,6 +13456,24 @@ function syncLiveCandleDisplayState(detail = {}) {
 
   if (symbol === currentChartSymbol && timeframe === currentChartTimeframe) {
     const visibleCandles = lastChartData?.[symbol]?.[timeframe] || [candle];
+
+    // The dashboard owns the active Lightweight Charts series. Apply every
+    // live candle to this exact reference so a stale controller-held series
+    // can never freeze the visible chart.
+    if (candleSeries) {
+      try {
+        candleSeries.update(candle);
+      } catch (error) {
+        console.warn("Live chart update recovered with setData", error);
+        try {
+          candleSeries.setData(visibleCandles);
+          chart?.timeScale?.().scrollToRealTime?.();
+        } catch (recoveryError) {
+          console.error("Live chart recovery failed", recoveryError);
+        }
+      }
+    }
+
     updateChartOverlay(symbol, timeframe, visibleCandles);
   }
 }
