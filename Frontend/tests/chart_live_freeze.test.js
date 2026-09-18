@@ -44,8 +44,8 @@ assert.match(
   "display price prefers the freshest live-candle controller tick",
 );
 
-assert.match(startup, /live-candle-controller\.js\?v=7/);
-assert.match(html, /startup\.js\?v=21/);
+assert.match(startup, /live-candle-controller\.js\?v=8/);
+assert.match(html, /startup\.js\?v=22/);
 
 
 

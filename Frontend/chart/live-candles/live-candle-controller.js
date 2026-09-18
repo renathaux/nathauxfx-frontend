@@ -136,6 +136,13 @@
     if (state.libraryHooked) return true;
     const library = window.LightweightCharts;
     if (!library || typeof library.createChart !== "function") return false;
+    const descriptor = Object.getOwnPropertyDescriptor(library, "createChart");
+    if (descriptor && descriptor.writable === false && !descriptor.set) {
+      // The dashboard mounts its active series explicitly. Do not mutate a
+      // read-only vendor export or abort this controller's initialization.
+      state.libraryHooked = true;
+      return true;
+    }
     const originalCreateChart = library.createChart.bind(library);
     library.createChart = function (...args) {
       const chart = originalCreateChart(...args);
