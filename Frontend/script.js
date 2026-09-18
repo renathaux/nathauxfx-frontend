@@ -4992,7 +4992,25 @@ function getCardPrefix(symbol) {
 }
 
 function getLiveTickMid(symbol) {
-  const tick = livePrices?.[symbol];
+  const normalizedSymbol = String(symbol || "").toUpperCase();
+  const liveController = window.FlowSignalLiveCandles?.getState?.();
+  const controllerPrice = Number(liveController?.lastTickPrice);
+  const controllerTimestamp = Number(liveController?.lastTickTimestamp);
+  const controllerAgeSeconds = Number.isFinite(controllerTimestamp)
+    ? (Date.now() / 1000) - controllerTimestamp
+    : Infinity;
+
+  if (
+    String(liveController?.symbol || "").toUpperCase() === normalizedSymbol
+    && Number.isFinite(controllerPrice)
+    && controllerPrice > 0
+    && controllerAgeSeconds >= 0
+    && controllerAgeSeconds <= 20
+  ) {
+    return controllerPrice;
+  }
+
+  const tick = livePrices?.[normalizedSymbol];
   const mid = Number(tick?.mid);
   const timestamp = Number(tick?.timestamp);
   const ageSeconds = Number.isFinite(timestamp)
@@ -13201,6 +13219,7 @@ async function loadChartData(symbol = currentChartSymbol, timeframe = currentCha
     }
 
     candleSeries.setData(candles);
+    lastChartData[symbol][currentChartTimeframe] = [...candles];
     refreshNewsImpact(symbol);
   } catch (err) {
     console.error("Real chart data error:", err);
@@ -13344,6 +13363,94 @@ function refreshIdleChartMotion() {
   _CHART_IDLE_PHASE += 1;
   applyIdleMotionToLastCandle(currentChartSymbol, currentChartTimeframe);
 }
+
+function hasFreshLiveCandleControllerTick(
+  symbol = currentChartSymbol,
+  timeframe = currentChartTimeframe,
+  maxAgeSeconds = 3
+) {
+  const state = window.FlowSignalLiveCandles?.getState?.();
+  const tickTimestamp = Number(state?.lastTickTimestamp);
+  const ageSeconds = Number.isFinite(tickTimestamp)
+    ? (Date.now() / 1000) - tickTimestamp
+    : Infinity;
+
+  return Boolean(
+    state?.running
+    && String(state?.symbol || "").toUpperCase() === String(symbol || "").toUpperCase()
+    && String(state?.timeframe || "").toLowerCase() === String(timeframe || "").toLowerCase()
+    && Number.isFinite(Number(state?.lastTickPrice))
+    && ageSeconds >= 0
+    && ageSeconds <= maxAgeSeconds
+  );
+}
+
+function syncLiveCandleDisplayState(detail = {}) {
+  const symbol = String(detail.symbol || "").toUpperCase();
+  const timeframe = String(detail.timeframe || "").toLowerCase();
+  const candle = detail.candle && typeof detail.candle === "object"
+    ? {
+        time: Number(detail.candle.time),
+        open: Number(detail.candle.open),
+        high: Number(detail.candle.high),
+        low: Number(detail.candle.low),
+        close: Number(detail.candle.close),
+      }
+    : null;
+
+  if (
+    !["EURUSD", "XAUUSD"].includes(symbol)
+    || !["5m", "15m", "1h"].includes(timeframe)
+    || !candle
+    || !Object.values(candle).every(Number.isFinite)
+  ) {
+    return;
+  }
+
+  const stateCandles = lastChartData?.[symbol]?.[timeframe];
+  if (Array.isArray(stateCandles)) {
+    const last = stateCandles[stateCandles.length - 1];
+    if (last && Number(last.time) === candle.time) {
+      stateCandles[stateCandles.length - 1] = candle;
+    } else if (!last || Number(last.time) < candle.time) {
+      stateCandles.push(candle);
+      const limit = getMonthlyChartCandleLimit(timeframe);
+      if (stateCandles.length > limit) {
+        stateCandles.splice(0, stateCandles.length - limit);
+      }
+    }
+  }
+
+  const panelCandles = latestRawPanelData?.candles?.[symbol]?.[timeframe];
+  if (Array.isArray(panelCandles)) {
+    const last = panelCandles[panelCandles.length - 1];
+    if (last && Number(last.time) === candle.time) {
+      panelCandles[panelCandles.length - 1] = { ...candle };
+    } else if (!last || Number(last.time) < candle.time) {
+      panelCandles.push({ ...candle });
+    }
+  }
+
+  const tickTimestamp = Number(detail.tickTimestamp);
+  const tickPrice = Number(detail.price);
+  if (Number.isFinite(tickTimestamp) && Number.isFinite(tickPrice) && tickPrice > 0) {
+    livePrices[symbol] = {
+      ...(livePrices?.[symbol] || {}),
+      mid: tickPrice,
+      timestamp: tickTimestamp,
+    };
+  }
+
+  if (symbol === currentChartSymbol && timeframe === currentChartTimeframe) {
+    const visibleCandles = lastChartData?.[symbol]?.[timeframe] || [candle];
+    updateChartOverlay(symbol, timeframe, visibleCandles);
+  }
+}
+
+window.addEventListener("flowsignal:live-candle", (event) => {
+  syncLiveCandleDisplayState(event.detail || {});
+});
+
 function forceChartRenderFromLatest(symbol = currentChartSymbol, timeframe = currentChartTimeframe) {
   if (!latestRawPanelData) return;
 
@@ -13368,8 +13475,8 @@ function forceChartRenderFromLatest(symbol = currentChartSymbol, timeframe = cur
 
   if (!chart || !candleSeries) return;
 
- lastChartData[symbol][timeframe] = [];
   candleSeries.setData(candles);
+  lastChartData[symbol][timeframe] = [...candles];
   drawTradeVisualLevels();
 }
 
@@ -13393,6 +13500,10 @@ function switchChart(symbol, timeframe = currentChartTimeframe) {
   document.getElementById("tradeLevelDragLayer")?.replaceChildren();
   currentChartSymbol = normalizeTradeChartSymbol(symbol);
   currentChartTimeframe = timeframe;
+  window.FlowSignalLiveCandles?.setContext?.({
+    symbol: currentChartSymbol,
+    timeframe: currentChartTimeframe,
+  });
   const fundamentalSymbolChanged = previousSymbol !== currentChartSymbol;
   refreshNewsImpact(currentChartSymbol, {
     force: fundamentalSymbolChanged,
@@ -13430,6 +13541,10 @@ window.switchChart = switchChart;
 function switchTimeframe(timeframe) {
   closeTradeLevelConfirmation({ restore: false, reset: true });
   currentChartTimeframe = timeframe;
+  window.FlowSignalLiveCandles?.setContext?.({
+    symbol: currentChartSymbol,
+    timeframe: currentChartTimeframe,
+  });
   void ensureTwoMonthChartHistory(currentChartSymbol, currentChartTimeframe);
 
   try {
@@ -13709,9 +13824,13 @@ _BAR_IDLE_TIMER = setInterval(() => {
     requestAnimationFrame(animateBars);
   }
 
-  if (_CHART_IDLE_ENABLED && !MARKET_IS_CLOSED) {
-  refreshIdleChartMotion();
-}
+  if (
+    _CHART_IDLE_ENABLED
+    && !MARKET_IS_CLOSED
+    && !hasFreshLiveCandleControllerTick(currentChartSymbol, currentChartTimeframe)
+  ) {
+    refreshIdleChartMotion();
+  }
 }, 5000);
 const feedbackModal = document.getElementById("feedbackModal");
 const feedbackType = document.getElementById("feedbackType");

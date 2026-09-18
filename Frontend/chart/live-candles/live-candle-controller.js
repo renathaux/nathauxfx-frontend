@@ -215,7 +215,13 @@
       state.lastTickPrice = numericPrice;
       state.series.update(candle);
       window.dispatchEvent(new CustomEvent("flowsignal:live-candle", {
-        detail: { symbol: state.symbol, timeframe: state.timeframe, candle: { ...candle } },
+        detail: {
+          symbol: state.symbol,
+          timeframe: state.timeframe,
+          candle: { ...candle },
+          price: numericPrice,
+          tickTimestamp: epoch,
+        },
       }));
       return { ...candle };
     },
@@ -230,10 +236,16 @@
     state.lastTickTimestamp = 0;
     state.lastTickPrice = null;
   });
-  const base = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
-    ? "http://127.0.0.1:8001"
-    : "https://flowsignal-backend-3.onrender.com";
-  state.endpoint = `${base}/chart/live-ticks`;
+  function liveTickBackendBase() {
+    const hostname = String(window.location.hostname || "");
+    if (hostname === "127.0.0.1" || hostname === "localhost") {
+      return "http://127.0.0.1:8001";
+    }
+    const origin = String(window.location.origin || "").replace(/\/$/, "");
+    return origin ? `${origin}/api/proxy` : "https://api.nathauxfx.com";
+  }
+
+  state.endpoint = `${liveTickBackendBase()}/chart/live-ticks`;
 
   document.addEventListener("click", (event) => {
     const button = event.target.closest?.(".chart-symbols button, .chart-timeframes button");
