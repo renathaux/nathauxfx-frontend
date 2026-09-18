@@ -48,4 +48,12 @@ assert.match(startup, /live-candle-controller\.js\?v=6/);
 assert.match(html, /startup\.js\?v=20/);
 assert.match(html, /script\.js\?v=133/);
 
+
+assert.match(
+  dashboard,
+  /window\.FlowSignalLiveCandles\?\.mount\?\.\(\{[\s\S]*candleSeries,[\s\S]*symbol: currentChartSymbol,[\s\S]*timeframe: currentChartTimeframe/,
+  "every chart creation explicitly mounts the live-candle controller",
+);
+assert.match(html, /script\.js\?v=134/);
+
 console.log("live chart freeze regression checks passed");
