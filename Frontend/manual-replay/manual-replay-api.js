@@ -11,6 +11,60 @@
     return origin ? `${origin}/api/proxy` : DIRECT_BACKEND;
   }
 
+  function restoreStandaloneAuth() {
+    try {
+      if (sessionStorage.getItem('flowsignal_user_session_token')) return;
+
+      const currentRole = String(sessionStorage.getItem('flowsignal_tab_role') || '').toLowerCase();
+      if (currentRole === 'admin') return;
+
+      const persistentRole = String(localStorage.getItem('flowsignal_role') || '').toLowerCase();
+      const persistentAdminToken = String(localStorage.getItem('flowsignal_session_token') || '').trim();
+      if (persistentRole === 'admin' && persistentAdminToken) {
+        const prefix = 'flowsignal-tab:';
+        let current = String(window.name || '');
+        let tabId = current.startsWith(prefix) ? current.slice(prefix.length) : '';
+        if (!tabId) {
+          tabId = window.crypto?.randomUUID?.()
+            || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+          window.name = `${prefix}${tabId}`;
+        }
+        localStorage.setItem(
+          `flowsignal_tab_admin_session:${tabId}`,
+          JSON.stringify({ token: persistentAdminToken })
+        );
+        sessionStorage.setItem('flowsignal_tab_role', 'admin');
+        sessionStorage.removeItem('flowsignal_public_home_mode');
+        sessionStorage.removeItem('flowsignal_tab_signed_out');
+        return;
+      }
+
+      try {
+        const saved = JSON.parse(localStorage.getItem('flowsignal_user_session_persist') || 'null');
+        if (saved?.token) {
+          sessionStorage.setItem('flowsignal_user_session_token', String(saved.token));
+          if (saved.csrf) sessionStorage.setItem('flowsignal_csrf_token', String(saved.csrf));
+          sessionStorage.setItem('flowsignal_tab_role', 'user');
+          sessionStorage.removeItem('flowsignal_public_home_mode');
+          sessionStorage.removeItem('flowsignal_tab_signed_out');
+          return;
+        }
+      } catch (_error) {}
+
+      const hasLoginHint = document.cookie
+        .split(';')
+        .some((part) => part.trim() === 'flowsignal_login_hint=1');
+      if (hasLoginHint) {
+        sessionStorage.setItem('flowsignal_user_session_token', COOKIE_SESSION_SENTINEL);
+        sessionStorage.setItem('flowsignal_tab_role', 'user');
+        sessionStorage.removeItem('flowsignal_public_home_mode');
+        sessionStorage.removeItem('flowsignal_tab_signed_out');
+      }
+    } catch (_error) {}
+  }
+
+  restoreStandaloneAuth();
+
   function ownerToken() {
     if (String(sessionStorage.getItem('flowsignal_tab_role') || '').toLowerCase() !== 'admin') return '';
     const prefix = 'flowsignal-tab:';
