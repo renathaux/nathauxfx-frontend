@@ -22,7 +22,7 @@ test('page has the approved three-column Strategy Studio shell and actions', () 
 
 test('builder includes all approved sections and no fake metrics', () => {
   const html = fs.readFileSync(htmlPath, 'utf8');
-  for (const text of ['Symbols', 'Trading Timeframe', 'Trend Filter', 'Break Validation', 'Entry Confirmation', 'Entry Method', 'Stop Loss', 'TP1', 'TP2', 'Risk']) {
+  for (const text of ['Symbols', 'Trading Timeframe', 'Trend Filter', 'Break Validation', 'Entry Confirmation', 'Entry Method', 'Stop Loss', 'TP1', 'TP2', 'Risk', 'Fundamental Filter']) {
     assert.match(html, new RegExp(text));
   }
   assert.doesNotMatch(html, /Win Rate|Profit Factor|Net Profit|Max Drawdown/);
@@ -52,4 +52,13 @@ test('save captures the selected strategy identity before async validation', () 
   assert.match(source, /validateStrategy\(saveName, definition\)/);
   assert.match(source, /updateStrategy\(saveTargetId, saveName,/);
   assert.match(source, /createStrategy\(saveName,/);
+});
+
+
+test('fundamental LIVE policy exposes both supported modes', () => {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  assert.match(html, /id="fundamentalMode"/);
+  assert.match(html, /BLOCK_OPPOSITE/);
+  assert.match(html, /REQUIRE_ALIGNMENT/);
+  assert.match(html, /historical Simulator results do not model past fundamental states/);
 });
