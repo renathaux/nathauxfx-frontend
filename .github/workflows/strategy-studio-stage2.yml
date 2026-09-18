@@ -20,6 +20,7 @@ jobs:
       - name: Run simulator and Strategy Studio regressions
         run: |
           node --test Frontend/strategy-simulator/*.test.cjs \
+            Frontend/manual-replay/*.test.cjs \
             Frontend/tests/strategy_studio_api.test.js \
             Frontend/tests/strategy_studio_model.test.js \
             Frontend/tests/strategy_studio_navigation.test.js \
@@ -29,6 +30,8 @@ jobs:
           node --check Frontend/strategy-simulator/strategy-simulator-api.js
           node --check Frontend/strategy-simulator/strategy-simulator-model.js
           node --check Frontend/strategy-simulator/strategy-simulator.js
+          node --check Frontend/manual-replay/manual-replay-api.js
+          node --check Frontend/manual-replay/manual-replay.js
           node --check Frontend/strategy-studio/strategy-studio-api.js
           node --check Frontend/strategy-studio/strategy-studio.js
           node --check Frontend/script.js
