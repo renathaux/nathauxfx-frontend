@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "base_timeframe": "5m",
+  "source": "CTRADER_CLOSED_CANDLES_STATIC_EXPORT",
+  "symbols": {
+    "EURUSD": {
+      "months": [
+        "2026-08",
+        "2026-09"
+      ],
+      "2026-08": {
+        "count": 2155,
+        "first_timestamp": "2026-08-20T11:00:00.000Z",
+        "last_timestamp": "2026-08-31T23:55:00.000Z"
+      },
+      "2026-09": {
+        "count": 3905,
+        "first_timestamp": "2026-09-01T00:00:00.000Z",
+        "last_timestamp": "2026-09-18T15:40:00.000Z"
+      }
+    },
+    "XAUUSD": {
+      "months": [
+        "2026-08",
+        "2026-09"
+      ],
+      "2026-08": {
+        "count": 2047,
+        "first_timestamp": "2026-08-20T11:25:00.000Z",
+        "last_timestamp": "2026-08-31T23:55:00.000Z"
+      },
+      "2026-09": {
+        "count": 3711,
+        "first_timestamp": "2026-09-01T00:00:00.000Z",
+        "last_timestamp": "2026-09-18T15:40:00.000Z"
+      }
+    }
+  }
+}
