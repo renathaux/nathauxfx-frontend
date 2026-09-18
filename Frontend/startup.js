@@ -306,7 +306,7 @@
       document.write('<link rel="stylesheet" href="desktop.css?v=3" media="(min-width: 701px)">');
     }
     if (!window.FlowSignalLiveCandles) {
-      document.write('<script src="chart/live-candles/live-candle-controller.js?v=7"><\/script>');
+      document.write('<script src="chart/live-candles/live-candle-controller.js?v=8"><\/script>');
     }
     document.write('<link rel="stylesheet" href="indicators/smc/smc.css?v=4">');
     document.write('<script src="indicators/smc/smc-settings.js?v=8"><\/script>');
