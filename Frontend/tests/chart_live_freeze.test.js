@@ -56,4 +56,21 @@ assert.match(
 );
 assert.match(html, /script\.js\?v=134/);
 
+
+assert.match(
+  dashboard,
+  /candleSeries\.update\(candle\)/,
+  "the main dashboard applies live candles to its active series",
+);
+assert.match(
+  dashboard,
+  /candleSeries\.setData\(visibleCandles\)/,
+  "the main dashboard can rebuild the visible series if a live update throws",
+);
+assert.ok(
+  controller.indexOf('window.dispatchEvent(new CustomEvent("flowsignal:live-candle"') <
+    controller.indexOf("state.series.update(candle)"),
+  "controller publishes the live candle before touching its own potentially stale series",
+);
+
 console.log("live chart freeze regression checks passed");
