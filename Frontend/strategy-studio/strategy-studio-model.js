@@ -30,6 +30,7 @@
       tp1: { enabled: false, target_r: null, close_percent: null, protection_r: null },
       tp2: { method: null, value: null },
       risk: { method: null, value: null },
+      fundamentals: { mode: 'BLOCK_OPPOSITE' },
     };
   }
 
@@ -97,6 +98,10 @@
     if (value.confirmation) {
       const rules = value.confirmation.rules || [];
       if (!rules.includes('MIN_BODY_PERCENT')) value.confirmation.minimum_body_percent = null;
+    }
+
+    if (!value.fundamentals || !['BLOCK_OPPOSITE', 'REQUIRE_ALIGNMENT'].includes(value.fundamentals.mode)) {
+      value.fundamentals = { mode: 'BLOCK_OPPOSITE' };
     }
 
     return value;
@@ -191,6 +196,11 @@
       errors['risk.value'] = 'Enter a risk value greater than 0';
     }
 
+    const fundamentalMode = value.fundamentals && value.fundamentals.mode;
+    if (!['BLOCK_OPPOSITE', 'REQUIRE_ALIGNMENT'].includes(fundamentalMode)) {
+      errors['fundamentals.mode'] = 'Choose how fundamentals should confirm LIVE entries';
+    }
+
     return errors;
   }
 
@@ -277,7 +287,12 @@
 
     const risk = value.risk || {};
     if (risk.method === 'PERCENT_BALANCE') parts.push(risk.value == null ? 'risk % balance' : `risk ${fmt(risk.value)}% balance`);
-    if (risk.method === 'FIXED_DOLLARS') parts.push(risk.value == null ? 'fixed $ risk' : `risk $${fmt(risk.value)}`);
+    if (risk.method === 'FIXED_DOLLARS') parts.push(risk.value == null ? 'fixed $ risk' : `risk ${fmt(risk.value)}`);
+
+    const fundamentalMode = value.fundamentals?.mode || 'BLOCK_OPPOSITE';
+    parts.push(fundamentalMode === 'REQUIRE_ALIGNMENT'
+      ? 'LIVE fundamentals require alignment'
+      : 'LIVE fundamentals block opposite bias');
 
     return parts.join(' → ');
   }
