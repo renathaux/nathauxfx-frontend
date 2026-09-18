@@ -140,6 +140,19 @@
               <label id="riskValueField" class="field conditional hidden"><span id="riskValueLabel">Risk Value</span><input id="riskValue" type="number" min="0.0001" step="0.01" placeholder="1"><small class="field-error" data-error-for="risk.value"></small></label>
             </div>
           </section>
+
+          <section class="builder-section">
+            <div class="section-title"><span>11</span><div><h3>Fundamental Filter <em>LIVE</em></h3><p>The Fundamental Insight engine is checked again immediately before a strategy order can reach cTrader.</p></div></div>
+            <label class="field">
+              <span>How fundamentals must work with this strategy</span>
+              <select id="fundamentalMode">
+                <option value="BLOCK_OPPOSITE">Block Opposite Bias — allow neutral / insufficient data</option>
+                <option value="REQUIRE_ALIGNMENT">Require Alignment — BUY/SELL fundamentals must match the strategy</option>
+              </select>
+              <small class="field-hint">Block Opposite: an ACTIVE BUY bias blocks SELL and an ACTIVE SELL bias blocks BUY. Require Alignment: neutral, insufficient, unavailable, or opposite fundamentals block the LIVE entry. This is a LIVE execution filter; historical Simulator results do not model past fundamental states.</small>
+              <small class="field-error" data-error-for="fundamentals.mode"></small>
+            </label>
+          </section>
         </fieldset>
 
         <div class="builder-actions">
@@ -162,10 +175,10 @@
             <p id="strategyFlow">Choose your trading timeframe and rules to build the strategy flow.</p>
           </div>
           <div class="rule-health">
-            <div class="rule-health-title"><span>Rule Health</span><strong id="ruleHealthCount">0 / 6 ready</strong></div>
+            <div class="rule-health-title"><span>Rule Health</span><strong id="ruleHealthCount">0 / 7 ready</strong></div>
             <div id="ruleHealthList" class="health-list"></div>
           </div>
-          <div class="summary-note"><strong>Gated LIVE safety</strong><p>V3B remains the LIVE authority until parity is verified and you explicitly confirm Go Live.</p></div>
+          <div class="summary-note"><strong>Gated LIVE safety</strong><p>The active LIVE strategy is still protected by the shared broker-boundary fundamental filter. Strategy Studio can choose the strictness, but cannot silently bypass the filter.</p></div>
           <button id="goLiveStrategyBtn" class="button primary" type="button" disabled>Go Live</button>
           <button id="simulatorBtn" class="button simulator-button" type="button" disabled>Simulator</button>
           <p class="simulator-help">Simulator becomes available after the shared evaluator is installed.</p>
@@ -187,8 +200,8 @@
   <datalist id="tp2RPresets"><option value="1"><option value="1.5"><option value="2"></datalist>
 
   <script src="/apiClient.js?v=1"></script>
-  <script src="/strategy-studio/strategy-studio-model.js?v=1"></script>
+  <script src="/strategy-studio/strategy-studio-model.js?v=2"></script>
   <script src="/strategy-studio/strategy-studio-api.js?v=1"></script>
-  <script src="/strategy-studio/strategy-studio.js?v=1"></script>
+  <script src="/strategy-studio/strategy-studio.js?v=2"></script>
 </body>
 </html>

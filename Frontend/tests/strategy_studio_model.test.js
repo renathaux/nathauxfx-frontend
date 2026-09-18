@@ -9,6 +9,7 @@ test('new strategy is blank except fixed structural scaffolding', () => {
   assert.equal(value.structure.trigger, 'BOS_CHOCH');
   assert.equal(value.entry.method, null);
   assert.equal(value.risk.method, null);
+  assert.equal(value.fundamentals.mode, 'BLOCK_OPPOSITE');
 });
 
 test('trend timeframe options are strictly higher', () => {
@@ -92,3 +93,17 @@ function validDraft() {
     risk: { method: 'PERCENT_BALANCE', value: 1 },
   };
 }
+
+
+test('legacy saved strategy defaults to block-opposite fundamentals', () => {
+  const value = validDraft();
+  delete value.fundamentals;
+  const normalized = StudioModel.normalizeForApi(value);
+  assert.deepEqual(normalized.fundamentals, { mode: 'BLOCK_OPPOSITE' });
+});
+
+test('fundamental policy appears in live summary', () => {
+  const value = validDraft();
+  value.fundamentals = { mode: 'REQUIRE_ALIGNMENT' };
+  assert.match(StudioModel.buildSummary(value), /LIVE fundamentals require alignment/);
+});
