@@ -213,7 +213,10 @@
       state.candle = candle;
       state.lastTickTimestamp = epoch;
       state.lastTickPrice = numericPrice;
-      state.series.update(candle);
+
+      // Publish the tick before touching the controller-held series. The main
+      // dashboard owns the active chart instance and can recover if this
+      // controller reference became stale after a chart recreation.
       window.dispatchEvent(new CustomEvent("flowsignal:live-candle", {
         detail: {
           symbol: state.symbol,
@@ -223,6 +226,14 @@
           tickTimestamp: epoch,
         },
       }));
+
+      try {
+        state.series.update(candle);
+      } catch (error) {
+        window.dispatchEvent(new CustomEvent("flowsignal:live-candle-series-error", {
+          detail: { message: error?.message || String(error) },
+        }));
+      }
       return { ...candle };
     },
     getState() {

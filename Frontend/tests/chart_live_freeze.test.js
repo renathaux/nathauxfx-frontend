@@ -44,8 +44,8 @@ assert.match(
   "display price prefers the freshest live-candle controller tick",
 );
 
-assert.match(startup, /live-candle-controller\.js\?v=6/);
-assert.match(html, /startup\.js\?v=20/);
+assert.match(startup, /live-candle-controller\.js\?v=7/);
+assert.match(html, /startup\.js\?v=21/);
 
 
 
@@ -54,6 +54,23 @@ assert.match(
   /window\.FlowSignalLiveCandles\?\.mount\?\.\(\{[\s\S]*candleSeries,[\s\S]*symbol: currentChartSymbol,[\s\S]*timeframe: currentChartTimeframe/,
   "every chart creation explicitly mounts the live-candle controller",
 );
-assert.match(html, /script\.js\?v=134/);
+assert.match(html, /script\.js\?v=135/);
+
+
+assert.match(
+  dashboard,
+  /candleSeries\.update\(candle\)/,
+  "the main dashboard applies live candles to its active series",
+);
+assert.match(
+  dashboard,
+  /candleSeries\.setData\(visibleCandles\)/,
+  "the main dashboard can rebuild the visible series if a live update throws",
+);
+assert.ok(
+  controller.indexOf('window.dispatchEvent(new CustomEvent("flowsignal:live-candle"') <
+    controller.indexOf("state.series.update(candle)"),
+  "controller publishes the live candle before touching its own potentially stale series",
+);
 
 console.log("live chart freeze regression checks passed");
