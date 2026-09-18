@@ -26,7 +26,7 @@ const NEWS_PROTECTION_AFTER_MS = 15 * 60 * 1000;
 // These values are needed by early role guards before chart setup begins.
 // Keep them initialized before any top-level UI initializer can call clearTradeLines().
 let currentChartSymbol = "EURUSD";
-let currentChartTimeframe = "15m";
+let currentChartTimeframe = "5m";
 let chartModuleInitialized = false;
 // ==============================
 // 🌍 LANGUAGE SYSTEM
