@@ -13304,6 +13304,16 @@ if (MARKET_IS_CLOSED && alreadyHasChart) {
   const lastNew = candles[candles.length - 1];
   const lastOld = previous[previous.length - 1];
 
+  // A live tick can precede the panel response during startup. When the
+  // panel supplies older candles, replace the partial chart before updating
+  // its newest bar; update() alone cannot insert that earlier history.
+  if (Number(candles[0].time) < Number(previous[0].time)) {
+    candleSeries.setData(candles);
+    lastChartData[symbol][timeframe] = [...candles];
+    drawTradeVisualLevels();
+    return;
+  }
+
   if (MARKET_IS_CLOSED) {
     candleSeries.setData(candles);
     lastChartData[symbol][timeframe] = [...candles];

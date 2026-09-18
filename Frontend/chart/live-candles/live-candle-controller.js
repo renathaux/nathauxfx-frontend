@@ -44,6 +44,7 @@
     symbol: "EURUSD",
     timeframe: "15m",
     candle: null,
+    historyLoaded: false,
     endpoint: "",
     pollMs: 500,
     timer: null,
@@ -112,6 +113,7 @@
     if (!series) return;
     state.series = series;
     state.candle = null;
+    state.historyLoaded = false;
     state.lastTickTimestamp = 0;
     state.lastTickPrice = null;
 
@@ -121,6 +123,10 @@
         const result = originalSetData(candles);
         const last = Array.isArray(candles) ? candles[candles.length - 1] : null;
         if (last) api.seed(last);
+        else {
+          state.historyLoaded = false;
+          state.candle = null;
+        }
         return result;
       };
       series.__flowLiveSetDataWrapped = true;
@@ -174,6 +180,7 @@
         state.symbol = nextSymbol;
         state.timeframe = nextTimeframe;
         state.candle = null;
+        state.historyLoaded = false;
         state.lastTickTimestamp = 0;
         state.lastTickPrice = null;
         emitContext();
@@ -185,7 +192,10 @@
         time: Number(candle.time), open: Number(candle.open), high: Number(candle.high),
         low: Number(candle.low), close: Number(candle.close),
       };
-      if (Object.values(normalized).every(Number.isFinite)) state.candle = normalized;
+      if (Object.values(normalized).every(Number.isFinite)) {
+        state.candle = normalized;
+        state.historyLoaded = true;
+      }
     },
     start({ endpoint, pollMs } = {}) {
       if (endpoint) state.endpoint = String(endpoint);
@@ -202,6 +212,9 @@
     },
     onTick({ symbol, price, timestamp } = {}) {
       if (!state.series) return null;
+      // A live tick must not create a one-candle chart while the initial
+      // historical window is still loading after a page refresh.
+      if (!state.historyLoaded) return null;
       if (symbol && String(symbol).toUpperCase() !== state.symbol) return null;
       const numericPrice = Number(price);
       const epoch = normalizeEpoch(timestamp);
@@ -251,6 +264,7 @@
   window.FlowSignalLiveCandles = api;
   window.addEventListener("flowsignal:account-changed", () => {
     state.candle = null;
+    state.historyLoaded = false;
     state.lastTickTimestamp = 0;
     state.lastTickPrice = null;
   });
