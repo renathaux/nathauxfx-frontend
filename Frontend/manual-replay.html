@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101f">
+  <title>NathauxFX — Manual Replay</title>
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=1">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="/app.html"><span class="brand-mark">N</span><span><strong>NathauxFX</strong><small>Manual Replay</small></span></a>
+      <div class="heading"><span class="eyebrow">YOU VS THE CHART</span><h1>Manual Trading Replay</h1><p>No strategy decides for you. Future candles stay hidden until you advance.</p></div>
+      <div class="safe-badge">NO STRATEGY • NO BROKER ORDERS</div>
+    </header>
+
+    <div id="notice" class="notice hidden" role="status"></div>
+
+    <section class="panel setup-panel">
+      <div class="panel-title">
+        <div><span class="eyebrow">HISTORICAL SESSION</span><h2>Replay Setup</h2></div>
+        <div class="nav-actions"><a class="button ghost" href="/strategy-simulator.html">Strategy Simulator</a><a class="button ghost" href="/strategy-studio.html">Strategy Studio</a></div>
+      </div>
+      <div class="setup-grid">
+        <label><span>Symbol</span><select id="symbol"><option>EURUSD</option><option>XAUUSD</option></select></label>
+        <label><span>Timeframe</span><select id="timeframe"><option value="5m">5m</option><option value="15m">15m</option><option value="1h">1h</option></select></label>
+        <label><span>Start</span><input id="startDate" type="datetime-local"></label>
+        <label><span>End</span><input id="endDate" type="datetime-local"></label>
+        <label><span>Starting Balance</span><input id="startingBalance" type="number" min="1" step="100" value="10000"></label>
+        <button id="loadBtn" class="button primary setup-button" type="button">Load Replay</button>
+      </div>
+    </section>
+
+    <div class="main-grid">
+      <section class="panel chart-panel">
+        <div class="chart-toolbar">
+          <div>
+            <span class="eyebrow">CLOSED-CANDLE REPLAY</span>
+            <h2 id="chartTitle">Load a session</h2>
+            <p id="chartMeta" class="muted">Historical candles only.</p>
+          </div>
+          <div class="playback">
+            <button id="prevBtn" class="icon-button" type="button" title="Previous candle">◀</button>
+            <button id="playBtn" class="button secondary" type="button">▶ Play</button>
+            <button id="nextBtn" class="icon-button" type="button" title="Next candle">▶</button>
+            <select id="speed" aria-label="Playback speed"><option value="1">1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option></select>
+            <span id="progress" class="muted">0 / 0</span>
+          </div>
+        </div>
+        <div class="chart-wrap"><svg id="chart" viewBox="0 0 1200 520" role="img" aria-label="Manual replay candlestick chart"></svg></div>
+        <div class="candle-strip">
+          <strong id="currentPrice">—</strong>
+          <span id="currentTime" class="muted">No candle loaded</span>
+          <span id="ohlc" class="muted">O — H — L — C —</span>
+        </div>
+      </section>
+
+      <aside class="panel trade-panel">
+        <span class="eyebrow">MANUAL ORDER TICKET</span>
+        <h2>You decide</h2>
+        <p class="muted">Virtual orders only. Nothing is sent to cTrader.</p>
+
+        <div class="ticket-grid">
+          <label><span>Risk Method</span><select id="riskMethod"><option value="PERCENT">% Balance</option><option value="FIXED">Fixed $</option></select></label>
+          <label><span>Risk Value</span><input id="riskValue" type="number" min="0.01" step="0.01" value="1"></label>
+          <label><span>Stop Loss</span><input id="slPrice" type="number" step="any" placeholder="Required"></label>
+          <label><span>Take Profit</span><input id="tpPrice" type="number" step="any" placeholder="Optional"></label>
+        </div>
+
+        <div class="side-buttons">
+          <button id="buyBtn" class="button buy" type="button">BUY</button>
+          <button id="sellBtn" class="button sell" type="button">SELL</button>
+        </div>
+
+        <div id="positionCard" class="position-card hidden">
+          <div class="position-head"><span>OPEN POSITION</span><strong id="positionSide">—</strong></div>
+          <div class="position-row"><span>Entry</span><strong id="positionEntry">—</strong></div>
+          <div class="position-row"><span>SL</span><strong id="positionSl">—</strong></div>
+          <div class="position-row"><span>TP</span><strong id="positionTp">—</strong></div>
+          <div class="position-row"><span>Risk</span><strong id="positionRisk">—</strong></div>
+          <div class="position-row"><span>Current R</span><strong id="positionR">—</strong></div>
+          <button id="closeBtn" class="button ghost full" type="button">Close at Current Price</button>
+        </div>
+
+        <button id="resetBtn" class="button ghost full reset-button" type="button">Reset Session</button>
+      </aside>
+    </div>
+
+    <section class="metric-grid">
+      <article><span>Balance</span><strong id="metricBalance">—</strong></article>
+      <article><span>Net P/L</span><strong id="metricPnl">—</strong></article>
+      <article><span>Win Rate</span><strong id="metricWinRate">—</strong></article>
+      <article><span>Trades</span><strong id="metricTrades">0</strong></article>
+      <article><span>Average R</span><strong id="metricAvgR">—</strong></article>
+      <article><span>Profit Factor</span><strong id="metricPf">—</strong></article>
+      <article><span>Max Drawdown</span><strong id="metricDd">—</strong></article>
+    </section>
+
+    <section class="panel log-panel">
+      <div class="panel-title"><div><span class="eyebrow">YOUR DECISIONS</span><h2>Manual Trade Log</h2></div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Side</th><th>Entry Time</th><th>Exit Time</th><th>Entry</th><th>Exit</th><th>SL</th><th>TP</th><th>Result</th><th>R</th><th>P/L</th></tr></thead>
+          <tbody id="tradeBody"><tr><td colspan="11" class="empty">No manual trades yet.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="/manual-replay/manual-replay-api.js?v=1"></script>
+  <script src="/manual-replay/manual-replay.js?v=1"></script>
+</body>
+</html>
