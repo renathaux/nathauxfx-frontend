@@ -12007,6 +12007,19 @@ function initChart() {
   }
 });
 
+  // Explicitly mount the live-candle controller to the series we just created.
+  // Do not rely only on monkey-patching LightweightCharts.createChart: the
+  // library is loaded asynchronously and its load event can race the 25ms hook.
+  window.FlowSignalLiveCandles?.mount?.({
+    candleSeries,
+    symbol: currentChartSymbol,
+    timeframe: currentChartTimeframe,
+  });
+  window.FlowSignalLiveCandles?.setContext?.({
+    symbol: currentChartSymbol,
+    timeframe: currentChartTimeframe,
+  });
+
   try {
     chart.timeScale().subscribeVisibleLogicalRangeChange(
       scheduleTradeLevelReposition
