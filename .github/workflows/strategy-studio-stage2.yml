@@ -21,6 +21,8 @@ jobs:
         run: |
           node --test Frontend/strategy-simulator/*.test.cjs \
             Frontend/manual-replay/*.test.cjs \
+            Frontend/tests/chart_live_freeze.test.js \
+            Frontend/tests/chart_live_candle_shape.test.js \
             Frontend/tests/strategy_studio_api.test.js \
             Frontend/tests/strategy_studio_model.test.js \
             Frontend/tests/strategy_studio_navigation.test.js \
