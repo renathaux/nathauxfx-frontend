@@ -2,7 +2,7 @@
   'use strict';
 
   function isManualReplayPath(pathname) {
-    return pathname === '/manual-replay' || pathname.startsWith('/manual-replay/');
+    return pathname === '/manual-replay' || pathname === '/manual-replay.html' || pathname.startsWith('/manual-replay/');
   }
 
   function sync(document, pathname) {
