@@ -134,6 +134,8 @@
     draft.tp2.value = toNumber('tp2Value');
     draft.risk.method = $('riskMethod').value || null;
     draft.risk.value = toNumber('riskValue');
+    if (!draft.fundamentals) draft.fundamentals = {};
+    draft.fundamentals.mode = $('fundamentalMode').value || 'BLOCK_OPPOSITE';
     state.serverErrors = {};
     renderDraftState();
   }
@@ -164,6 +166,7 @@
     $('tp2Value').value = value.tp2.value ?? '';
     $('riskMethod').value = value.risk.method || '';
     $('riskValue').value = value.risk.value ?? '';
+    $('fundamentalMode').value = value.fundamentals?.mode || 'BLOCK_OPPOSITE';
     renderDraftState();
   }
 
@@ -227,6 +230,7 @@
       ['Stop Loss', !errors['stop_loss.method'] && !errors['stop_loss.fixed_distance']],
       ['TP2', !errors['tp2.method'] && !errors['tp2.value']],
       ['Risk', !errors['risk.method'] && !errors['risk.value']],
+      ['Fundamentals', !errors['fundamentals.mode']],
     ];
     const ready = checks.filter((item) => item[1]).length;
     $('ruleHealthCount').textContent = `${ready} / ${checks.length} ready`;
@@ -274,10 +278,12 @@
       const tf = item.definition?.trading_timeframe || '—';
       const symbols = (item.definition?.symbols || []).join(' + ') || 'No symbols';
       const risk = item.definition?.risk || {};
-      const riskText = risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : risk.method === 'FIXED_DOLLARS' ? `$${risk.value}` : 'Risk —';
+      const riskText = risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : risk.method === 'FIXED_DOLLARS' ? `${risk.value}` : 'Risk —';
+      const fundamentalMode = item.definition?.fundamentals?.mode || 'BLOCK_OPPOSITE';
+      const fundamentalText = fundamentalMode === 'REQUIRE_ALIGNMENT' ? 'Fundamental alignment required' : 'Fundamentals block opposite';
       return `<article class="strategy-card ${item.strategy_id === state.currentId ? 'selected' : ''} ${item.state === 'ACTIVE' ? 'active' : ''}" data-strategy-id="${item.strategy_id}">
         <div class="strategy-card-top"><strong>${escapeHtml(item.name)}</strong><span class="mini-status ${item.state === 'ACTIVE' ? 'active' : ''}">${item.state}</span></div>
-        <small>${symbols} • ${tf}<br>${riskText}</small>
+        <small>${symbols} • ${tf}<br>${riskText}<br>${fundamentalText}</small>
       </article>`;
     }).join('');
     list.querySelectorAll('[data-strategy-id]').forEach((card) => {
@@ -309,8 +315,8 @@
     state.currentId = id;
     state.name = strategy.name;
     state.baselineName = strategy.name;
-    state.draft = copy(strategy.definition);
-    state.baseline = copy(strategy.definition);
+    state.draft = Model.normalizeForApi(copy(strategy.definition));
+    state.baseline = copy(state.draft);
     state.serverErrors = {};
     renderSavedStrategies();
     assignDraftToForm();
@@ -468,7 +474,7 @@
     }
     const ok = await showConfirmation({
       title: 'Go Live with this Strategy?',
-      message: `Future LIVE entries will use “${current.name}” as the Strategy Studio candidate source. This does not toggle LIVE Auto and does not modify an existing broker position.`,
+      message: `Future LIVE entries will use “${current.name}” as the Strategy Studio candidate source. Its saved fundamental policy will be enforced again immediately before broker submission. This does not toggle LIVE Auto and does not modify an existing broker position.`,
       confirmLabel: 'Go Live',
     });
     if (!ok) return;
@@ -541,7 +547,7 @@
       collectDraft();
     }));
 
-    ['trendTimeframe', 'entryMethod', 'stopMethod', 'tp2Method', 'riskMethod'].forEach((id) => $(id).addEventListener('change', collectDraft));
+    ['trendTimeframe', 'entryMethod', 'stopMethod', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
     ['breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
     $('tp1Enabled').addEventListener('change', collectDraft);
   }
