@@ -50,7 +50,7 @@ test('Manual Replay highlights only its own route and nested routes', () => {
   const nodes = { menuManualReplayBtn: sidebar, manualReplayNavLink: replay };
   const document = { getElementById: (id) => nodes[id] || null };
 
-  for (const pathname of ['/manual-replay', '/manual-replay/', '/manual-replay/session/123']) {
+  for (const pathname of ['/manual-replay', '/manual-replay/', '/manual-replay/session/123', '/manual-replay.html']) {
     navigation.sync(document, pathname);
     for (const node of [sidebar, replay]) {
       assert.equal(node.classList.contains('is-active'), true, pathname);
