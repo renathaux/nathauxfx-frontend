@@ -36,3 +36,12 @@ test('manual replay exposes manual buy sell and close controls', () => {
   assert.match(app, /openManualTrade\('BUY'\)/);
   assert.match(app, /openManualTrade\('SELL'\)/);
 });
+
+
+test('manual replay restores persisted NathauxFX auth on a fresh tab', () => {
+  assert.match(api, /restoreStandaloneAuth/);
+  assert.match(api, /flowsignal_session_token/);
+  assert.match(api, /flowsignal_user_session_persist/);
+  assert.match(api, /flowsignal_login_hint=1/);
+  assert.match(api, /restoreStandaloneAuth\(\)/);
+});
