@@ -64,6 +64,11 @@ test('manual replay chart exposes pointer handles only through the position over
   assert.match(app, /visibleReplayWindow/);
 });
 
+test('position overlay reserves empty right-side room without loading future candles', () => {
+  assert.match(app, /const futureSlots = Math\.max\(8, Math\.ceil\(rows\.length \* 0\.18\)\)/);
+  assert.match(app, /plotW \/ Math\.max\(rows\.length \+ futureSlots, 1\)/);
+});
+
 test('position tools expose pressed state and coarse-pointer touch targets', () => {
   assert.match(html, /id="longPositionBtn"[^>]+aria-pressed="false"/);
   assert.match(html, /id="shortPositionBtn"[^>]+aria-pressed="false"/);

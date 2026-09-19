@@ -440,7 +440,8 @@
 
     const width = 1200, height = 520, left = 58, right = 92, top = 24, bottom = 42;
     const plotW = width - left - right, plotH = height - top - bottom;
-    const slot = plotW / Math.max(rows.length, 1);
+    const futureSlots = Math.max(8, Math.ceil(rows.length * 0.18));
+    const slot = plotW / Math.max(rows.length + futureSlots, 1);
     const y = (value) => Position.priceToChartY(value, scale, top, plotH);
     const xForIndex = (index) => Math.min(width - right, Math.max(left, left + slot * (Number(index) - start) + slot / 2));
     state.chartMetrics = { width, height, left, right, top, bottom, plotW, plotH, low, high, span, scale, start, rows: rows.length };
