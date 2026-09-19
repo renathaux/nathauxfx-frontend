@@ -9,7 +9,16 @@
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
 
-  function buildRunPayload({ strategyId, symbol, start, end, mode = 'FAST', riskOverride = null }) {
+  function buildRunPayload({
+    strategyId,
+    strategyName = null,
+    strategyDefinition = null,
+    symbol,
+    start,
+    end,
+    mode = 'FAST',
+    riskOverride = null,
+  }) {
     if (!strategyId) throw new Error('Saved strategy is required');
     if (!symbol) throw new Error('Symbol is required');
     if (!start || !end) throw new Error('Start and end are required');
@@ -17,6 +26,8 @@
     if (!['FAST', 'REPLAY'].includes(normalizedMode)) throw new Error('Unsupported simulator mode');
     return {
       strategy_id: String(strategyId),
+      strategy_name: strategyName == null ? null : String(strategyName),
+      strategy_definition: strategyDefinition ? copy(strategyDefinition) : null,
       symbol: String(symbol).toUpperCase(),
       start: String(start),
       end: String(end),
