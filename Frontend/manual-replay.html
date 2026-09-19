@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101f">
   <title>NathauxFX — Manual Replay</title>
-  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=1">
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=2">
   <style>
     .nav-actions .button.is-active {
       border-color: #f5bd48;
@@ -52,6 +52,8 @@
             <button id="playBtn" class="button secondary" type="button">▶ Play</button>
             <button id="nextBtn" class="icon-button" type="button" title="Next candle">▶</button>
             <select id="speed" aria-label="Playback speed"><option value="1">1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option></select>
+            <button id="zoomOutBtn" class="icon-button" type="button" title="Zoom out">−</button>
+            <button id="zoomInBtn" class="icon-button" type="button" title="Zoom in">+</button>
             <span id="progress" class="muted">0 / 0</span>
           </div>
         </div>
@@ -74,6 +76,7 @@
           <label><span>Stop Loss</span><input id="slPrice" type="number" step="any" placeholder="Required"></label>
           <label><span>Take Profit</span><input id="tpPrice" type="number" step="any" placeholder="Optional"></label>
         </div>
+        <p id="pricePickHint" class="price-pick-hint">SL selected • move over the chart to see a price • click the chart to set SL</p>
 
         <div class="side-buttons">
           <button id="buyBtn" class="button buy" type="button">BUY</button>
@@ -117,6 +120,6 @@
 
   <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
-  <script src="/manual-replay/manual-replay.js?v=2"></script>
+  <script src="/manual-replay/manual-replay.js?v=3"></script>
 </body>
 </html>

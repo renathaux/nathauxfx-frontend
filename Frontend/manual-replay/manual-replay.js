@@ -15,6 +15,12 @@
     peak: 10000,
     maxDrawdown: 0,
     busy: false,
+    visibleCandles: 120,
+    hoverPrice: null,
+    hoverX: null,
+    hoverY: null,
+    activePriceField: 'slPrice',
+    chartMetrics: null,
   };
 
   function notice(message, kind = '') {
@@ -58,6 +64,32 @@
 
   function currentCandle() {
     return state.candles[state.index] || null;
+  }
+
+  function setActivePriceField(id) {
+    state.activePriceField = id === 'tpPrice' ? 'tpPrice' : 'slPrice';
+    for (const fieldId of ['slPrice', 'tpPrice']) {
+      const field = $(fieldId);
+      field?.closest('label')?.classList.toggle('price-pick-active', fieldId === state.activePriceField);
+    }
+    const hint = $('pricePickHint');
+    if (hint) {
+      hint.textContent = state.activePriceField === 'tpPrice'
+        ? 'TP selected • move over the chart to see a price • click the chart to set TP'
+        : 'SL selected • move over the chart to see a price • click the chart to set SL';
+    }
+  }
+
+  function zoomChart(direction) {
+    if (!state.candles.length) return;
+    const current = Math.max(20, Math.min(Number(state.visibleCandles) || 120, 300));
+    const next = direction < 0
+      ? Math.max(20, Math.round(current * 0.8))
+      : Math.min(300, Math.round(current * 1.25));
+    if (next === current) return;
+    state.visibleCandles = next;
+    state.hoverPrice = null;
+    renderChart();
   }
 
   function riskDollars() {
@@ -234,43 +266,90 @@
   function renderChart() {
     const svg = $('chart');
     if (!state.candles.length) {
+      state.chartMetrics = null;
       svg.innerHTML = '<text x="600" y="265" text-anchor="middle" class="empty-text">Load historical candles to begin manual replay</text>';
       return;
     }
+
     const end = state.index + 1;
-    const start = Math.max(0, end - 120);
+    const visible = Math.max(20, Math.min(Number(state.visibleCandles) || 120, 300));
+    const start = Math.max(0, end - visible);
     const rows = state.candles.slice(start, end);
     const levels = [];
-    if (state.openTrade) levels.push(state.openTrade.entry, state.openTrade.sl, ...(state.openTrade.tp == null ? [] : [state.openTrade.tp]));
-    const low = Math.min(...rows.map((c) => Number(c.low)), ...levels);
-    const high = Math.max(...rows.map((c) => Number(c.high)), ...levels);
+
+    const draftSl = Number($('slPrice').value);
+    const draftTpRaw = $('tpPrice').value.trim();
+    const draftTp = draftTpRaw === '' ? null : Number(draftTpRaw);
+
+    if (state.openTrade) {
+      levels.push(state.openTrade.entry, state.openTrade.sl, ...(state.openTrade.tp == null ? [] : [state.openTrade.tp]));
+    } else {
+      if (Number.isFinite(draftSl)) levels.push(draftSl);
+      if (Number.isFinite(draftTp)) levels.push(draftTp);
+    }
+
+    const rawLow = Math.min(...rows.map((c) => Number(c.low)), ...levels);
+    const rawHigh = Math.max(...rows.map((c) => Number(c.high)), ...levels);
+    const rawSpan = rawHigh - rawLow || Math.max(Math.abs(rawHigh) * 0.001, 0.0001);
+    const padding = rawSpan * 0.07;
+    const low = rawLow - padding;
+    const high = rawHigh + padding;
     const span = high - low || 1;
-    const width = 1200, height = 520, left = 58, right = 78, top = 24, bottom = 42;
+
+    const width = 1200, height = 520, left = 58, right = 92, top = 24, bottom = 42;
     const plotW = width - left - right, plotH = height - top - bottom;
     const slot = plotW / Math.max(rows.length, 1);
     const y = (v) => top + ((high - Number(v)) / span) * plotH;
+    state.chartMetrics = { width, height, left, right, top, bottom, plotW, plotH, low, high, span };
+
     let out = '';
-    for (let i = 0; i <= 5; i++) {
-      const yy = top + plotH * i / 5;
-      const label = high - span * i / 5;
-      out += `<line class="grid" x1="${left}" y1="${yy}" x2="${width-right}" y2="${yy}"/><text class="axis" x="${width-right+8}" y="${yy+4}">${price(label)}</text>`;
+    for (let i = 0; i <= 6; i++) {
+      const yy = top + plotH * i / 6;
+      const label = high - span * i / 6;
+      out += `<line class="grid" x1="${left}" y1="${yy}" x2="${width-right}" y2="${yy}"/><text class="axis price-axis" x="${width-right+8}" y="${yy+4}">${price(label)}</text>`;
     }
+
     rows.forEach((c, i) => {
       const x = left + slot * i + slot / 2;
       const openY = y(c.open), closeY = y(c.close), highY = y(c.high), lowY = y(c.low);
       const down = Number(c.close) < Number(c.open);
       const bodyY = Math.min(openY, closeY), bodyH = Math.max(Math.abs(closeY - openY), 2);
       out += `<line class="wick" x1="${x}" y1="${highY}" x2="${x}" y2="${lowY}"/><rect class="body ${down ? 'down' : 'up'}" x="${x-Math.max(2,slot*.28)}" y="${bodyY}" width="${Math.max(4,slot*.56)}" height="${bodyH}" rx="1"/>`;
-      if (i % 20 === 0 || i === rows.length - 1) out += `<text class="axis time" x="${x}" y="${height-14}" text-anchor="middle">${new Date(c.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</text>`;
+      const timeEvery = rows.length <= 40 ? 8 : rows.length <= 80 ? 12 : 20;
+      if (i % timeEvery === 0 || i === rows.length - 1) {
+        out += `<text class="axis time" x="${x}" y="${height-14}" text-anchor="middle">${new Date(c.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</text>`;
+      }
     });
+
+    const line = (value, cls, label) => `<line class="level ${cls}" x1="${left}" y1="${y(value)}" x2="${width-right}" y2="${y(value)}"/><text class="level-label ${cls}" x="${left+8}" y="${Math.max(top+13, y(value)-6)}">${label} ${price(value)}</text>`;
     if (state.openTrade) {
       const t = state.openTrade;
-      const line = (value, cls, label) => `<line class="level ${cls}" x1="${left}" y1="${y(value)}" x2="${width-right}" y2="${y(value)}"/><text class="level-label ${cls}" x="${left+8}" y="${y(value)-6}">${label} ${price(value)}</text>`;
       out += line(t.entry, 'entry', 'ENTRY') + line(t.sl, 'sl', 'SL');
       if (t.tp != null) out += line(t.tp, 'tp', 'TP');
+    } else {
+      if (Number.isFinite(draftSl)) out += line(draftSl, 'sl', 'SL');
+      if (Number.isFinite(draftTp)) out += line(draftTp, 'tp', 'TP');
     }
+
+    const current = Number(currentCandle().close);
+    const currentY = y(current);
     const currentX = left + slot * (rows.length - 1) + slot / 2;
     out += `<line class="current-line" x1="${currentX}" y1="${top}" x2="${currentX}" y2="${height-bottom}"/>`;
+    out += `<line class="current-price-line" x1="${left}" y1="${currentY}" x2="${width-right}" y2="${currentY}"/>`;
+    out += `<rect class="current-price-badge" x="${width-right-70}" y="${currentY-10}" width="70" height="20" rx="4"/><text class="current-price-text" x="${width-right-35}" y="${currentY+4}" text-anchor="middle">${price(current)}</text>`;
+
+    if (
+      Number.isFinite(state.hoverPrice) &&
+      Number.isFinite(state.hoverX) &&
+      Number.isFinite(state.hoverY)
+    ) {
+      const hx = Math.min(width-right, Math.max(left, state.hoverX));
+      const hy = Math.min(height-bottom, Math.max(top, state.hoverY));
+      out += `<line class="crosshair" x1="${left}" y1="${hy}" x2="${width-right}" y2="${hy}"/>`;
+      out += `<line class="crosshair" x1="${hx}" y1="${top}" x2="${hx}" y2="${height-bottom}"/>`;
+      out += `<rect class="crosshair-price-badge" x="${width-right-76}" y="${hy-11}" width="76" height="22" rx="4"/><text class="crosshair-price-text" x="${width-right-38}" y="${hy+4}" text-anchor="middle">${price(state.hoverPrice)}</text>`;
+    }
+
     svg.innerHTML = out;
   }
 
@@ -322,6 +401,9 @@
       state.balance = starting;
       state.peak = starting;
       state.maxDrawdown = 0;
+      state.visibleCandles = 120;
+      state.hoverPrice = null;
+      setActivePriceField('slPrice');
       $('chartTitle').textContent = `${result.symbol} • ${result.timeframe} • Manual Replay`;
       $('chartMeta').textContent = `${result.candles.length.toLocaleString()} closed candles • static replay data • future candles hidden • strategy required: NO`;
       notice('Manual replay loaded. You control every trade.', 'success');
@@ -359,12 +441,67 @@
   });
   $('playBtn').addEventListener('click', () => state.timer ? stopTimer() : setPlaying());
   $('speed').addEventListener('change', () => { if (state.timer) setPlaying(); });
+  $('zoomInBtn').addEventListener('click', () => zoomChart(-1));
+  $('zoomOutBtn').addEventListener('click', () => zoomChart(1));
+
+  $('slPrice').addEventListener('focus', () => setActivePriceField('slPrice'));
+  $('tpPrice').addEventListener('focus', () => setActivePriceField('tpPrice'));
+  $('slPrice').addEventListener('input', renderChart);
+  $('tpPrice').addEventListener('input', renderChart);
+
+  const chart = $('chart');
+  chart.addEventListener('wheel', (event) => {
+    if (!state.candles.length) return;
+    event.preventDefault();
+    zoomChart(event.deltaY < 0 ? -1 : 1);
+  }, { passive: false });
+
+  chart.addEventListener('pointermove', (event) => {
+    const metrics = state.chartMetrics;
+    if (!metrics || !state.candles.length) return;
+    const rect = chart.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = (event.clientX - rect.left) * metrics.width / rect.width;
+    const y = (event.clientY - rect.top) * metrics.height / rect.height;
+    if (
+      x < metrics.left || x > metrics.width - metrics.right ||
+      y < metrics.top || y > metrics.height - metrics.bottom
+    ) {
+      if (state.hoverPrice != null) {
+        state.hoverPrice = state.hoverX = state.hoverY = null;
+        renderChart();
+      }
+      return;
+    }
+    state.hoverX = x;
+    state.hoverY = y;
+    state.hoverPrice = metrics.high - ((y - metrics.top) / metrics.plotH) * metrics.span;
+    renderChart();
+  });
+
+  chart.addEventListener('pointerleave', () => {
+    if (state.hoverPrice == null) return;
+    state.hoverPrice = state.hoverX = state.hoverY = null;
+    renderChart();
+  });
+
+  chart.addEventListener('click', () => {
+    if (!state.candles.length || !Number.isFinite(state.hoverPrice) || state.openTrade) return;
+    const target = $(state.activePriceField || 'slPrice');
+    if (!target) return;
+    target.value = price(state.hoverPrice);
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+    const label = state.activePriceField === 'tpPrice' ? 'Take Profit' : 'Stop Loss';
+    notice(`${label} set to ${price(state.hoverPrice)} from the chart.`, 'success');
+  });
+
   $('buyBtn').addEventListener('click', () => openManualTrade('BUY'));
   $('sellBtn').addEventListener('click', () => openManualTrade('SELL'));
   $('closeBtn').addEventListener('click', closeManually);
   $('resetBtn').addEventListener('click', resetSession);
 
   setDefaultDates();
+  setActivePriceField('slPrice');
   renderMetrics();
   renderAll();
 })();
