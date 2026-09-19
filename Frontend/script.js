@@ -6507,6 +6507,9 @@ async function fetchFundamentalInsight(options = {}) {
 }
 
 function refreshNewsImpact(symbol = currentChartSymbol, options = {}) {
+  if (isForexWeekendClosed() && options.allowWeekend !== true) {
+    return Promise.resolve(null);
+  }
   return fetchFundamentalInsight({ symbol, force: options.force === true, symbolSwitch: options.symbolSwitch === true });
 }
 
@@ -6519,7 +6522,7 @@ function dashboardRuntimeActive() {
 }
 
 function fundamentalInsightPollingActive() {
-  return dashboardRuntimeActive();
+  return dashboardRuntimeActive() && !isForexWeekendClosed();
 }
 
 function pollFundamentalInsightIfActive() {
@@ -13830,7 +13833,7 @@ window.FlowSignalStartup?.record("polling_started", {
   transport: "rest_polling",
 });
 setInterval(() => {
-  if (!dashboardRuntimeActive()) return;
+  if (!dashboardRuntimeActive() || isForexWeekendClosed()) return;
   console.log("🔄 Auto refresh running...");
   refreshPanel();
 }, 15000);
@@ -13840,7 +13843,7 @@ setInterval(() => {
 }, FUNDAMENTAL_INSIGHT_CACHE_MS);
 
 setInterval(() => {
-  if (!dashboardRuntimeActive()) return;
+  if (!dashboardRuntimeActive() || isForexWeekendClosed()) return;
   fetchV2Shadow(currentChartSymbol, { loading: false });
 }, 60000);
 
