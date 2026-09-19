@@ -147,6 +147,17 @@
     );
   }
 
+  function updateDraftFromInput(field, inputId) {
+    updateDraftLevel(field, $(inputId).value);
+    renderChart();
+    renderPosition();
+  }
+
+  function commitDraftInputs() {
+    syncDraftInputs();
+    renderAll();
+  }
+
   function setActivePriceField(id) {
     state.activePriceField = id === 'tpPrice' ? 'tpPrice' : 'slPrice';
     for (const fieldId of ['slPrice', 'tpPrice']) {
@@ -660,8 +671,10 @@
 
   $('slPrice').addEventListener('focus', () => setActivePriceField('slPrice'));
   $('tpPrice').addEventListener('focus', () => setActivePriceField('tpPrice'));
-  $('slPrice').addEventListener('input', () => { updateDraftLevel('sl', $('slPrice').value); renderAll(); });
-  $('tpPrice').addEventListener('input', () => { updateDraftLevel('tp', $('tpPrice').value); renderAll(); });
+  $('slPrice').addEventListener('input', () => updateDraftFromInput('sl', 'slPrice'));
+  $('tpPrice').addEventListener('input', () => updateDraftFromInput('tp', 'tpPrice'));
+  $('slPrice').addEventListener('change', commitDraftInputs);
+  $('tpPrice').addEventListener('change', commitDraftInputs);
   $('riskMethod').addEventListener('change', renderAll);
   $('riskValue').addEventListener('input', renderAll);
   $('longPositionBtn').addEventListener('click', () => createPositionDraft('BUY'));

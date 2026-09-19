@@ -48,6 +48,12 @@ test('manual replay exposes one synchronized long or short draft ticket', () => 
   assert.match(html, /manual-replay-position\.js/);
 });
 
+test('manual ticket typing updates draft state without reformatting every keystroke', () => {
+  assert.match(app, /function updateDraftFromInput\(field, inputId\)/);
+  assert.match(app, /addEventListener\('input', \(\) => updateDraftFromInput\('sl', 'slPrice'\)\)/);
+  assert.match(app, /addEventListener\('change', commitDraftInputs\)/);
+});
+
 test('manual replay chart exposes pointer handles only through the position overlay renderer', () => {
   assert.match(app, /data-position-handle/);
   assert.match(app, /options\.draggable\s*&&\s*\['sl',\s*'tp'\]\.includes\(field\)/);
