@@ -8,6 +8,11 @@
   const DIRECT_BACKEND = 'https://api.nathauxfx.com';
   const LOCAL_BACKEND = 'http://127.0.0.1:8001';
   const COOKIE_SESSION_SENTINEL = '__flowsignal_cookie_session__';
+  const STATIC_ROOT = '/replay-data';
+  const STATIC_BASE_TIMEFRAME = '5m';
+  const MAX_STATIC_RANGE_DAYS = 31;
+  const manifestCache = { value: null };
+  const monthCache = new Map();
 
   function backendBase() {
     const hostname = String(root?.location?.hostname || '');
@@ -69,8 +74,147 @@
     return payload || {};
   }
 
-  const getStrategy = (id) => request(`/strategy-studio/strategies/${encodeURIComponent(id)}`);
-  const runSimulation = (payload) => request('/strategy-simulator/run', { method: 'POST', body: payload });
+  function normalizeSymbol(value) {
+    return String(value || '').trim().toUpperCase().replace('/', '');
+  }
 
-  return { getStrategy, runSimulation };
+  function monthKey(date) {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function requestedMonths(start, end) {
+    const months = [];
+    const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+    const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+    while (cursor <= last) {
+      months.push(monthKey(cursor));
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    }
+    return months;
+  }
+
+  async function staticJson(path, options = {}) {
+    if (typeof root?.fetch !== 'function') throw new Error('Network client unavailable');
+    const response = await root.fetch(path, {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: options.cache || 'force-cache',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      const error = new Error(`Static simulator history unavailable (${response.status})`);
+      error.status = response.status;
+      throw error;
+    }
+    return response.json();
+  }
+
+  async function loadManifest() {
+    if (manifestCache.value) return manifestCache.value;
+    const value = await staticJson(`${STATIC_ROOT}/manifest.json`, { cache: 'no-cache' });
+    if (!value || Number(value.version) !== 1 || value.base_timeframe !== STATIC_BASE_TIMEFRAME) {
+      throw new Error('Static replay manifest is invalid.');
+    }
+    manifestCache.value = value;
+    return value;
+  }
+
+  async function loadMonth(symbol, month) {
+    const key = `${symbol}:${month}`;
+    const currentMonth = monthKey(new Date());
+    if (month !== currentMonth && monthCache.has(key)) return monthCache.get(key);
+
+    let payload;
+    try {
+      payload = await staticJson(
+        `${STATIC_ROOT}/${encodeURIComponent(symbol)}/${month}.json`,
+        { cache: month === currentMonth ? 'no-cache' : 'force-cache' }
+      );
+    } catch (error) {
+      if (error?.status === 404) {
+        throw new Error(`Static simulator candles for ${symbol} ${month} are not available yet.`);
+      }
+      throw error;
+    }
+    if (
+      !payload ||
+      normalizeSymbol(payload.symbol) !== symbol ||
+      String(payload.timeframe || '').toLowerCase() !== STATIC_BASE_TIMEFRAME ||
+      !Array.isArray(payload.candles)
+    ) {
+      throw new Error(`Static simulator file ${symbol} ${month} is invalid.`);
+    }
+    if (month !== currentMonth) monthCache.set(key, payload);
+    return payload;
+  }
+
+  async function loadStatic5m(payload) {
+    const symbol = normalizeSymbol(payload?.symbol);
+    const start = new Date(payload?.start);
+    const end = new Date(payload?.end);
+    if (!['EURUSD', 'XAUUSD'].includes(symbol)) throw new Error('Simulator symbol is unsupported.');
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+      throw new Error('Choose a valid simulation start and end.');
+    }
+    if (end.getTime() - start.getTime() > MAX_STATIC_RANGE_DAYS * 86400000) {
+      throw new Error(`Static simulation range is limited to ${MAX_STATIC_RANGE_DAYS} days.`);
+    }
+
+    const manifest = await loadManifest();
+    const available = manifest.symbols?.[symbol];
+    if (!available) throw new Error(`No static simulator history is available for ${symbol}.`);
+
+    const lastIncluded = new Date(end.getTime() - 1);
+    const months = requestedMonths(start, lastIncluded);
+    const availableMonths = new Set((available.months || []).map(String));
+    for (const month of months) {
+      if (!availableMonths.has(month)) {
+        throw new Error(`Static simulator candles for ${symbol} ${month} have not been downloaded yet.`);
+      }
+    }
+
+    const files = await Promise.all(months.map((month) => loadMonth(symbol, month)));
+    const startMs = start.getTime();
+    const endMs = end.getTime();
+    const byTime = new Map();
+
+    for (const row of files.flatMap((item) => item.candles)) {
+      const timestampMs = Date.parse(row?.timestamp);
+      const open = Number(row?.open);
+      const high = Number(row?.high);
+      const low = Number(row?.low);
+      const close = Number(row?.close);
+      const volume = Number(row?.volume);
+      if (
+        !Number.isFinite(timestampMs) ||
+        timestampMs < startMs ||
+        timestampMs >= endMs ||
+        ![open, high, low, close].every(Number.isFinite)
+      ) continue;
+      byTime.set(timestampMs, {
+        timestamp: new Date(timestampMs).toISOString(),
+        open, high, low, close,
+        volume: Number.isFinite(volume) ? volume : 0,
+      });
+    }
+
+    const candles = [...byTime.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, candle]) => candle);
+
+    if (candles.length < 2) throw new Error('Not enough static candles for this simulation range.');
+    return candles;
+  }
+
+  const getStrategy = (id) => request(`/strategy-studio/strategies/${encodeURIComponent(id)}`);
+
+  async function runSimulation(payload) {
+    const candles = await loadStatic5m(payload);
+    return request('/strategy-simulator/run', {
+      method: 'POST',
+      body: { ...payload, candles_5m: candles },
+    });
+  }
+
+  return { getStrategy, runSimulation, loadStatic5m };
 });

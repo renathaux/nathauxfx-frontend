@@ -9,13 +9,22 @@
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
 
-  function buildRunPayload({ strategyId, symbol, start, end, mode = 'FAST', riskOverride = null }) {
+  function buildRunPayload({
+    strategyId,
+    strategyName = null,
+    strategyDefinition = null,
+    symbol,
+    start,
+    end,
+    mode = 'FAST',
+    riskOverride = null,
+  }) {
     if (!strategyId) throw new Error('Saved strategy is required');
     if (!symbol) throw new Error('Symbol is required');
     if (!start || !end) throw new Error('Start and end are required');
     const normalizedMode = String(mode || 'FAST').toUpperCase();
     if (!['FAST', 'REPLAY'].includes(normalizedMode)) throw new Error('Unsupported simulator mode');
-    return {
+    const payload = {
       strategy_id: String(strategyId),
       symbol: String(symbol).toUpperCase(),
       start: String(start),
@@ -23,6 +32,9 @@
       mode: normalizedMode,
       risk_override: riskOverride ? copy(riskOverride) : null,
     };
+    if (strategyName != null) payload.strategy_name = String(strategyName);
+    if (strategyDefinition) payload.strategy_definition = copy(strategyDefinition);
+    return payload;
   }
 
   function equityPoints(curve, width = 600, height = 220, padding = 16) {

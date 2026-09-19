@@ -56,3 +56,23 @@ test('formatMetric handles money, percent, and unavailable values', () => {
   assert.equal(Model.formatMetric(52.345, 'percent'), '52.35%');
   assert.equal(Model.formatMetric(null, 'number'), '—');
 });
+
+
+test('buildRunPayload can carry the saved strategy definition without sharing references', () => {
+  const definition = {
+    schema_version: 1,
+    symbols: ['EURUSD'],
+    trading_timeframe: '5m',
+  };
+  const payload = Model.buildRunPayload({
+    strategyId: 'strat_static',
+    strategyName: 'Static Test',
+    strategyDefinition: definition,
+    symbol: 'EURUSD',
+    start: '2026-09-01T00:00:00Z',
+    end: '2026-09-02T00:00:00Z',
+  });
+  assert.equal(payload.strategy_name, 'Static Test');
+  assert.deepEqual(payload.strategy_definition, definition);
+  assert.notEqual(payload.strategy_definition, definition);
+});
