@@ -24,16 +24,17 @@
     if (!start || !end) throw new Error('Start and end are required');
     const normalizedMode = String(mode || 'FAST').toUpperCase();
     if (!['FAST', 'REPLAY'].includes(normalizedMode)) throw new Error('Unsupported simulator mode');
-    return {
+    const payload = {
       strategy_id: String(strategyId),
-      strategy_name: strategyName == null ? null : String(strategyName),
-      strategy_definition: strategyDefinition ? copy(strategyDefinition) : null,
       symbol: String(symbol).toUpperCase(),
       start: String(start),
       end: String(end),
       mode: normalizedMode,
       risk_override: riskOverride ? copy(riskOverride) : null,
     };
+    if (strategyName != null) payload.strategy_name = String(strategyName);
+    if (strategyDefinition) payload.strategy_definition = copy(strategyDefinition);
+    return payload;
   }
 
   function equityPoints(curve, width = 600, height = 220, padding = 16) {
