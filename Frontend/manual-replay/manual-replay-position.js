@@ -90,6 +90,41 @@
     return Math.min(Number(scale.high), Math.max(Number(scale.low), number));
   }
 
+  function updateDraftLevel(draft, field, rawValue, minimumDistance) {
+    if (!draft || (field !== 'sl' && field !== 'tp')) return draft || null;
+    const parsed = parseOptionalPrice(rawValue);
+    return {
+      ...draft,
+      [field]: parsed == null ? null : validatePositionLevel(draft, field, parsed, minimumDistance),
+    };
+  }
+
+  function createVirtualTrade({
+    draft, requestedSide, currentClose, entryIndex, entryTime, riskDollars, tradeId,
+  }) {
+    if (!draft || !['BUY', 'SELL'].includes(draft.side)) throw new Error('Create a long or short position first.');
+    if (requestedSide && requestedSide !== draft.side) throw new Error('Requested side does not match the position draft.');
+    const entry = parseOptionalPrice(currentClose);
+    const sl = parseOptionalPrice(draft.sl);
+    const tp = parseOptionalPrice(draft.tp);
+    const directionValid = entry != null && sl != null && tp != null && (
+      draft.side === 'BUY' ? sl < entry && tp > entry : tp < entry && sl > entry
+    );
+    if (!directionValid) throw new Error(`${draft.side} position levels are invalid at the current close.`);
+    const risk = Number(riskDollars);
+    if (!Number.isFinite(risk) || risk <= 0) throw new Error('Risk value must be greater than zero.');
+    return {
+      tradeId: tradeId || `manual_${Date.now()}`,
+      side: draft.side,
+      entryIndex: Number(entryIndex),
+      entryTime,
+      entry,
+      sl,
+      tp,
+      riskDollars: risk,
+    };
+  }
+
   return {
     parseOptionalPrice,
     createPositionDraft,
@@ -97,5 +132,7 @@
     calculatePositionMetrics,
     visibleCandleScale,
     clampPriceToScale,
+    updateDraftLevel,
+    createVirtualTrade,
   };
 });

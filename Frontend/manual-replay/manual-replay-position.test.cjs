@@ -79,3 +79,38 @@ test('visible candle scale ignores far-away position levels', () => {
   assert.equal(Position.clampPriceToScale(0, scale), scale.low);
   assert.equal(Position.clampPriceToScale(500, scale), scale.high);
 });
+
+test('ticket edits replace the matching draft level and preserve fixed entry', () => {
+  const original = { side: 'BUY', entry: 100, sl: 90, tp: 120 };
+  const updated = Position.updateDraftLevel(original, 'sl', '95', 0.5);
+  assert.deepEqual(updated, { side: 'BUY', entry: 100, sl: 95, tp: 120 });
+  assert.deepEqual(original, { side: 'BUY', entry: 100, sl: 90, tp: 120 });
+});
+
+test('blank ticket edit stays blank instead of becoming zero', () => {
+  const original = { side: 'BUY', entry: 100, sl: 90, tp: 120 };
+  assert.deepEqual(Position.updateDraftLevel(original, 'sl', '', 0.5), {
+    side: 'BUY', entry: 100, sl: null, tp: 120,
+  });
+});
+
+test('opening a draft creates only its matching virtual side at current close', () => {
+  const buy = Position.createVirtualTrade({
+    draft: { side: 'BUY', entry: 100, sl: 90, tp: 120 },
+    currentClose: 101,
+    entryIndex: 8,
+    entryTime: '2026-09-19T12:00:00.000Z',
+    riskDollars: 100,
+    tradeId: 'manual_test',
+  });
+  assert.deepEqual(buy, {
+    tradeId: 'manual_test', side: 'BUY', entryIndex: 8,
+    entryTime: '2026-09-19T12:00:00.000Z', entry: 101,
+    sl: 90, tp: 120, riskDollars: 100,
+  });
+  assert.throws(() => Position.createVirtualTrade({
+    draft: { side: 'SELL', entry: 100, sl: 110, tp: 80 },
+    requestedSide: 'BUY', currentClose: 100, entryIndex: 8,
+    entryTime: '2026-09-19T12:00:00.000Z', riskDollars: 100,
+  }), /does not match/);
+});

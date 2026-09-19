@@ -38,6 +38,16 @@ test('manual replay exposes manual buy sell and close controls', () => {
   assert.match(app, /openManualTrade\('SELL'\)/);
 });
 
+test('manual replay exposes one synchronized long or short draft ticket', () => {
+  for (const id of [
+    'longPositionBtn', 'shortPositionBtn', 'cancelPositionBtn',
+    'draftDirection', 'draftEntry', 'draftRr', 'draftRisk', 'draftReward',
+  ]) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(html, /OPEN BUY/);
+  assert.match(html, /OPEN SELL/);
+  assert.match(html, /manual-replay-position\.js/);
+});
+
 
 test('manual replay static history does not require backend auth', () => {
   assert.doesNotMatch(api, /restoreStandaloneAuth/);

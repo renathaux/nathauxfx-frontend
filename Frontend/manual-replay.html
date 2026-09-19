@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101f">
   <title>NathauxFX — Manual Replay</title>
-  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=2">
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=3">
   <style>
     .nav-actions .button.is-active {
       border-color: #f5bd48;
@@ -57,6 +57,11 @@
             <span id="progress" class="muted">0 / 0</span>
           </div>
         </div>
+        <div class="position-tools" role="toolbar" aria-label="Position drawing tools">
+          <button id="longPositionBtn" class="button position-tool long" type="button">↗ Long Position</button>
+          <button id="shortPositionBtn" class="button position-tool short" type="button">↘ Short Position</button>
+          <button id="cancelPositionBtn" class="button ghost position-tool" type="button" disabled>✕ Cancel Draft</button>
+        </div>
         <div class="chart-wrap"><svg id="chart" viewBox="0 0 1200 520" role="img" aria-label="Manual replay candlestick chart"></svg></div>
         <div class="candle-strip">
           <strong id="currentPrice">—</strong>
@@ -71,16 +76,23 @@
         <p class="muted">Virtual orders only. Nothing is sent to cTrader.</p>
 
         <div class="ticket-grid">
+          <label><span>Direction</span><input id="draftDirection" type="text" value="—" readonly></label>
+          <label><span>Entry</span><input id="draftEntry" type="text" value="—" readonly></label>
           <label><span>Risk Method</span><select id="riskMethod"><option value="PERCENT">% Balance</option><option value="FIXED">Fixed $</option></select></label>
           <label><span>Risk Value</span><input id="riskValue" type="number" min="0.01" step="0.01" value="1"></label>
           <label><span>Stop Loss</span><input id="slPrice" type="number" step="any" placeholder="Required"></label>
           <label><span>Take Profit</span><input id="tpPrice" type="number" step="any" placeholder="Optional"></label>
         </div>
+        <div class="draft-metrics" aria-live="polite">
+          <div><span>R:R</span><strong id="draftRr">—</strong></div>
+          <div><span>Risk</span><strong id="draftRisk">—</strong></div>
+          <div><span>Projected Reward</span><strong id="draftReward">—</strong></div>
+        </div>
         <p id="pricePickHint" class="price-pick-hint">SL selected • move over the chart to see a price • click the chart to set SL</p>
 
         <div class="side-buttons">
-          <button id="buyBtn" class="button buy" type="button">BUY</button>
-          <button id="sellBtn" class="button sell" type="button">SELL</button>
+          <button id="buyBtn" class="button buy" type="button" disabled>OPEN BUY</button>
+          <button id="sellBtn" class="button sell" type="button" disabled>OPEN SELL</button>
         </div>
 
         <div id="positionCard" class="position-card hidden">
@@ -120,6 +132,7 @@
 
   <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
-  <script src="/manual-replay/manual-replay.js?v=4"></script>
+  <script src="/manual-replay/manual-replay-position.js?v=1"></script>
+  <script src="/manual-replay/manual-replay.js?v=5"></script>
 </body>
 </html>

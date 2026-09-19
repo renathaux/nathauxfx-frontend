@@ -2,6 +2,7 @@
   'use strict';
 
   const Api = window.ManualReplayApi;
+  const Position = window.ManualReplayPosition;
   const $ = (id) => document.getElementById(id);
   const state = {
     candles: [],
@@ -9,6 +10,7 @@
     initialIndex: 0,
     timer: null,
     openTrade: null,
+    positionDraft: null,
     trades: [],
     startingBalance: 10000,
     balance: 10000,
@@ -64,6 +66,82 @@
 
   function currentCandle() {
     return state.candles[state.index] || null;
+  }
+
+  function visibleRows() {
+    const end = state.index + 1;
+    const count = Math.max(20, Math.min(Number(state.visibleCandles) || 120, 300));
+    return state.candles.slice(Math.max(0, end - count), end);
+  }
+
+  function minimumPriceDistance(entry) {
+    return Math.abs(Number(entry)) >= 100 ? 0.01 : 0.00001;
+  }
+
+  function syncDraftInputs() {
+    const draft = state.positionDraft;
+    $('slPrice').value = draft && draft.sl != null && Number.isFinite(Number(draft.sl)) ? price(draft.sl) : '';
+    $('tpPrice').value = draft && draft.tp != null && Number.isFinite(Number(draft.tp)) ? price(draft.tp) : '';
+  }
+
+  function positionMetrics() {
+    if (!state.positionDraft) return null;
+    return Position.calculatePositionMetrics({
+      draft: state.positionDraft,
+      riskMethod: $('riskMethod').value,
+      riskValue: $('riskValue').value,
+      balance: state.balance,
+    });
+  }
+
+  function refreshDraftEntry() {
+    if (!state.positionDraft || state.openTrade || !currentCandle()) return;
+    const entry = Number(currentCandle().close);
+    const draft = { ...state.positionDraft, entry };
+    const gap = minimumPriceDistance(entry);
+    state.positionDraft = {
+      ...draft,
+      sl: Position.validatePositionLevel(draft, 'sl', draft.sl, gap),
+      tp: Position.validatePositionLevel(draft, 'tp', draft.tp, gap),
+    };
+    syncDraftInputs();
+  }
+
+  function createPositionDraft(side) {
+    if (!state.candles.length) return notice('Load a replay first.', 'error');
+    if (state.openTrade) return notice('Close the active virtual position before creating another.', 'error');
+    const scale = Position.visibleCandleScale(visibleRows());
+    const entry = Number(currentCandle().close);
+    state.positionDraft = Position.createPositionDraft({
+      side,
+      entry,
+      visibleLow: scale.rawLow,
+      visibleHigh: scale.rawHigh,
+      minimumDisplayDistance: minimumPriceDistance(entry),
+    });
+    syncDraftInputs();
+    setActivePriceField('slPrice');
+    notice(`${side === 'BUY' ? 'Long' : 'Short'} position draft created at ${price(entry)}.`, 'success');
+    renderAll();
+  }
+
+  function cancelPositionDraft() {
+    if (state.openTrade) return notice('Use Close at Current Price for an active position.', 'error');
+    if (!state.positionDraft) return;
+    state.positionDraft = null;
+    syncDraftInputs();
+    notice('Position draft removed.', 'success');
+    renderAll();
+  }
+
+  function updateDraftLevel(field, rawValue) {
+    if (!state.positionDraft || state.openTrade) return;
+    state.positionDraft = Position.updateDraftLevel(
+      state.positionDraft,
+      field,
+      rawValue,
+      minimumPriceDistance(state.positionDraft.entry)
+    );
   }
 
   function setActivePriceField(id) {
@@ -172,32 +250,27 @@
   function openManualTrade(side) {
     if (!state.candles.length) return notice('Load a replay first.', 'error');
     if (state.openTrade) return notice('Close the current virtual position first.', 'error');
+    if (!state.positionDraft) return notice('Create a Long or Short Position draft first.', 'error');
+    if (state.positionDraft.side !== side) return notice(`This draft can only open ${state.positionDraft.side}.`, 'error');
+    refreshDraftEntry();
     const candle = currentCandle();
-    const entry = Number(candle.close);
-    const slRaw = $('slPrice').value.trim();
-    const sl = slRaw === '' ? null : Number(slRaw);
-    const tpRaw = $('tpPrice').value.trim();
-    const tp = tpRaw === '' ? null : Number(tpRaw);
-    if (sl == null || !Number.isFinite(sl)) return notice('Enter a valid Stop Loss.', 'error');
-    if (side === 'BUY' && sl >= entry) return notice('BUY stop loss must be below the entry.', 'error');
-    if (side === 'SELL' && sl <= entry) return notice('SELL stop loss must be above the entry.', 'error');
-    if (tp != null && !Number.isFinite(tp)) return notice('Take Profit is invalid.', 'error');
-    if (side === 'BUY' && tp != null && tp <= entry) return notice('BUY take profit must be above the entry.', 'error');
-    if (side === 'SELL' && tp != null && tp >= entry) return notice('SELL take profit must be below the entry.', 'error');
-
-    let risk;
-    try { risk = riskDollars(); } catch (error) { return notice(error.message, 'error'); }
-    state.openTrade = {
-      tradeId: `manual_${Date.now()}`,
-      side,
-      entryIndex: state.index,
-      entryTime: candle.timestamp,
-      entry,
-      sl,
-      tp,
-      riskDollars: risk,
-    };
-    notice(`${side} opened virtually at ${price(entry)}.`, 'success');
+    const metrics = positionMetrics();
+    if (!metrics || !metrics.valid) return notice('Enter valid Stop Loss, Take Profit, and risk values.', 'error');
+    try {
+      state.openTrade = Position.createVirtualTrade({
+        draft: state.positionDraft,
+        requestedSide: side,
+        currentClose: candle.close,
+        entryIndex: state.index,
+        entryTime: candle.timestamp,
+        riskDollars: metrics.riskDollars,
+      });
+    } catch (error) {
+      return notice(error.message, 'error');
+    }
+    state.positionDraft = null;
+    syncDraftInputs();
+    notice(`${side} opened virtually at ${price(state.openTrade.entry)}.`, 'success');
     renderAll();
   }
 
@@ -237,8 +310,21 @@
   function renderPosition() {
     const trade = state.openTrade;
     $('positionCard').classList.toggle('hidden', !trade);
-    $('buyBtn').disabled = !state.candles.length || Boolean(trade);
-    $('sellBtn').disabled = !state.candles.length || Boolean(trade);
+    const draft = state.positionDraft;
+    const draftMetrics = positionMetrics();
+    $('draftDirection').value = draft ? (draft.side === 'BUY' ? 'LONG / BUY' : 'SHORT / SELL') : '—';
+    $('draftEntry').value = draft ? price(draft.entry) : '—';
+    $('draftRr').textContent = draftMetrics && Number.isFinite(draftMetrics.rr) ? draftMetrics.rr.toFixed(2) : '—';
+    $('draftRisk').textContent = draftMetrics && Number.isFinite(draftMetrics.riskDollars) ? money(draftMetrics.riskDollars) : '—';
+    $('draftReward').textContent = draftMetrics && Number.isFinite(draftMetrics.rewardDollars) ? money(draftMetrics.rewardDollars) : '—';
+    const ready = Boolean(draft && draftMetrics && draftMetrics.valid && !trade);
+    $('buyBtn').disabled = !ready || draft.side !== 'BUY';
+    $('sellBtn').disabled = !ready || draft.side !== 'SELL';
+    $('longPositionBtn').disabled = !state.candles.length || Boolean(trade);
+    $('shortPositionBtn').disabled = !state.candles.length || Boolean(trade);
+    $('cancelPositionBtn').disabled = !draft || Boolean(trade);
+    $('slPrice').disabled = !draft || Boolean(trade);
+    $('tpPrice').disabled = !draft || Boolean(trade);
     if (!trade) return;
     const current = Number(currentCandle().close);
     $('positionSide').textContent = trade.side;
@@ -370,6 +456,7 @@
   }
 
   function renderAll() {
+    refreshDraftEntry();
     renderChart();
     renderCandleMeta();
     renderPosition();
@@ -399,6 +486,7 @@
       state.initialIndex = Math.min(59, state.candles.length - 1);
       state.index = state.initialIndex;
       state.openTrade = null;
+      state.positionDraft = null;
       state.trades = [];
       state.startingBalance = starting;
       state.balance = starting;
@@ -428,6 +516,7 @@
     if (!Number.isFinite(starting) || starting <= 0) return notice('Starting balance must be positive.', 'error');
     state.index = state.initialIndex;
     state.openTrade = null;
+    state.positionDraft = null;
     state.trades = [];
     state.startingBalance = starting;
     state.balance = starting;
@@ -455,8 +544,13 @@
 
   $('slPrice').addEventListener('focus', () => setActivePriceField('slPrice'));
   $('tpPrice').addEventListener('focus', () => setActivePriceField('tpPrice'));
-  $('slPrice').addEventListener('input', renderChart);
-  $('tpPrice').addEventListener('input', renderChart);
+  $('slPrice').addEventListener('input', () => { updateDraftLevel('sl', $('slPrice').value); renderAll(); });
+  $('tpPrice').addEventListener('input', () => { updateDraftLevel('tp', $('tpPrice').value); renderAll(); });
+  $('riskMethod').addEventListener('change', renderAll);
+  $('riskValue').addEventListener('input', renderAll);
+  $('longPositionBtn').addEventListener('click', () => createPositionDraft('BUY'));
+  $('shortPositionBtn').addEventListener('click', () => createPositionDraft('SELL'));
+  $('cancelPositionBtn').addEventListener('click', cancelPositionDraft);
 
   const chart = $('chart');
   chart.addEventListener('wheel', (event) => {
@@ -495,7 +589,7 @@
   });
 
   chart.addEventListener('click', () => {
-    if (!state.candles.length || !Number.isFinite(state.hoverPrice) || state.openTrade) return;
+    if (!state.candles.length || !state.positionDraft || !Number.isFinite(state.hoverPrice) || state.openTrade) return;
     const target = $(state.activePriceField || 'slPrice');
     if (!target) return;
     target.value = price(state.hoverPrice);
