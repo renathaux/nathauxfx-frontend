@@ -114,3 +114,55 @@ test('opening a draft creates only its matching virtual side at current close', 
     entryTime: '2026-09-19T12:00:00.000Z', riskDollars: 100,
   }), /does not match/);
 });
+
+test('long overlay geometry puts profit above entry and risk below entry', () => {
+  const geometry = Position.positionOverlayGeometry({
+    position: { side: 'BUY', entry: 100, sl: 90, tp: 120 },
+    scale: { low: 80, high: 130, span: 50 },
+    plot: { top: 20, plotH: 400, startX: 600, endX: 1100 },
+  });
+  assert.deepEqual(geometry.profitRect, { x: 600, y: 100, width: 500, height: 160 });
+  assert.deepEqual(geometry.riskRect, { x: 600, y: 260, width: 500, height: 80 });
+  assert.equal(geometry.entryY, 260);
+  assert.equal(geometry.tpY, 100);
+  assert.equal(geometry.slY, 340);
+});
+
+test('short overlay geometry puts risk above entry and profit below entry', () => {
+  const geometry = Position.positionOverlayGeometry({
+    position: { side: 'SELL', entry: 100, sl: 110, tp: 80 },
+    scale: { low: 70, high: 120, span: 50 },
+    plot: { top: 20, plotH: 400, startX: 600, endX: 1100 },
+  });
+  assert.deepEqual(geometry.riskRect, { x: 600, y: 100, width: 500, height: 80 });
+  assert.deepEqual(geometry.profitRect, { x: 600, y: 180, width: 500, height: 160 });
+});
+
+test('overlay clamps offscreen endpoints without changing the candle scale', () => {
+  const scale = { low: 98, high: 103, span: 5 };
+  const geometry = Position.positionOverlayGeometry({
+    position: { side: 'BUY', entry: 100, sl: 0, tp: 500 },
+    scale,
+    plot: { top: 20, plotH: 400, startX: 600, endX: 1100 },
+  });
+  assert.equal(geometry.tpY, 20);
+  assert.equal(geometry.slY, 420);
+  assert.equal(geometry.tpOffscreen, true);
+  assert.equal(geometry.slOffscreen, true);
+  assert.deepEqual(scale, { low: 98, high: 103, span: 5 });
+});
+
+test('chart coordinate conversion round trips price and y', () => {
+  const scale = { low: 90, high: 110, span: 20 };
+  assert.equal(Position.priceToChartY(100, scale, 20, 400), 220);
+  assert.equal(Position.chartYToPrice(220, scale, 20, 400), 100);
+});
+
+test('visible replay window never includes future candles and honors zoom count', () => {
+  const candles = Array.from({ length: 200 }, (_, index) => ({ timestamp: index, close: index }));
+  const window = Position.visibleReplayWindow(candles, 75, 20);
+  assert.equal(window.start, 56);
+  assert.equal(window.rows.length, 20);
+  assert.equal(window.rows.at(-1).close, 75);
+  assert.equal(window.rows.some((candle) => candle.close > 75), false);
+});

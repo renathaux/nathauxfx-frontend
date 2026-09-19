@@ -125,6 +125,51 @@
     };
   }
 
+  function priceToChartY(value, scale, top, plotH) {
+    const clamped = clampPriceToScale(value, scale);
+    if (clamped == null) return null;
+    return Number(top) + ((Number(scale.high) - clamped) / Number(scale.span)) * Number(plotH);
+  }
+
+  function chartYToPrice(y, scale, top, plotH) {
+    const boundedY = Math.min(Number(top) + Number(plotH), Math.max(Number(top), Number(y)));
+    return Number(scale.high) - ((boundedY - Number(top)) / Number(plotH)) * Number(scale.span);
+  }
+
+  function positionOverlayGeometry({ position, scale, plot }) {
+    const entry = Number(position.entry);
+    const sl = Number(position.sl);
+    const tp = Number(position.tp);
+    const entryY = priceToChartY(entry, scale, plot.top, plot.plotH);
+    const slY = priceToChartY(sl, scale, plot.top, plot.plotH);
+    const tpY = priceToChartY(tp, scale, plot.top, plot.plotH);
+    const width = Math.max(0, Number(plot.endX) - Number(plot.startX));
+    const rect = (firstY, secondY) => ({
+      x: Number(plot.startX),
+      y: Math.min(firstY, secondY),
+      width,
+      height: Math.abs(secondY - firstY),
+    });
+    return {
+      entryY,
+      slY,
+      tpY,
+      profitRect: rect(entryY, tpY),
+      riskRect: rect(entryY, slY),
+      entryOffscreen: entry < Number(scale.low) || entry > Number(scale.high),
+      slOffscreen: sl < Number(scale.low) || sl > Number(scale.high),
+      tpOffscreen: tp < Number(scale.low) || tp > Number(scale.high),
+    };
+  }
+
+  function visibleReplayWindow(candles, index, count) {
+    const safeIndex = Math.max(0, Math.min(Number(index) || 0, Math.max(0, (candles || []).length - 1)));
+    const size = Math.max(1, Number(count) || 1);
+    const end = safeIndex + 1;
+    const start = Math.max(0, end - size);
+    return { start, end, rows: (candles || []).slice(start, end) };
+  }
+
   return {
     parseOptionalPrice,
     createPositionDraft,
@@ -134,5 +179,9 @@
     clampPriceToScale,
     updateDraftLevel,
     createVirtualTrade,
+    priceToChartY,
+    chartYToPrice,
+    positionOverlayGeometry,
+    visibleReplayWindow,
   };
 });

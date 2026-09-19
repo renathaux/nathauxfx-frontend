@@ -48,6 +48,15 @@ test('manual replay exposes one synchronized long or short draft ticket', () => 
   assert.match(html, /manual-replay-position\.js/);
 });
 
+test('manual replay chart exposes pointer handles only through the position overlay renderer', () => {
+  assert.match(app, /data-position-handle/);
+  assert.match(app, /pointerdown/);
+  assert.match(app, /setPointerCapture/);
+  assert.match(app, /requestAnimationFrame/);
+  assert.match(app, /position-overlay historical/);
+  assert.match(app, /visibleReplayWindow/);
+});
+
 
 test('manual replay static history does not require backend auth', () => {
   assert.doesNotMatch(api, /restoreStandaloneAuth/);
