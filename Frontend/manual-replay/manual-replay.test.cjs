@@ -38,6 +38,45 @@ test('manual replay exposes manual buy sell and close controls', () => {
   assert.match(app, /openManualTrade\('SELL'\)/);
 });
 
+test('manual replay exposes one synchronized long or short draft ticket', () => {
+  for (const id of [
+    'longPositionBtn', 'shortPositionBtn', 'cancelPositionBtn',
+    'draftDirection', 'draftEntry', 'draftRr', 'draftRisk', 'draftReward',
+  ]) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(html, /OPEN BUY/);
+  assert.match(html, /OPEN SELL/);
+  assert.match(html, /manual-replay-position\.js/);
+});
+
+test('manual ticket typing updates draft state without reformatting every keystroke', () => {
+  assert.match(app, /function updateDraftFromInput\(field, inputId\)/);
+  assert.match(app, /addEventListener\('input', \(\) => updateDraftFromInput\('sl', 'slPrice'\)\)/);
+  assert.match(app, /addEventListener\('change', commitDraftInputs\)/);
+});
+
+test('manual replay chart exposes pointer handles only through the position overlay renderer', () => {
+  assert.match(app, /data-position-handle/);
+  assert.match(app, /options\.draggable\s*&&\s*\['sl',\s*'tp'\]\.includes\(field\)/);
+  assert.match(app, /pointerdown/);
+  assert.match(app, /setPointerCapture/);
+  assert.match(app, /requestAnimationFrame/);
+  assert.match(app, /position-overlay historical/);
+  assert.match(app, /visibleReplayWindow/);
+});
+
+test('position overlay reserves empty right-side room without loading future candles', () => {
+  assert.match(app, /const futureSlots = Math\.max\(8, Math\.ceil\(rows\.length \* 0\.18\)\)/);
+  assert.match(app, /plotW \/ Math\.max\(rows\.length \+ futureSlots, 1\)/);
+});
+
+test('position tools expose pressed state and coarse-pointer touch targets', () => {
+  assert.match(html, /id="longPositionBtn"[^>]+aria-pressed="false"/);
+  assert.match(html, /id="shortPositionBtn"[^>]+aria-pressed="false"/);
+  assert.match(app, /setAttribute\('aria-pressed'/);
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(css, /@media\s*\(pointer:coarse\)/);
+});
+
 
 test('manual replay static history does not require backend auth', () => {
   assert.doesNotMatch(api, /restoreStandaloneAuth/);
