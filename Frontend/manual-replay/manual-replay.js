@@ -174,10 +174,11 @@
     if (state.openTrade) return notice('Close the current virtual position first.', 'error');
     const candle = currentCandle();
     const entry = Number(candle.close);
-    const sl = Number($('slPrice').value);
+    const slRaw = $('slPrice').value.trim();
+    const sl = slRaw === '' ? null : Number(slRaw);
     const tpRaw = $('tpPrice').value.trim();
     const tp = tpRaw === '' ? null : Number(tpRaw);
-    if (!Number.isFinite(sl)) return notice('Enter a valid Stop Loss.', 'error');
+    if (sl == null || !Number.isFinite(sl)) return notice('Enter a valid Stop Loss.', 'error');
     if (side === 'BUY' && sl >= entry) return notice('BUY stop loss must be below the entry.', 'error');
     if (side === 'SELL' && sl <= entry) return notice('SELL stop loss must be above the entry.', 'error');
     if (tp != null && !Number.isFinite(tp)) return notice('Take Profit is invalid.', 'error');
@@ -277,19 +278,20 @@
     const rows = state.candles.slice(start, end);
     const levels = [];
 
-    const draftSl = Number($('slPrice').value);
+    const draftSlRaw = $('slPrice').value.trim();
+    const draftSl = draftSlRaw === '' ? null : Number(draftSlRaw);
     const draftTpRaw = $('tpPrice').value.trim();
     const draftTp = draftTpRaw === '' ? null : Number(draftTpRaw);
 
     if (state.openTrade) {
       levels.push(state.openTrade.entry, state.openTrade.sl, ...(state.openTrade.tp == null ? [] : [state.openTrade.tp]));
     } else {
-      if (Number.isFinite(draftSl)) levels.push(draftSl);
-      if (Number.isFinite(draftTp)) levels.push(draftTp);
+      if (draftSl != null && Number.isFinite(draftSl)) levels.push(draftSl);
+      if (draftTp != null && Number.isFinite(draftTp)) levels.push(draftTp);
     }
 
-    const rawLow = Math.min(...rows.map((c) => Number(c.low)), ...levels);
-    const rawHigh = Math.max(...rows.map((c) => Number(c.high)), ...levels);
+    const rawLow = Math.min(...rows.map((c) => Number(c.low)));
+    const rawHigh = Math.max(...rows.map((c) => Number(c.high)));
     const rawSpan = rawHigh - rawLow || Math.max(Math.abs(rawHigh) * 0.001, 0.0001);
     const padding = rawSpan * 0.07;
     const low = rawLow - padding;
@@ -324,11 +326,12 @@
     const line = (value, cls, label) => `<line class="level ${cls}" x1="${left}" y1="${y(value)}" x2="${width-right}" y2="${y(value)}"/><text class="level-label ${cls}" x="${left+8}" y="${Math.max(top+13, y(value)-6)}">${label} ${price(value)}</text>`;
     if (state.openTrade) {
       const t = state.openTrade;
-      out += line(t.entry, 'entry', 'ENTRY') + line(t.sl, 'sl', 'SL');
-      if (t.tp != null) out += line(t.tp, 'tp', 'TP');
+      if (t.entry >= low && t.entry <= high) out += line(t.entry, 'entry', 'ENTRY');
+      if (t.sl >= low && t.sl <= high) out += line(t.sl, 'sl', 'SL');
+      if (t.tp != null && t.tp >= low && t.tp <= high) out += line(t.tp, 'tp', 'TP');
     } else {
-      if (Number.isFinite(draftSl)) out += line(draftSl, 'sl', 'SL');
-      if (Number.isFinite(draftTp)) out += line(draftTp, 'tp', 'TP');
+      if (draftSl != null && Number.isFinite(draftSl) && draftSl >= low && draftSl <= high) out += line(draftSl, 'sl', 'SL');
+      if (draftTp != null && Number.isFinite(draftTp) && draftTp >= low && draftTp <= high) out += line(draftTp, 'tp', 'TP');
     }
 
     const current = Number(currentCandle().close);
@@ -403,6 +406,8 @@
       state.maxDrawdown = 0;
       state.visibleCandles = 120;
       state.hoverPrice = null;
+      $('slPrice').value = '';
+      $('tpPrice').value = '';
       setActivePriceField('slPrice');
       $('chartTitle').textContent = `${result.symbol} • ${result.timeframe} • Manual Replay`;
       $('chartMeta').textContent = `${result.candles.length.toLocaleString()} closed candles • static replay data • future candles hidden • strategy required: NO`;
@@ -428,6 +433,10 @@
     state.balance = starting;
     state.peak = starting;
     state.maxDrawdown = 0;
+    $('slPrice').value = '';
+    $('tpPrice').value = '';
+    state.hoverPrice = null;
+    setActivePriceField('slPrice');
     notice('Manual session reset.', 'success');
     renderAll();
   }
