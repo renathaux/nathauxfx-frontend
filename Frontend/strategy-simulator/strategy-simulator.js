@@ -180,6 +180,8 @@
       if (new Date(end) <= new Date(start)) throw new Error('End must be after start.');
       const payload = Model.buildRunPayload({
         strategyId: state.strategy.strategy_id,
+        strategyName: state.strategy.name || null,
+        strategyDefinition: state.strategy.definition,
         symbol: $('symbolSelect').value,
         start, end, mode,
         riskOverride: riskOverride(),
@@ -187,7 +189,7 @@
       setBusy(true, mode === 'REPLAY' ? 'Building replay…' : 'Running backtest…');
       const result = await Api.runSimulation(payload);
       renderResult(result);
-      notice(`${mode === 'REPLAY' ? 'Replay' : 'Fast Run'} complete for ${result.symbol}.`, 'success');
+      notice(`${mode === 'REPLAY' ? 'Replay' : 'Fast Run'} complete for ${result.symbol} using static candle data.`, 'success');
     } catch (error) {
       notice(error.message || 'Simulation failed.', 'error');
     } finally {
@@ -212,7 +214,7 @@
       const symbols = strategy.definition?.symbols || [];
       $('symbolSelect').innerHTML = symbols.map((symbol) => `<option value="${escapeHtml(symbol)}">${escapeHtml(symbol)}</option>`).join('');
       const risk = strategy.definition?.risk || {};
-      $('strategyMeta').textContent = `${symbols.join(' + ')} • ${strategy.definition?.trading_timeframe || '—'} • saved risk ${risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : `$${risk.value || '—'}`} • Simulator only; this does not enable LIVE trading.`;
+      $('strategyMeta').textContent = `${symbols.join(' + ')} • ${strategy.definition?.trading_timeframe || '—'} • saved risk ${risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : `${risk.value || '—'}`} • static replay candles • no Neon candle history reads • Simulator only.`;
     } catch (error) {
       notice(error.message || 'Saved strategy could not be loaded.', 'error');
     } finally {
