@@ -325,6 +325,10 @@
     $('sellBtn').disabled = !ready || draft.side !== 'SELL';
     $('longPositionBtn').disabled = !state.candles.length || Boolean(trade);
     $('shortPositionBtn').disabled = !state.candles.length || Boolean(trade);
+    $('longPositionBtn').setAttribute('aria-pressed', String(Boolean(draft && draft.side === 'BUY')));
+    $('shortPositionBtn').setAttribute('aria-pressed', String(Boolean(draft && draft.side === 'SELL')));
+    $('longPositionBtn').classList.toggle('is-active', Boolean(draft && draft.side === 'BUY'));
+    $('shortPositionBtn').classList.toggle('is-active', Boolean(draft && draft.side === 'SELL'));
     $('cancelPositionBtn').disabled = !draft || Boolean(trade);
     $('slPrice').disabled = !draft || Boolean(trade);
     $('tpPrice').disabled = !draft || Boolean(trade);
@@ -381,7 +385,7 @@
     </g>`;
     const line = (field, value, y, cls, offscreen) => {
       const arrow = offscreen ? (Number(value) > options.scale.high ? '↑ ' : '↓ ') : '';
-      const handle = options.draggable
+      const handle = options.draggable && ['sl', 'tp'].includes(field)
         ? `<circle class="position-handle ${cls}" data-position-handle="${field}" cx="${options.endX - 8}" cy="${y}" r="9" aria-label="Drag ${field.toUpperCase()}"/>`
         : '';
       return `<line class="position-line ${cls}" x1="${options.startX}" y1="${y}" x2="${options.endX}" y2="${y}"/>

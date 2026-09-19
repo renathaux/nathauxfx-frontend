@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101f">
   <title>NathauxFX — Manual Replay</title>
-  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=3">
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=4">
   <style>
     .nav-actions .button.is-active {
       border-color: #f5bd48;
@@ -58,8 +58,8 @@
           </div>
         </div>
         <div class="position-tools" role="toolbar" aria-label="Position drawing tools">
-          <button id="longPositionBtn" class="button position-tool long" type="button">↗ Long Position</button>
-          <button id="shortPositionBtn" class="button position-tool short" type="button">↘ Short Position</button>
+          <button id="longPositionBtn" class="button position-tool long" type="button" aria-pressed="false">↗ Long Position</button>
+          <button id="shortPositionBtn" class="button position-tool short" type="button" aria-pressed="false">↘ Short Position</button>
           <button id="cancelPositionBtn" class="button ghost position-tool" type="button" disabled>✕ Cancel Draft</button>
         </div>
         <div class="chart-wrap"><svg id="chart" viewBox="0 0 1200 520" role="img" aria-label="Manual replay candlestick chart"></svg></div>
@@ -132,7 +132,7 @@
 
   <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
-  <script src="/manual-replay/manual-replay-position.js?v=1"></script>
-  <script src="/manual-replay/manual-replay.js?v=5"></script>
+  <script src="/manual-replay/manual-replay-position.js?v=2"></script>
+  <script src="/manual-replay/manual-replay.js?v=6"></script>
 </body>
 </html>

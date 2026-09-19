@@ -50,11 +50,20 @@ test('manual replay exposes one synchronized long or short draft ticket', () => 
 
 test('manual replay chart exposes pointer handles only through the position overlay renderer', () => {
   assert.match(app, /data-position-handle/);
+  assert.match(app, /options\.draggable\s*&&\s*\['sl',\s*'tp'\]\.includes\(field\)/);
   assert.match(app, /pointerdown/);
   assert.match(app, /setPointerCapture/);
   assert.match(app, /requestAnimationFrame/);
   assert.match(app, /position-overlay historical/);
   assert.match(app, /visibleReplayWindow/);
+});
+
+test('position tools expose pressed state and coarse-pointer touch targets', () => {
+  assert.match(html, /id="longPositionBtn"[^>]+aria-pressed="false"/);
+  assert.match(html, /id="shortPositionBtn"[^>]+aria-pressed="false"/);
+  assert.match(app, /setAttribute\('aria-pressed'/);
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(css, /@media\s*\(pointer:coarse\)/);
 });
 
 

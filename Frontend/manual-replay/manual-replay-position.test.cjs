@@ -166,3 +166,28 @@ test('visible replay window never includes future candles and honors zoom count'
   assert.equal(window.rows.at(-1).close, 75);
   assert.equal(window.rows.some((candle) => candle.close > 75), false);
 });
+
+test('draft, drag, metrics, and virtual opening are local-only operations', () => {
+  let networkCalls = 0;
+  const originalFetch = global.fetch;
+  global.fetch = () => { networkCalls += 1; throw new Error('network forbidden'); };
+  try {
+    let draft = Position.createPositionDraft({
+      side: 'BUY', entry: 100, visibleLow: 90, visibleHigh: 110, minimumDisplayDistance: 1,
+    });
+    draft = Position.updateDraftLevel(draft, 'sl', 95, 1);
+    draft = Position.updateDraftLevel(draft, 'tp', 110, 1);
+    const metrics = Position.calculatePositionMetrics({
+      draft, riskMethod: 'PERCENT', riskValue: 1, balance: 10000,
+    });
+    const trade = Position.createVirtualTrade({
+      draft, currentClose: 100, entryIndex: 3,
+      entryTime: '2026-09-19T12:00:00.000Z', riskDollars: metrics.riskDollars,
+    });
+    assert.equal(trade.side, 'BUY');
+    assert.equal(metrics.rewardDollars, 200);
+    assert.equal(networkCalls, 0);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
