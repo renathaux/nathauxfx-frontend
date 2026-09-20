@@ -99,8 +99,11 @@
   }
 
   function viewportWindow() {
-    const count = clampedVisibleCount();
     const maxEnd = revealedEnd();
+    const count = Math.min(
+      clampedVisibleCount(),
+      Math.max(MIN_VISIBLE_CANDLES, maxEnd)
+    );
     const end = state.viewEnd == null
       ? maxEnd
       : clampViewEnd(state.viewEnd, count);
@@ -566,9 +569,12 @@
 
     const overlays = [];
     for (const trade of state.trades.slice(-5)) {
-      if (Number(trade.exitIndex) < start || Number(trade.entryIndex) > state.index) continue;
+      if (Number(trade.exitIndex) < start || Number(trade.entryIndex) >= end) continue;
       const tradeStartX = xForIndex(Math.max(start, Number(trade.entryIndex)));
-      const tradeEndX = Math.max(tradeStartX + 28, xForIndex(Math.min(state.index, Number(trade.exitIndex))));
+      const tradeEndX = Math.max(
+        tradeStartX + 28,
+        xForIndex(Math.min(end - 1, Number(trade.exitIndex)))
+      );
       overlays.push(renderPositionOverlay(trade, {
         scale, top, plotH, startX: tradeStartX, endX: tradeEndX,
         historical: true, active: false, draggable: false,
@@ -944,6 +950,9 @@
 
   chart.addEventListener('dblclick', (event) => {
     if (!state.candles.length) return;
+    const point = chartPoint(event);
+    const metrics = state.chartMetrics;
+    if (!point || !metrics || point.x <= metrics.width - metrics.right) return;
     event.preventDefault();
     state.suppressChartClick = true;
     resetChartViewport();
