@@ -91,25 +91,23 @@
     );
   }
 
-  function clampViewEnd(rawEnd, count = clampedVisibleCount()) {
+  function clampViewEnd(rawEnd) {
     const maxEnd = revealedEnd();
     if (maxEnd <= 0) return 0;
-    const minimumEnd = Math.min(maxEnd, count);
-    return Math.max(minimumEnd, Math.min(Math.round(Number(rawEnd) || maxEnd), maxEnd));
+    return Math.max(1, Math.min(Math.round(Number(rawEnd) || maxEnd), maxEnd));
   }
 
   function viewportWindow() {
     const maxEnd = revealedEnd();
-    const count = Math.min(
-      clampedVisibleCount(),
-      Math.max(MIN_VISIBLE_CANDLES, maxEnd)
-    );
+    const count = clampedVisibleCount();
     const end = state.viewEnd == null
       ? maxEnd
-      : clampViewEnd(state.viewEnd, count);
-    const start = Math.max(0, end - count);
+      : clampViewEnd(state.viewEnd);
+    const viewStart = end - count;
+    const start = Math.max(0, viewStart);
     return {
       start,
+      viewStart,
       end,
       rows: state.candles.slice(start, end),
       count,
@@ -250,10 +248,9 @@
     if (!state.candles.length) return;
     const currentWindow = viewportWindow();
     const currentCount = currentWindow.count;
-    const maxRevealed = Math.max(MIN_VISIBLE_CANDLES, revealedEnd());
     const next = direction < 0
       ? Math.max(MIN_VISIBLE_CANDLES, Math.round(currentCount * 0.82))
-      : Math.min(Math.min(MAX_VISIBLE_CANDLES, maxRevealed), Math.round(currentCount * 1.22));
+      : Math.min(MAX_VISIBLE_CANDLES, Math.round(currentCount * 1.22));
 
     if (next === currentCount) return;
 
@@ -264,16 +261,12 @@
       ratio = Math.max(0, Math.min(1, (Number(anchorX) - metrics.left) / candleWidth));
     }
 
-    const oldSpan = Math.max(1, currentWindow.end - currentWindow.start);
-    const anchorIndex = currentWindow.start + ratio * oldSpan;
+    const oldSpan = Math.max(1, currentWindow.count);
+    const anchorIndex = currentWindow.viewStart + ratio * oldSpan;
     let nextEnd = anchorIndex + (1 - ratio) * next;
 
     const maxEnd = revealedEnd();
-    if (maxEnd <= next) {
-      nextEnd = maxEnd;
-    } else {
-      nextEnd = Math.max(next, Math.min(nextEnd, maxEnd));
-    }
+    nextEnd = Math.max(1, Math.min(nextEnd, maxEnd));
 
     state.visibleCandles = next;
     state.viewEnd = Math.abs(nextEnd - maxEnd) < 0.5 ? null : Math.round(nextEnd);
@@ -286,7 +279,7 @@
     const window = viewportWindow();
     const maxEnd = revealedEnd();
     const currentEnd = window.end;
-    const nextEnd = clampViewEnd(currentEnd + Number(deltaBars || 0), window.count);
+    const nextEnd = clampViewEnd(currentEnd + Number(deltaBars || 0));
     state.viewEnd = nextEnd >= maxEnd ? null : nextEnd;
     state.hoverPrice = state.hoverX = state.hoverY = null;
     renderChart();
@@ -541,23 +534,23 @@
     }
 
     const window = viewportWindow();
-    const { start, end, rows, followingLatest } = window;
+    const { start, viewStart, end, rows, count, followingLatest } = window;
     const scale = effectivePriceScale(rows);
     if (!scale) return;
     const { low, high, span } = scale;
 
     const width = 1200, height = 520, left = 58, right = 92, top = 24, bottom = 42;
     const plotW = width - left - right, plotH = height - top - bottom;
-    const futureSlots = followingLatest ? Math.max(8, Math.ceil(rows.length * 0.18)) : 0;
-    const slot = plotW / Math.max(rows.length + futureSlots, 1);
-    const candlePlotW = slot * rows.length;
+    const futureSlots = followingLatest ? Math.max(8, Math.ceil(count * 0.12)) : 0;
+    const slot = plotW / Math.max(count + futureSlots, 1);
+    const candlePlotW = slot * count;
     const y = (value) => Position.priceToChartY(value, scale, top, plotH);
-    const xForIndex = (index) => left + slot * (Number(index) - start) + slot / 2;
-    const isIndexVisible = (index) => Number(index) >= start && Number(index) < end;
+    const xForIndex = (index) => left + slot * (Number(index) - viewStart) + slot / 2;
+    const isIndexVisible = (index) => Number(index) >= viewStart && Number(index) < end;
     state.chartMetrics = {
       width, height, left, right, top, bottom, plotW, plotH,
       candlePlotW, low, high, span, scale, start, end,
-      rows: rows.length, slot, followingLatest,
+      rows: rows.length, count, viewStart, slot, followingLatest,
     };
 
     let out = '';
@@ -596,12 +589,13 @@
     out += overlays.map((overlay) => overlay.zones).join('');
 
     rows.forEach((c, i) => {
-      const x = left + slot * i + slot / 2;
+      const absoluteIndex = start + i;
+      const x = xForIndex(absoluteIndex);
       const openY = y(c.open), closeY = y(c.close), highY = y(c.high), lowY = y(c.low);
       const down = Number(c.close) < Number(c.open);
       const bodyY = Math.min(openY, closeY), bodyH = Math.max(Math.abs(closeY - openY), 2);
       out += `<line class="wick" x1="${x}" y1="${highY}" x2="${x}" y2="${lowY}"/><rect class="body ${down ? 'down' : 'up'}" x="${x-Math.max(2,slot*.28)}" y="${bodyY}" width="${Math.max(4,slot*.56)}" height="${bodyH}" rx="1"/>`;
-      const timeEvery = rows.length <= 40 ? 8 : rows.length <= 80 ? 12 : 20;
+      const timeEvery = count <= 40 ? 6 : count <= 80 ? 10 : count <= 160 ? 16 : 28;
       if (i % timeEvery === 0 || i === rows.length - 1) {
         out += `<text class="axis time" x="${x}" y="${height-14}" text-anchor="middle">${new Date(c.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</text>`;
       }
@@ -834,8 +828,7 @@
     } else {
       const barsPerPixel = gesture.startCount / Math.max(metrics.candlePlotW || metrics.plotW, 1);
       const nextEnd = clampViewEnd(
-        gesture.startViewEnd - dx * barsPerPixel,
-        gesture.startCount
+        gesture.startViewEnd - dx * barsPerPixel
       );
       state.viewEnd = nextEnd >= revealedEnd() ? null : nextEnd;
       state.manualPriceCenter = gesture.startCenter + (dy / Math.max(metrics.plotH, 1)) * gesture.startSpan;
