@@ -27,3 +27,5 @@
 #manualLayoutToast{position:fixed!important;right:20px!important;bottom:82px!important;z-index:2147483647!important;padding:9px 13px!important;border-radius:8px!important;background:#0b2440!important;color:#fff!important;opacity:0!important;transform:translateY(8px)!important;transition:.18s!important;pointer-events:none!important}
 #manualLayoutToast.show{opacity:1!important;transform:translateY(0)!important}
 @media(max-width:900px){#manualLayoutToolbar{left:8px!important;right:8px!important;bottom:8px!important;flex-wrap:wrap!important}#manualLayoutToolbar strong,#manualLayoutToolbar .manual-layout-help{width:100%!important;max-width:none!important}}
+
+#chart{touch-action:none}#chart:active{cursor:grabbing}.chart-wrap{overscroll-behavior:contain}

@@ -18,6 +18,11 @@
     maxDrawdown: 0,
     busy: false,
     visibleCandles: 120,
+    viewEnd: null,
+    manualPriceCenter: null,
+    manualPriceSpan: null,
+    chartGesture: null,
+    chartGesturePointerId: null,
     hoverPrice: null,
     hoverX: null,
     hoverY: null,
@@ -72,9 +77,78 @@
     return state.candles[state.index] || null;
   }
 
+  const MIN_VISIBLE_CANDLES = 10;
+  const MAX_VISIBLE_CANDLES = 1000;
+
+  function revealedEnd() {
+    return Math.max(0, Math.min(state.index + 1, state.candles.length));
+  }
+
+  function clampedVisibleCount(raw = state.visibleCandles) {
+    return Math.max(
+      MIN_VISIBLE_CANDLES,
+      Math.min(Math.round(Number(raw) || 120), MAX_VISIBLE_CANDLES)
+    );
+  }
+
+  function clampViewEnd(rawEnd, count = clampedVisibleCount()) {
+    const maxEnd = revealedEnd();
+    if (maxEnd <= 0) return 0;
+    const minimumEnd = Math.min(maxEnd, count);
+    return Math.max(minimumEnd, Math.min(Math.round(Number(rawEnd) || maxEnd), maxEnd));
+  }
+
+  function viewportWindow() {
+    const maxEnd = revealedEnd();
+    const count = Math.min(
+      clampedVisibleCount(),
+      Math.max(MIN_VISIBLE_CANDLES, maxEnd)
+    );
+    const end = state.viewEnd == null
+      ? maxEnd
+      : clampViewEnd(state.viewEnd, count);
+    const start = Math.max(0, end - count);
+    return {
+      start,
+      end,
+      rows: state.candles.slice(start, end),
+      count,
+      followingLatest: state.viewEnd == null || end >= maxEnd,
+    };
+  }
+
   function visibleRows() {
-    const count = Math.max(20, Math.min(Number(state.visibleCandles) || 120, 300));
-    return Position.visibleReplayWindow(state.candles, state.index, count).rows;
+    return viewportWindow().rows;
+  }
+
+  function resetChartViewport() {
+    state.visibleCandles = 120;
+    state.viewEnd = null;
+    state.manualPriceCenter = null;
+    state.manualPriceSpan = null;
+    state.chartGesture = null;
+    state.chartGesturePointerId = null;
+    state.hoverPrice = state.hoverX = state.hoverY = null;
+  }
+
+  function effectivePriceScale(rows) {
+    const base = Position.visibleCandleScale(rows);
+    if (!base) return null;
+    if (
+      !Number.isFinite(Number(state.manualPriceCenter)) ||
+      !Number.isFinite(Number(state.manualPriceSpan)) ||
+      Number(state.manualPriceSpan) <= 0
+    ) {
+      return base;
+    }
+    const span = Number(state.manualPriceSpan);
+    const center = Number(state.manualPriceCenter);
+    return {
+      ...base,
+      low: center - span / 2,
+      high: center + span / 2,
+      span,
+    };
   }
 
   function minimumPriceDistance(entry) {
@@ -172,15 +246,49 @@
     }
   }
 
-  function zoomChart(direction) {
+  function zoomChart(direction, anchorX = null) {
     if (!state.candles.length) return;
-    const current = Math.max(20, Math.min(Number(state.visibleCandles) || 120, 300));
+    const currentWindow = viewportWindow();
+    const currentCount = currentWindow.count;
+    const maxRevealed = Math.max(MIN_VISIBLE_CANDLES, revealedEnd());
     const next = direction < 0
-      ? Math.max(20, Math.round(current * 0.8))
-      : Math.min(300, Math.round(current * 1.25));
-    if (next === current) return;
+      ? Math.max(MIN_VISIBLE_CANDLES, Math.round(currentCount * 0.82))
+      : Math.min(Math.min(MAX_VISIBLE_CANDLES, maxRevealed), Math.round(currentCount * 1.22));
+
+    if (next === currentCount) return;
+
+    const metrics = state.chartMetrics;
+    let ratio = 0.5;
+    if (metrics && Number.isFinite(Number(anchorX))) {
+      const candleWidth = Math.max(1, metrics.candlePlotW || metrics.plotW);
+      ratio = Math.max(0, Math.min(1, (Number(anchorX) - metrics.left) / candleWidth));
+    }
+
+    const oldSpan = Math.max(1, currentWindow.end - currentWindow.start);
+    const anchorIndex = currentWindow.start + ratio * oldSpan;
+    let nextEnd = anchorIndex + (1 - ratio) * next;
+
+    const maxEnd = revealedEnd();
+    if (maxEnd <= next) {
+      nextEnd = maxEnd;
+    } else {
+      nextEnd = Math.max(next, Math.min(nextEnd, maxEnd));
+    }
+
     state.visibleCandles = next;
-    state.hoverPrice = null;
+    state.viewEnd = Math.abs(nextEnd - maxEnd) < 0.5 ? null : Math.round(nextEnd);
+    state.hoverPrice = state.hoverX = state.hoverY = null;
+    renderChart();
+  }
+
+  function panViewportByBars(deltaBars) {
+    if (!state.candles.length) return;
+    const window = viewportWindow();
+    const maxEnd = revealedEnd();
+    const currentEnd = window.end;
+    const nextEnd = clampViewEnd(currentEnd + Number(deltaBars || 0), window.count);
+    state.viewEnd = nextEnd >= maxEnd ? null : nextEnd;
+    state.hoverPrice = state.hoverX = state.hoverY = null;
     renderChart();
   }
 
@@ -432,19 +540,25 @@
       return;
     }
 
-    const visible = Math.max(20, Math.min(Number(state.visibleCandles) || 120, 300));
-    const window = Position.visibleReplayWindow(state.candles, state.index, visible);
-    const { start, rows } = window;
-    const scale = Position.visibleCandleScale(rows);
+    const window = viewportWindow();
+    const { start, end, rows, followingLatest } = window;
+    const scale = effectivePriceScale(rows);
+    if (!scale) return;
     const { low, high, span } = scale;
 
     const width = 1200, height = 520, left = 58, right = 92, top = 24, bottom = 42;
     const plotW = width - left - right, plotH = height - top - bottom;
-    const futureSlots = Math.max(8, Math.ceil(rows.length * 0.18));
+    const futureSlots = followingLatest ? Math.max(8, Math.ceil(rows.length * 0.18)) : 0;
     const slot = plotW / Math.max(rows.length + futureSlots, 1);
+    const candlePlotW = slot * rows.length;
     const y = (value) => Position.priceToChartY(value, scale, top, plotH);
-    const xForIndex = (index) => Math.min(width - right, Math.max(left, left + slot * (Number(index) - start) + slot / 2));
-    state.chartMetrics = { width, height, left, right, top, bottom, plotW, plotH, low, high, span, scale, start, rows: rows.length };
+    const xForIndex = (index) => left + slot * (Number(index) - start) + slot / 2;
+    const isIndexVisible = (index) => Number(index) >= start && Number(index) < end;
+    state.chartMetrics = {
+      width, height, left, right, top, bottom, plotW, plotH,
+      candlePlotW, low, high, span, scale, start, end,
+      rows: rows.length, slot, followingLatest,
+    };
 
     let out = '';
     for (let i = 0; i <= 6; i++) {
@@ -455,20 +569,25 @@
 
     const overlays = [];
     for (const trade of state.trades.slice(-5)) {
-      if (Number(trade.exitIndex) < start || Number(trade.entryIndex) > state.index) continue;
+      if (Number(trade.exitIndex) < start || Number(trade.entryIndex) >= end) continue;
       const tradeStartX = xForIndex(Math.max(start, Number(trade.entryIndex)));
-      const tradeEndX = Math.max(tradeStartX + 28, xForIndex(Math.min(state.index, Number(trade.exitIndex))));
+      const tradeEndX = Math.max(
+        tradeStartX + 28,
+        xForIndex(Math.min(end - 1, Number(trade.exitIndex)))
+      );
       overlays.push(renderPositionOverlay(trade, {
         scale, top, plotH, startX: tradeStartX, endX: tradeEndX,
         historical: true, active: false, draggable: false,
       }));
     }
-    if (state.openTrade) {
+    if (state.openTrade && Number(state.openTrade.entryIndex) < end) {
       overlays.push(renderPositionOverlay(state.openTrade, {
-        scale, top, plotH, startX: xForIndex(state.openTrade.entryIndex), endX: width - right,
+        scale, top, plotH,
+        startX: Math.max(left, xForIndex(Math.max(start, Number(state.openTrade.entryIndex)))),
+        endX: width - right,
         historical: false, active: true, draggable: false,
       }));
-    } else if (state.positionDraft) {
+    } else if (state.positionDraft && isIndexVisible(state.index)) {
       overlays.push(renderPositionOverlay(state.positionDraft, {
         scale, top, plotH, startX: xForIndex(state.index), endX: width - right,
         historical: false, active: false, draggable: true,
@@ -493,7 +612,9 @@
     const current = Number(currentCandle().close);
     const currentY = y(current);
     const currentX = xForIndex(state.index);
-    out += `<line class="current-line" x1="${currentX}" y1="${top}" x2="${currentX}" y2="${height-bottom}"/>`;
+    if (isIndexVisible(state.index)) {
+      out += `<line class="current-line" x1="${currentX}" y1="${top}" x2="${currentX}" y2="${height-bottom}"/>`;
+    }
     out += `<line class="current-price-line" x1="${left}" y1="${currentY}" x2="${width-right}" y2="${currentY}"/>`;
     out += `<rect class="current-price-badge" x="${width-right-70}" y="${currentY-10}" width="70" height="20" rx="4"/><text class="current-price-text" x="${width-right-35}" y="${currentY+4}" text-anchor="middle">${price(current)}</text>`;
 
@@ -562,8 +683,7 @@
       state.balance = starting;
       state.peak = starting;
       state.maxDrawdown = 0;
-      state.visibleCandles = 120;
-      state.hoverPrice = null;
+      resetChartViewport();
       $('slPrice').value = '';
       $('tpPrice').value = '';
       setActivePriceField('slPrice');
@@ -592,6 +712,7 @@
     state.balance = starting;
     state.peak = starting;
     state.maxDrawdown = 0;
+    resetChartViewport();
     $('slPrice').value = '';
     $('tpPrice').value = '';
     state.hoverPrice = null;
@@ -658,6 +779,88 @@
     return true;
   }
 
+  function beginChartGesture(event) {
+    if (!state.candles.length || state.draggingHandle) return false;
+    const metrics = state.chartMetrics;
+    const point = chartPoint(event);
+    if (!metrics || !point) return false;
+
+    const onPriceAxis = point.x > metrics.width - metrics.right;
+    const inPlot = (
+      point.x >= metrics.left &&
+      point.x <= metrics.width - metrics.right &&
+      point.y >= metrics.top &&
+      point.y <= metrics.height - metrics.bottom
+    );
+    if (!onPriceAxis && !inPlot) return false;
+
+    const window = viewportWindow();
+    const currentCenter = (metrics.scale.low + metrics.scale.high) / 2;
+    const currentSpan = metrics.scale.span;
+
+    state.chartGesture = {
+      mode: onPriceAxis ? 'price-scale' : 'pan',
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startViewEnd: window.end,
+      startCount: window.count,
+      startCenter: currentCenter,
+      startSpan: currentSpan,
+      moved: false,
+    };
+    state.chartGesturePointerId = event.pointerId;
+    state.hoverPrice = state.hoverX = state.hoverY = null;
+    $('chart').setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+    return true;
+  }
+
+  function updateChartGesture(event) {
+    const gesture = state.chartGesture;
+    const metrics = state.chartMetrics;
+    if (!gesture || !metrics) return false;
+
+    const dx = event.clientX - gesture.startClientX;
+    const dy = event.clientY - gesture.startClientY;
+    if (!gesture.moved && Math.hypot(dx, dy) >= 4) gesture.moved = true;
+
+    if (gesture.mode === 'price-scale') {
+      const factor = Math.exp(dy / 180);
+      state.manualPriceCenter = gesture.startCenter;
+      state.manualPriceSpan = Math.max(
+        gesture.startSpan * 0.08,
+        Math.min(gesture.startSpan * 12, gesture.startSpan * factor)
+      );
+    } else {
+      const barsPerPixel = gesture.startCount / Math.max(metrics.candlePlotW || metrics.plotW, 1);
+      const nextEnd = clampViewEnd(
+        gesture.startViewEnd - dx * barsPerPixel,
+        gesture.startCount
+      );
+      state.viewEnd = nextEnd >= revealedEnd() ? null : nextEnd;
+      state.manualPriceCenter = gesture.startCenter + (dy / Math.max(metrics.plotH, 1)) * gesture.startSpan;
+      state.manualPriceSpan = gesture.startSpan;
+    }
+
+    renderChart();
+    event.preventDefault();
+    return true;
+  }
+
+  function endChartGesture(event) {
+    const gesture = state.chartGesture;
+    if (!gesture) return false;
+    if (state.chartGesturePointerId != null) {
+      $('chart').releasePointerCapture?.(state.chartGesturePointerId);
+    }
+    if (gesture.moved) state.suppressChartClick = true;
+    state.chartGesture = null;
+    state.chartGesturePointerId = null;
+    renderChart();
+    event?.preventDefault?.();
+    return true;
+  }
+
   $('loadBtn').addEventListener('click', loadReplay);
   $('nextBtn').addEventListener('click', () => { stopTimer(); advanceOne(); });
   $('prevBtn').addEventListener('click', () => {
@@ -667,8 +870,8 @@
   });
   $('playBtn').addEventListener('click', () => state.timer ? stopTimer() : setPlaying());
   $('speed').addEventListener('change', () => { if (state.timer) setPlaying(); });
-  $('zoomInBtn').addEventListener('click', () => zoomChart(-1));
-  $('zoomOutBtn').addEventListener('click', () => zoomChart(1));
+  $('zoomInBtn').addEventListener('click', () => zoomChart(-1, null));
+  $('zoomOutBtn').addEventListener('click', () => zoomChart(1, null));
 
   $('slPrice').addEventListener('focus', () => setActivePriceField('slPrice'));
   $('tpPrice').addEventListener('focus', () => setActivePriceField('tpPrice'));
@@ -685,14 +888,29 @@
   const chart = $('chart');
   chart.addEventListener('wheel', (event) => {
     if (!state.candles.length) return;
+    const point = chartPoint(event);
     event.preventDefault();
-    zoomChart(event.deltaY < 0 ? -1 : 1);
+
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY) * 1.15) {
+      const metrics = state.chartMetrics;
+      if (!metrics) return;
+      const bars = event.deltaX * viewportWindow().count / Math.max(metrics.candlePlotW || metrics.plotW, 1);
+      panViewportByBars(bars);
+      return;
+    }
+
+    zoomChart(event.deltaY < 0 ? -1 : 1, point?.x ?? null);
   }, { passive: false });
 
-  chart.addEventListener('pointerdown', beginHandleDrag);
+  chart.addEventListener('pointerdown', (event) => {
+    if (beginHandleDrag(event)) return;
+    beginChartGesture(event);
+  });
 
   chart.addEventListener('pointermove', (event) => {
     if (updateHandleDrag(event)) return;
+    if (updateChartGesture(event)) return;
+
     const metrics = state.chartMetrics;
     if (!metrics || !state.candles.length) return;
     const point = chartPoint(event);
@@ -715,14 +933,31 @@
   });
 
   chart.addEventListener('pointerleave', () => {
-    if (state.draggingHandle) return;
+    if (state.draggingHandle || state.chartGesture) return;
     if (state.hoverPrice == null) return;
     state.hoverPrice = state.hoverX = state.hoverY = null;
     renderChart();
   });
 
-  chart.addEventListener('pointerup', endHandleDrag);
-  chart.addEventListener('pointercancel', endHandleDrag);
+  chart.addEventListener('pointerup', (event) => {
+    if (endHandleDrag(event)) return;
+    endChartGesture(event);
+  });
+  chart.addEventListener('pointercancel', (event) => {
+    if (endHandleDrag(event)) return;
+    endChartGesture(event);
+  });
+
+  chart.addEventListener('dblclick', (event) => {
+    if (!state.candles.length) return;
+    const point = chartPoint(event);
+    const metrics = state.chartMetrics;
+    if (!point || !metrics || point.x <= metrics.width - metrics.right) return;
+    event.preventDefault();
+    state.suppressChartClick = true;
+    resetChartViewport();
+    renderChart();
+  });
 
   chart.addEventListener('click', () => {
     if (state.suppressChartClick) {
