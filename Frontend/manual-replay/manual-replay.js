@@ -62,11 +62,62 @@
     return d.toISOString().slice(0, 16);
   }
 
+  function yearOptions() {
+    const current = new Date().getFullYear();
+    const years = [];
+    for (let year = current - 5; year <= current; year += 1) years.push(year);
+    return years;
+  }
+
+  function populateYearJump(id, selectedYear) {
+    const select = $(id);
+    if (!select) return;
+    const years = yearOptions();
+    select.innerHTML = years
+      .map((year) => `<option value="${year}">${year}</option>`)
+      .join('');
+    const target = Number(selectedYear);
+    if (years.includes(target)) select.value = String(target);
+  }
+
+  function syncYearJump(inputId, selectId) {
+    const input = $(inputId);
+    const select = $(selectId);
+    if (!input || !select) return;
+    const value = new Date(input.value);
+    if (!Number.isNaN(value.getTime())) {
+      select.value = String(value.getFullYear());
+    }
+  }
+
+  function applyYearJump(inputId, selectId) {
+    const input = $(inputId);
+    const select = $(selectId);
+    if (!input || !select) return;
+    const nextYear = Number(select.value);
+    const current = new Date(input.value);
+    if (!Number.isFinite(nextYear) || Number.isNaN(current.getTime())) return;
+
+    // Preserve month/day/time. Feb 29 is safely clamped when jumping to
+    // a non-leap year.
+    const month = current.getMonth();
+    const date = current.getDate();
+    current.setDate(1);
+    current.setFullYear(nextYear);
+    current.setMonth(month);
+    const lastDay = new Date(nextYear, month + 1, 0).getDate();
+    current.setDate(Math.min(date, lastDay));
+    input.value = localInput(current);
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   function setDefaultDates() {
     const end = new Date();
     const start = new Date(end.getTime() - 7 * 86400000);
     $('startDate').value = localInput(start);
     $('endDate').value = localInput(end);
+    populateYearJump('startYear', start.getFullYear());
+    populateYearJump('endYear', end.getFullYear());
   }
 
   function inputIso(id) {
@@ -782,6 +833,11 @@
     event?.preventDefault?.();
     return true;
   }
+
+  $('startYear')?.addEventListener('change', () => applyYearJump('startDate', 'startYear'));
+  $('endYear')?.addEventListener('change', () => applyYearJump('endDate', 'endYear'));
+  $('startDate')?.addEventListener('change', () => syncYearJump('startDate', 'startYear'));
+  $('endDate')?.addEventListener('change', () => syncYearJump('endDate', 'endYear'));
 
   $('loadBtn').addEventListener('click', loadReplay);
   $('nextBtn').addEventListener('click', () => { stopTimer(); advanceOne(); });
