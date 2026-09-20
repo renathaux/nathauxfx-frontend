@@ -341,6 +341,34 @@
     startMove(event, el);
   }, true);
 
+  // Layout edit mode must be completely non-interactive. Browsers can still
+  // synthesize a click after pointerup even when pointerdown was used for drag,
+  // so stop every normal page action at capture time. The editor toolbar is the
+  // only interactive exception.
+  function blockNormalEditorAction(event) {
+    if (event.target.closest?.('#manualLayoutToolbar')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+  }
+
+  ['click', 'auxclick', 'dblclick'].forEach((type) => {
+    document.addEventListener(type, blockNormalEditorAction, true);
+  });
+
+  document.addEventListener('submit', blockNormalEditorAction, true);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.target.closest?.('#manualLayoutToolbar')) return;
+    if (
+      event.key === 'Enter' ||
+      event.key === ' ' ||
+      event.key === 'Spacebar'
+    ) {
+      blockNormalEditorAction(event);
+    }
+  }, true);
+
   window.addEventListener('scroll', syncFrame, true);
   window.addEventListener('resize', syncFrame);
 
