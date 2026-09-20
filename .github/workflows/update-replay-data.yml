@@ -1,0 +1,95 @@
+name: Update replay candle data
+
+on:
+  schedule:
+    # Weekdays only. Current-month replay data is refreshed once per trading day.
+    - cron: "20 23 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Update mode"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - daily
+          - backfill
+      years:
+        description: "Years to backfill when mode is backfill/auto"
+        required: true
+        default: "5"
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/update-replay-data.yml"
+      - "scripts/update-replay-data.mjs"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: replay-candle-data-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Resolve update mode
+        id: mode
+        shell: bash
+        run: |
+          MODE="${{ github.event.inputs.mode }}"
+          YEARS="${{ github.event.inputs.years }}"
+          if [ -z "$MODE" ]; then MODE="auto"; fi
+          if [ -z "$YEARS" ]; then YEARS="5"; fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "years=$YEARS" >> "$GITHUB_OUTPUT"
+
+      - name: Update static replay candles
+        env:
+          REPLAY_HISTORY_API: "https://api.nathauxfx.com"
+        run: node scripts/update-replay-data.mjs "${{ steps.mode.outputs.mode }}" "${{ steps.mode.outputs.years }}"
+
+      - name: Validate replay manifest
+        shell: bash
+        run: |
+          node -e '
+            const fs=require("fs");
+            const m=JSON.parse(fs.readFileSync("Frontend/replay-data/manifest.json","utf8"));
+            if(m.version!==1 || m.base_timeframe!=="5m") throw new Error("bad replay manifest");
+            for(const s of ["EURUSD","XAUUSD"]) {
+              if(!Array.isArray(m.symbols?.[s]?.months) || !m.symbols[s].months.length) {
+                throw new Error("missing replay months for "+s);
+              }
+            }
+            console.log("Replay manifest valid");
+          '
+
+      - name: Commit updated replay data
+        shell: bash
+        run: |
+          if git diff --quiet -- Frontend/replay-data; then
+            echo "Replay data already current."
+            exit 0
+          fi
+
+          git config user.name "nathauxfx-replay-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add Frontend/replay-data
+          git commit -m "Update static replay candle data"
+          git push
