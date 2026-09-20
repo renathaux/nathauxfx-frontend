@@ -122,6 +122,7 @@
   }
 
   function resetChartViewport() {
+    state.chartNeedsFit = true;
     state.visibleCandles = 120;
     state.viewEnd = null;
     state.manualPriceCenter = null;
