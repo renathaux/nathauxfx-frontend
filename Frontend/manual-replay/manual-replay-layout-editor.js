@@ -4,7 +4,7 @@
   const params = new URLSearchParams(window.location.search);
   if (params.get('layoutEdit') !== '1') return;
 
-  const STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v2';
+  const STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v3';
   const dirs = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
   const states = new Map();
   let activeElement = null;
