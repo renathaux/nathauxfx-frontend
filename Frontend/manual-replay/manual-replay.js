@@ -3,6 +3,7 @@
 
   const Api = window.ManualReplayApi;
   const Position = window.ManualReplayPosition;
+  const LiveChart = window.ManualReplayLiveChart;
   const $ = (id) => document.getElementById(id);
   const state = {
     candles: [],
@@ -32,6 +33,7 @@
     dragPointerId: null,
     suppressChartClick: false,
     renderFrame: null,
+    chartNeedsFit: true,
   };
 
   function notice(message, kind = '') {
@@ -120,6 +122,7 @@
   }
 
   function resetChartViewport() {
+    state.chartNeedsFit = true;
     state.visibleCandles = 120;
     state.viewEnd = null;
     state.manualPriceCenter = null;
@@ -244,45 +247,9 @@
     }
   }
 
-  function zoomChart(direction, anchorX = null) {
+  function zoomChart(direction) {
     if (!state.candles.length) return;
-    const currentWindow = viewportWindow();
-    const currentCount = currentWindow.count;
-    const next = direction < 0
-      ? Math.max(MIN_VISIBLE_CANDLES, Math.round(currentCount * 0.82))
-      : Math.min(MAX_VISIBLE_CANDLES, Math.round(currentCount * 1.22));
-
-    if (next === currentCount) return;
-
-    const metrics = state.chartMetrics;
-    let ratio = 0.5;
-    if (metrics && Number.isFinite(Number(anchorX))) {
-      const candleWidth = Math.max(1, metrics.candlePlotW || metrics.plotW);
-      ratio = Math.max(0, Math.min(1, (Number(anchorX) - metrics.left) / candleWidth));
-    }
-
-    const oldSpan = Math.max(1, currentWindow.count);
-    const anchorIndex = currentWindow.viewStart + ratio * oldSpan;
-    let nextEnd = anchorIndex + (1 - ratio) * next;
-
-    const maxEnd = revealedEnd();
-    nextEnd = Math.max(1, Math.min(nextEnd, maxEnd));
-
-    state.visibleCandles = next;
-    state.viewEnd = Math.abs(nextEnd - maxEnd) < 0.5 ? null : Math.round(nextEnd);
-    state.hoverPrice = state.hoverX = state.hoverY = null;
-    renderChart();
-  }
-
-  function panViewportByBars(deltaBars) {
-    if (!state.candles.length) return;
-    const window = viewportWindow();
-    const maxEnd = revealedEnd();
-    const currentEnd = window.end;
-    const nextEnd = clampViewEnd(currentEnd + Number(deltaBars || 0));
-    state.viewEnd = nextEnd >= maxEnd ? null : nextEnd;
-    state.hoverPrice = state.hoverX = state.hoverY = null;
-    renderChart();
+    LiveChart?.zoomBy?.(direction);
   }
 
   function riskDollars() {
@@ -526,105 +493,66 @@
   }
 
   function renderChart() {
-    const svg = $('chart');
-    if (!state.candles.length) {
-      state.chartMetrics = null;
-      svg.innerHTML = '<text x="600" y="265" text-anchor="middle" class="empty-text">Load historical candles to begin manual replay</text>';
+    const container = $('manualReplayChart');
+    const layer = $('manualReplayTradeLayer');
+    if (!container || !LiveChart) return;
+
+    const symbol = $('symbol').value;
+    const ready = LiveChart.init(container, layer, symbol);
+    if (!ready) {
+      container.innerHTML = '<div class="manual-replay-chart-loading">Loading chart engine…</div>';
       return;
     }
 
-    const window = viewportWindow();
-    const { start, viewStart, end, rows, count, followingLatest } = window;
-    const scale = effectivePriceScale(rows);
-    if (!scale) return;
-    const { low, high, span } = scale;
-
-    const width = 1200, height = 520, left = 58, right = 92, top = 24, bottom = 42;
-    const plotW = width - left - right, plotH = height - top - bottom;
-    const futureSlots = followingLatest ? Math.max(8, Math.ceil(count * 0.12)) : 0;
-    const slot = plotW / Math.max(count + futureSlots, 1);
-    const candlePlotW = slot * count;
-    const y = (value) => Position.priceToChartY(value, scale, top, plotH);
-    const xForIndex = (index) => left + slot * (Number(index) - viewStart) + slot / 2;
-    const isIndexVisible = (index) => Number(index) >= viewStart && Number(index) < end;
-    state.chartMetrics = {
-      width, height, left, right, top, bottom, plotW, plotH,
-      candlePlotW, low, high, span, scale, start, end,
-      rows: rows.length, count, viewStart, slot, followingLatest,
-    };
-
-    let out = '';
-    for (let i = 0; i <= 6; i++) {
-      const yy = top + plotH * i / 6;
-      const label = high - span * i / 6;
-      out += `<line class="grid" x1="${left}" y1="${yy}" x2="${width-right}" y2="${yy}"/><text class="axis price-axis" x="${width-right+8}" y="${yy+4}">${price(label)}</text>`;
-    }
-
-    const overlays = [];
-    for (const trade of state.trades.slice(-5)) {
-      if (Number(trade.exitIndex) < start || Number(trade.entryIndex) >= end) continue;
-      const tradeStartX = xForIndex(Math.max(start, Number(trade.entryIndex)));
-      const tradeEndX = Math.max(
-        tradeStartX + 28,
-        xForIndex(Math.min(end - 1, Number(trade.exitIndex)))
-      );
-      overlays.push(renderPositionOverlay(trade, {
-        scale, top, plotH, startX: tradeStartX, endX: tradeEndX,
-        historical: true, active: false, draggable: false,
-      }));
-    }
-    if (state.openTrade && Number(state.openTrade.entryIndex) < end) {
-      overlays.push(renderPositionOverlay(state.openTrade, {
-        scale, top, plotH,
-        startX: Math.max(left, xForIndex(Math.max(start, Number(state.openTrade.entryIndex)))),
-        endX: width - right,
-        historical: false, active: true, draggable: false,
-      }));
-    } else if (state.positionDraft && isIndexVisible(state.index)) {
-      overlays.push(renderPositionOverlay(state.positionDraft, {
-        scale, top, plotH, startX: xForIndex(state.index), endX: width - right,
-        historical: false, active: false, draggable: true,
-      }));
-    }
-    out += overlays.map((overlay) => overlay.zones).join('');
-
-    rows.forEach((c, i) => {
-      const absoluteIndex = start + i;
-      const x = xForIndex(absoluteIndex);
-      const openY = y(c.open), closeY = y(c.close), highY = y(c.high), lowY = y(c.low);
-      const down = Number(c.close) < Number(c.open);
-      const bodyY = Math.min(openY, closeY), bodyH = Math.max(Math.abs(closeY - openY), 2);
-      out += `<line class="wick" x1="${x}" y1="${highY}" x2="${x}" y2="${lowY}"/><rect class="body ${down ? 'down' : 'up'}" x="${x-Math.max(2,slot*.28)}" y="${bodyY}" width="${Math.max(4,slot*.56)}" height="${bodyH}" rx="1"/>`;
-      const timeEvery = count <= 40 ? 6 : count <= 80 ? 10 : count <= 160 ? 16 : 28;
-      if (i % timeEvery === 0 || i === rows.length - 1) {
-        out += `<text class="axis time" x="${x}" y="${height-14}" text-anchor="middle">${new Date(c.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</text>`;
-      }
+    LiveChart.setCallbacks({
+      onHoverPrice(value) {
+        state.hoverPrice = Number.isFinite(Number(value)) ? Number(value) : null;
+      },
+      onChartClick(value) {
+        if (
+          !state.candles.length ||
+          !state.positionDraft ||
+          state.openTrade ||
+          !Number.isFinite(Number(value))
+        ) return;
+        const target = $(state.activePriceField || 'slPrice');
+        if (!target) return;
+        target.value = price(value);
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+        const label = state.activePriceField === 'tpPrice'
+          ? 'Take Profit'
+          : 'Stop Loss';
+        notice(`${label} set to ${price(value)} from the chart.`, 'success');
+      },
+      onDraftLevel(field, value) {
+        if (!state.positionDraft || state.openTrade) return;
+        updateDraftLevel(field, value);
+        syncDraftInputs();
+        LiveChart.setPosition({
+          draft: state.positionDraft,
+          openTrade: state.openTrade,
+        });
+        renderPosition();
+      },
     });
 
-    out += overlays.map((overlay) => overlay.details).join('');
+    LiveChart.setSymbol(symbol);
 
-    const current = Number(currentCandle().close);
-    const currentY = y(current);
-    const currentX = xForIndex(state.index);
-    if (isIndexVisible(state.index)) {
-      out += `<line class="current-line" x1="${currentX}" y1="${top}" x2="${currentX}" y2="${height-bottom}"/>`;
-    }
-    out += `<line class="current-price-line" x1="${left}" y1="${currentY}" x2="${width-right}" y2="${currentY}"/>`;
-    out += `<rect class="current-price-badge" x="${width-right-70}" y="${currentY-10}" width="70" height="20" rx="4"/><text class="current-price-text" x="${width-right-35}" y="${currentY+4}" text-anchor="middle">${price(current)}</text>`;
-
-    if (
-      !state.draggingHandle && Number.isFinite(state.hoverPrice) &&
-      Number.isFinite(state.hoverX) &&
-      Number.isFinite(state.hoverY)
-    ) {
-      const hx = Math.min(width-right, Math.max(left, state.hoverX));
-      const hy = Math.min(height-bottom, Math.max(top, state.hoverY));
-      out += `<line class="crosshair" x1="${left}" y1="${hy}" x2="${width-right}" y2="${hy}"/>`;
-      out += `<line class="crosshair" x1="${hx}" y1="${top}" x2="${hx}" y2="${height-bottom}"/>`;
-      out += `<rect class="crosshair-price-badge" x="${width-right-76}" y="${hy-11}" width="76" height="22" rx="4"/><text class="crosshair-price-text" x="${width-right-38}" y="${hy+4}" text-anchor="middle">${price(state.hoverPrice)}</text>`;
+    if (!state.candles.length) {
+      LiveChart.setCandles([], { fit: true });
+      LiveChart.clearPosition();
+      return;
     }
 
-    svg.innerHTML = out;
+    // Replay safety: the LIVE chart engine only receives candles already
+    // revealed by replay. Future candles never enter the chart library.
+    const revealed = state.candles.slice(0, state.index + 1);
+    LiveChart.setCandles(revealed, { fit: state.chartNeedsFit });
+    state.chartNeedsFit = false;
+    LiveChart.setPosition({
+      draft: state.positionDraft,
+      openTrade: state.openTrade,
+    });
   }
 
   function renderCandleMeta() {
@@ -706,6 +634,7 @@
     state.balance = starting;
     state.peak = starting;
     state.maxDrawdown = 0;
+    state.chartNeedsFit = true;
     resetChartViewport();
     $('slPrice').value = '';
     $('tpPrice').value = '';
@@ -878,93 +807,6 @@
   $('shortPositionBtn').addEventListener('click', () => createPositionDraft('SELL'));
   $('cancelPositionBtn').addEventListener('click', cancelPositionDraft);
 
-  const chart = $('chart');
-  chart.addEventListener('wheel', (event) => {
-    if (!state.candles.length) return;
-    const point = chartPoint(event);
-    event.preventDefault();
-
-    if (Math.abs(event.deltaX) > Math.abs(event.deltaY) * 1.15) {
-      const metrics = state.chartMetrics;
-      if (!metrics) return;
-      const bars = event.deltaX * viewportWindow().count / Math.max(metrics.candlePlotW || metrics.plotW, 1);
-      panViewportByBars(bars);
-      return;
-    }
-
-    zoomChart(event.deltaY < 0 ? -1 : 1, point?.x ?? null);
-  }, { passive: false });
-
-  chart.addEventListener('pointerdown', (event) => {
-    if (beginHandleDrag(event)) return;
-    beginChartGesture(event);
-  });
-
-  chart.addEventListener('pointermove', (event) => {
-    if (updateHandleDrag(event)) return;
-    if (updateChartGesture(event)) return;
-
-    const metrics = state.chartMetrics;
-    if (!metrics || !state.candles.length) return;
-    const point = chartPoint(event);
-    if (!point) return;
-    const { x, y } = point;
-    if (
-      x < metrics.left || x > metrics.width - metrics.right ||
-      y < metrics.top || y > metrics.height - metrics.bottom
-    ) {
-      if (state.hoverPrice != null) {
-        state.hoverPrice = state.hoverX = state.hoverY = null;
-        renderChart();
-      }
-      return;
-    }
-    state.hoverX = x;
-    state.hoverY = y;
-    state.hoverPrice = metrics.high - ((y - metrics.top) / metrics.plotH) * metrics.span;
-    renderChart();
-  });
-
-  chart.addEventListener('pointerleave', () => {
-    if (state.draggingHandle || state.chartGesture) return;
-    if (state.hoverPrice == null) return;
-    state.hoverPrice = state.hoverX = state.hoverY = null;
-    renderChart();
-  });
-
-  chart.addEventListener('pointerup', (event) => {
-    if (endHandleDrag(event)) return;
-    endChartGesture(event);
-  });
-  chart.addEventListener('pointercancel', (event) => {
-    if (endHandleDrag(event)) return;
-    endChartGesture(event);
-  });
-
-  chart.addEventListener('dblclick', (event) => {
-    if (!state.candles.length) return;
-    const point = chartPoint(event);
-    const metrics = state.chartMetrics;
-    if (!point || !metrics || point.x <= metrics.width - metrics.right) return;
-    event.preventDefault();
-    state.suppressChartClick = true;
-    resetChartViewport();
-    renderChart();
-  });
-
-  chart.addEventListener('click', () => {
-    if (state.suppressChartClick) {
-      state.suppressChartClick = false;
-      return;
-    }
-    if (!state.candles.length || !state.positionDraft || !Number.isFinite(state.hoverPrice) || state.openTrade) return;
-    const target = $(state.activePriceField || 'slPrice');
-    if (!target) return;
-    target.value = price(state.hoverPrice);
-    target.dispatchEvent(new Event('input', { bubbles: true }));
-    const label = state.activePriceField === 'tpPrice' ? 'Take Profit' : 'Stop Loss';
-    notice(`${label} set to ${price(state.hoverPrice)} from the chart.`, 'success');
-  });
 
   $('buyBtn').addEventListener('click', () => openManualTrade('BUY'));
   $('sellBtn').addEventListener('click', () => openManualTrade('SELL'));

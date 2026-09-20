@@ -29,3 +29,18 @@
 @media(max-width:900px){#manualLayoutToolbar{left:8px!important;right:8px!important;bottom:8px!important;flex-wrap:wrap!important}#manualLayoutToolbar strong,#manualLayoutToolbar .manual-layout-help{width:100%!important;max-width:none!important}}
 
 #chart{touch-action:none}#chart:active{cursor:grabbing}.chart-wrap{overscroll-behavior:contain}
+
+.chart-wrap{position:relative!important}
+.manual-replay-live-chart{display:block;width:100%;height:100%;min-height:460px;background:#0b0f1a}
+.manual-replay-live-chart>div{width:100%!important;height:100%!important}
+.manual-replay-chart-loading{display:grid;place-items:center;height:100%;min-height:460px;color:#829ab8;font-size:15px}
+.manual-replay-trade-layer{position:absolute;inset:0;pointer-events:none;z-index:8;overflow:hidden}
+.manual-replay-live-level{position:absolute;left:0;right:64px;top:0;height:0;border-top:2px dashed currentColor;pointer-events:auto;touch-action:none;cursor:ns-resize}
+.manual-replay-live-level.entry{color:#77adff;pointer-events:none}
+.manual-replay-live-level.sl{color:#ff687a}
+.manual-replay-live-level.tp{color:#35d5a2}
+.manual-replay-live-level.locked{pointer-events:none;cursor:default}
+.manual-replay-live-level>span{position:absolute;right:4px;top:-23px;padding:3px 7px;border-radius:5px;background:#071524;border:1px solid currentColor;color:inherit;font-size:10px;font-weight:900;line-height:1.2;white-space:nowrap}
+.manual-replay-live-level>i{position:absolute;right:2px;top:-7px;width:14px;height:14px;border-radius:50%;border:2px solid #f5f7fb;background:currentColor}
+.manual-replay-live-level.entry>i,.manual-replay-live-level.locked>i{display:none}
+.manual-replay-live-level.hidden{display:none}
