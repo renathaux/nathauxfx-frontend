@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101f">
   <title>NathauxFX — Manual Replay</title>
-  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=10">
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=11">
   <style>
     .nav-actions .button.is-active {
       border-color: #f5bd48;
@@ -32,8 +32,8 @@
       <div class="setup-grid">
         <label><span>Symbol</span><select id="symbol"><option>EURUSD</option><option>XAUUSD</option></select></label>
         <label><span>Timeframe</span><select id="timeframe"><option value="5m">5m</option><option value="15m">15m</option><option value="1h">1h</option></select></label>
-        <label><span>Start</span><input id="startDate" type="datetime-local"></label>
-        <label><span>End</span><input id="endDate" type="datetime-local"></label>
+        <label class="date-field"><span>Start</span><select id="startYear" class="date-year-jump" aria-label="Start year"></select><input id="startDate" type="datetime-local"></label>
+        <label class="date-field"><span>End</span><select id="endYear" class="date-year-jump" aria-label="End year"></select><input id="endDate" type="datetime-local"></label>
         <label><span>Starting Balance</span><input id="startingBalance" type="number" min="1" step="100" value="10000"></label>
         <button id="loadBtn" class="button primary setup-button" type="button">Load Replay</button>
       </div>
@@ -141,7 +141,7 @@
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
   <script src="/manual-replay/manual-replay-position.js?v=2"></script>
   <script src="/manual-replay/manual-replay-live-chart.js?v=1"></script>
-  <script src="/manual-replay/manual-replay.js?v=9"></script>
+  <script src="/manual-replay/manual-replay.js?v=10"></script>
   <script src="/manual-replay/manual-replay-saved-layout.js?v=3"></script>
   <script src="/manual-replay/manual-replay-layout-editor.js?v=5"></script>
 </body>
