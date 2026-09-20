@@ -90,7 +90,7 @@
     ['setupNavButton', '.setup-panel .nav-actions .button', true],
     ['setupGrid', '.setup-grid'],
     ['setupFieldText', '.setup-grid label > span', true],
-    ['setupFieldControl', '.setup-grid input, .setup-grid select', true],
+    ['setupFieldControl', '.setup-grid input, .setup-grid select:not(.date-year-jump)', true],
     ['loadButton', '#loadBtn'],
     ['mainGrid', '.main-grid'],
     ['chartPanel', '.chart-panel'],

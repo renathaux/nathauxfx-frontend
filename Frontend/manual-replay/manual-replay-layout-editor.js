@@ -33,7 +33,7 @@
     { prefix: 'setupGrid', selector: '.setup-grid', minW: 500, minH: 70 },
     { prefix: 'setupField', selector: '.setup-grid label', all: true, minW: 90, minH: 54 },
     { prefix: 'setupFieldText', selector: '.setup-grid label > span', all: true, minW: 38, minH: 14 },
-    { prefix: 'setupFieldControl', selector: '.setup-grid input, .setup-grid select', all: true, minW: 70, minH: 30 },
+    { prefix: 'setupFieldControl', selector: '.setup-grid input, .setup-grid select:not(.date-year-jump)', all: true, minW: 70, minH: 30 },
     { prefix: 'loadButton', selector: '#loadBtn', minW: 80, minH: 32 },
 
     { prefix: 'mainGrid', selector: '.main-grid', minW: 720, minH: 460 },
