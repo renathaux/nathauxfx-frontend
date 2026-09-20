@@ -59,3 +59,29 @@
     pointer-events:auto!important;
   }
 }
+
+
+/* Safari's native datetime picker is month-oriented. This compact selector
+   jumps years without changing the saved Replay Setup geometry. */
+.setup-grid .date-field{position:relative}
+.setup-grid .date-year-jump{
+  position:absolute!important;
+  top:-1px!important;
+  right:0!important;
+  z-index:80!important;
+  width:68px!important;
+  min-height:18px!important;
+  height:18px!important;
+  padding:0 15px 0 5px!important;
+  border-radius:6px!important;
+  border:1px solid #365273!important;
+  background:#0b1d31!important;
+  color:#c8d8ea!important;
+  font-size:10px!important;
+  font-weight:800!important;
+  line-height:16px!important;
+  pointer-events:auto!important;
+}
+@media(max-width:720px){
+  .setup-grid .date-year-jump{width:72px!important}
+}
