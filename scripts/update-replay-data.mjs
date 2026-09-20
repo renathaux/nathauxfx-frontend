@@ -155,14 +155,16 @@ async function writeMonth(manifest, symbol, month, incoming, rangeStart, rangeEn
   return { changed, count: combined.length };
 }
 
-async function fetchWindow({ apiBase, symbol, days, end, attempts = 3 }) {
+async function fetchWindow({ apiBase, symbol, days, end, attempts = 4 }) {
   const url = new URL('/chart/candles-history', apiBase);
   url.searchParams.set('symbol', symbol);
   url.searchParams.set('timeframe', TIMEFRAME);
   url.searchParams.set('days', String(Math.max(1, Math.min(62, days))));
   url.searchParams.set('end', end.toISOString());
 
+  const backoffMs = [5000, 15000, 30000];
   let lastError = null;
+
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const response = await fetch(url, {
@@ -173,16 +175,16 @@ async function fetchWindow({ apiBase, symbol, days, end, attempts = 3 }) {
         signal: AbortSignal.timeout(120_000),
       });
 
-      if (response.status === 503) {
-        const detail = await response.text();
-        console.warn(`No cTrader candles for ${symbol} ending ${end.toISOString()}: ${detail.slice(0, 160)}`);
+      const text = await response.text();
+      if (response.status === 503 && /returned no historical candles/i.test(text)) {
+        console.warn(`No cTrader candles for ${symbol} ending ${end.toISOString()}`);
         return [];
       }
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${(await response.text()).slice(0, 240)}`);
+        throw new Error(`HTTP ${response.status}: ${text.slice(0, 500)}`);
       }
 
-      const payload = await response.json();
+      const payload = JSON.parse(text);
       if (
         String(payload?.symbol || '').toUpperCase() !== symbol ||
         String(payload?.timeframe || '').toLowerCase() !== TIMEFRAME ||
@@ -194,12 +196,15 @@ async function fetchWindow({ apiBase, symbol, days, end, attempts = 3 }) {
     } catch (error) {
       lastError = error;
       if (attempt < attempts) {
-        const waitMs = attempt * 2000;
-        console.warn(`Retry ${attempt}/${attempts - 1} for ${symbol} after ${error.message}`);
+        const waitMs = backoffMs[Math.min(attempt - 1, backoffMs.length - 1)];
+        console.warn(
+          `Retry ${attempt}/${attempts - 1} for ${symbol} after ${error.message}; waiting ${waitMs / 1000}s`
+        );
         await sleep(waitMs);
       }
     }
   }
+
   throw lastError || new Error('cTrader history fetch failed');
 }
 
@@ -209,12 +214,44 @@ function requestedDays(start, end) {
 
 async function updateOneMonth({ manifest, apiBase, symbol, start, end }) {
   const month = monthKey(start);
-  const days = requestedDays(start, end);
-  console.log(`Fetching ${symbol} ${month}: ${days} day(s), ending ${end.toISOString()}`);
-  const rows = await fetchWindow({ apiBase, symbol, days, end });
+  const rows = [];
+  let chunkStart = new Date(start);
+
+  while (chunkStart < end) {
+    const chunkEnd = new Date(
+      Math.min(end.getTime(), chunkStart.getTime() + 14 * DAY_MS)
+    );
+    const days = requestedDays(chunkStart, chunkEnd);
+    console.log(
+      `Fetching ${symbol} ${month}: ${chunkStart.toISOString()} -> ${chunkEnd.toISOString()} (${days} day(s))`
+    );
+    const chunkRows = await fetchWindow({
+      apiBase,
+      symbol,
+      days,
+      end: chunkEnd,
+    });
+    rows.push(...canonicalCandles(
+      chunkRows,
+      chunkStart.getTime(),
+      chunkEnd.getTime(),
+    ));
+    chunkStart = chunkEnd;
+    if (chunkStart < end) await sleep(2000);
+  }
+
   const candles = canonicalCandles(rows, start.getTime(), end.getTime());
-  const result = await writeMonth(manifest, symbol, month, candles, start, addMonths(start, 1));
-  console.log(`${symbol} ${month}: ${result.count} candles${result.changed ? ' (updated)' : ' (unchanged)'}`);
+  const result = await writeMonth(
+    manifest,
+    symbol,
+    month,
+    candles,
+    start,
+    addMonths(start, 1),
+  );
+  console.log(
+    `${symbol} ${month}: ${result.count} candles${result.changed ? ' (updated)' : ' (unchanged)'}`
+  );
   return result;
 }
 
@@ -251,7 +288,16 @@ async function runDaily({ manifest, apiBase, now }) {
 async function runBackfill({ manifest, apiBase, now, years }) {
   const start = fiveYearsStart(now, years);
   const months = monthSequence(start, now);
-  let fetchedMonths = 0;
+  const previousBackfill = manifest.backfill || {};
+  const completed = new Set(
+    previousBackfill.complete === false &&
+    Number(previousBackfill.requested_years) === years &&
+    Array.isArray(previousBackfill.completed_keys)
+      ? previousBackfill.completed_keys
+      : []
+  );
+  const failures = [];
+  let attemptedMonths = 0;
 
   for (const month of months) {
     const naturalEnd = addMonths(month, 1);
@@ -259,20 +305,35 @@ async function runBackfill({ manifest, apiBase, now, years }) {
     if (end <= month) continue;
 
     for (const symbol of SYMBOLS) {
-      await updateOneMonth({ manifest, apiBase, symbol, start: month, end });
-      await sleep(350);
+      const key = `${symbol}:${monthKey(month)}`;
+      if (completed.has(key)) {
+        console.log(`Skipping completed backfill month ${key}`);
+        continue;
+      }
+
+      try {
+        await updateOneMonth({ manifest, apiBase, symbol, start: month, end });
+        completed.add(key);
+      } catch (error) {
+        console.error(`Backfill failed for ${key}: ${error.message}`);
+        failures.push({ key, error: String(error.message || error).slice(0, 500) });
+        await sleep(15_000);
+      }
     }
-    fetchedMonths += 1;
+    attemptedMonths += 1;
   }
 
   manifest.backfill = {
     requested_years: years,
     requested_start: start.toISOString(),
-    completed_at: now.toISOString(),
-    months_attempted: fetchedMonths,
+    completed_at: failures.length ? null : now.toISOString(),
+    complete: failures.length === 0,
+    months_attempted: attemptedMonths,
+    completed_keys: [...completed].sort(),
+    failures,
   };
   manifest.last_refresh_at = now.toISOString();
-  manifest.last_refresh_mode = 'backfill';
+  manifest.last_refresh_mode = failures.length ? 'backfill_partial' : 'backfill';
 }
 
 async function main() {
@@ -289,7 +350,8 @@ async function main() {
   let mode = requestedMode;
   if (mode === 'auto') {
     const doneYears = Number(manifest?.backfill?.requested_years || 0);
-    mode = doneYears >= years ? 'daily' : 'backfill';
+    const backfillComplete = manifest?.backfill?.complete === true;
+    mode = backfillComplete && doneYears >= years ? 'daily' : 'backfill';
   }
   if (!['daily', 'backfill'].includes(mode)) {
     throw new Error('Mode must be auto, daily, or backfill');
