@@ -44,3 +44,44 @@
 .manual-replay-live-level>i{position:absolute;right:2px;top:-7px;width:14px;height:14px;border-radius:50%;border:2px solid #f5f7fb;background:currentColor}
 .manual-replay-live-level.entry>i,.manual-replay-live-level.locked>i{display:none}
 .manual-replay-live-level.hidden{display:none}
+
+
+/* The saved desktop layout intentionally pulls the chart upward. Keep the
+   replay setup controls in the top stacking layer so the chart canvas can
+   never steal clicks from Symbol / Timeframe / dates / balance / Load. */
+@media (min-width:1200px){
+  .setup-panel{
+    position:relative!important;
+    z-index:40!important;
+  }
+  .setup-panel .panel-title,
+  .setup-panel .setup-grid{
+    position:relative!important;
+    z-index:41!important;
+  }
+  .setup-panel select,
+  .setup-panel input,
+  .setup-panel button,
+  .setup-panel a{
+    position:relative!important;
+    z-index:42!important;
+    pointer-events:auto!important;
+  }
+  .main-grid{
+    position:relative!important;
+    z-index:10!important;
+  }
+  .chart-panel,
+  .chart-wrap,
+  .manual-replay-live-chart{
+    z-index:auto!important;
+  }
+}
+
+/* In layout-edit mode controls remain intentionally draggable/non-interactive. */
+.manual-replay-layout-editing .setup-panel select,
+.manual-replay-layout-editing .setup-panel input,
+.manual-replay-layout-editing .setup-panel button,
+.manual-replay-layout-editing .setup-panel a{
+  pointer-events:auto!important;
+}
