@@ -134,7 +134,7 @@
     if (!originals.has(el)) originals.set(el, el.getAttribute('style'));
   }
 
-  function applyOne(el, state) {
+  function applyOne(el, state, prefix) {
     remember(el);
     el.style.setProperty('box-sizing', 'border-box', 'important');
     el.style.setProperty('width', `${state.width}px`, 'important');
@@ -142,7 +142,18 @@
     el.style.setProperty('max-width', 'none', 'important');
     el.style.setProperty('min-width', '0', 'important');
     el.style.setProperty('min-height', '0', 'important');
-    el.style.setProperty('transform', `translate3d(${state.x}px, ${state.y}px, 0)`, 'important');
+
+    // Keep the Setup panel/grid at the exact saved coordinates without using
+    // transform. A transformed ancestor creates a stacking context, which made
+    // the LIVE chart canvas and the setup controls fight for pointer priority.
+    if (prefix === 'setupPanel' || prefix === 'setupGrid') {
+      el.style.setProperty('position', 'relative', 'important');
+      el.style.setProperty('left', `${state.x}px`, 'important');
+      el.style.setProperty('top', `${state.y}px`, 'important');
+      el.style.setProperty('transform', 'none', 'important');
+    } else {
+      el.style.setProperty('transform', `translate3d(${state.x}px, ${state.y}px, 0)`, 'important');
+    }
   }
 
   function restoreAll() {
@@ -207,7 +218,7 @@
         : [document.querySelector(selector)].filter(Boolean);
       elements.forEach((el, index) => {
         const state = saved[keyFor(prefix, el, index)];
-        if (state) applyOne(el, state);
+        if (state) applyOne(el, state, prefix);
       });
     }
     stabilizeDynamicDesktopContent();
