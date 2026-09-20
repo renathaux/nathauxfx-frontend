@@ -33,6 +33,7 @@
     { prefix: 'setupGrid', selector: '.setup-grid', minW: 500, minH: 70 },
     { prefix: 'setupField', selector: '.setup-grid label', all: true, minW: 90, minH: 54 },
     { prefix: 'setupFieldText', selector: '.setup-grid label > span', all: true, minW: 38, minH: 14 },
+    { prefix: 'setupFieldControl', selector: '.setup-grid input, .setup-grid select', all: true, minW: 70, minH: 30 },
     { prefix: 'loadButton', selector: '#loadBtn', minW: 80, minH: 32 },
 
     { prefix: 'mainGrid', selector: '.main-grid', minW: 720, minH: 460 },
@@ -59,6 +60,7 @@
     { prefix: 'ticketGrid', selector: '.ticket-grid', minW: 200, minH: 250 },
     { prefix: 'ticketField', selector: '.ticket-grid label', all: true, minW: 120, minH: 54 },
     { prefix: 'ticketFieldText', selector: '.ticket-grid label > span', all: true, minW: 48, minH: 14 },
+    { prefix: 'ticketFieldControl', selector: '.ticket-grid input, .ticket-grid select', all: true, minW: 80, minH: 30 },
     { prefix: 'draftMetrics', selector: '.draft-metrics', minW: 180, minH: 54 },
     { prefix: 'draftMetricCard', selector: '.draft-metrics > div', all: true, minW: 52, minH: 44 },
     { prefix: 'draftMetricLabel', selector: '.draft-metrics > div > span', all: true, minW: 28, minH: 12 },
@@ -69,7 +71,9 @@
     { prefix: 'sellButton', selector: '#sellBtn', minW: 70, minH: 34 },
     { prefix: 'positionCard', selector: '#positionCard', minW: 180, minH: 160 },
     { prefix: 'positionHead', selector: '#positionCard .position-head', minW: 120, minH: 24 },
+    { prefix: 'positionHeadItem', selector: '#positionCard .position-head > *', all: true, minW: 30, minH: 14 },
     { prefix: 'positionRow', selector: '#positionCard .position-row', all: true, minW: 120, minH: 24 },
+    { prefix: 'positionRowItem', selector: '#positionCard .position-row > *', all: true, minW: 28, minH: 14 },
     { prefix: 'closeButton', selector: '#closeBtn', minW: 110, minH: 34 },
     { prefix: 'resetButton', selector: '#resetBtn', minW: 110, minH: 34 },
 
@@ -83,6 +87,9 @@
     { prefix: 'logEyebrow', selector: '.log-panel .eyebrow', minW: 70, minH: 14 },
     { prefix: 'logTitle', selector: '.log-panel h2', minW: 100, minH: 24 },
     { prefix: 'tableWrap', selector: '.log-panel .table-wrap', minW: 420, minH: 120 },
+    { prefix: 'tradeTable', selector: '.log-panel table', minW: 520, minH: 100 },
+    { prefix: 'tradeTableHeader', selector: '.log-panel th', all: true, minW: 36, minH: 24 },
+    { prefix: 'tradeTableCell', selector: '.log-panel td', all: true, minW: 36, minH: 24 },
   ];
 
   let saved = null;
