@@ -159,6 +159,42 @@
     }
   }
 
+  function stabilizeDynamicDesktopContent() {
+    const notice = document.getElementById('notice');
+    if (notice) {
+      remember(notice);
+      notice.style.setProperty('position', 'fixed', 'important');
+      notice.style.setProperty('left', '20px', 'important');
+      notice.style.setProperty('bottom', '20px', 'important');
+      notice.style.setProperty('top', 'auto', 'important');
+      notice.style.setProperty('right', 'auto', 'important');
+      notice.style.setProperty('width', 'min(520px, calc(100vw - 40px))', 'important');
+      notice.style.setProperty('margin', '0', 'important');
+      notice.style.setProperty('z-index', '10000', 'important');
+      notice.style.setProperty('box-shadow', '0 12px 34px rgba(0,0,0,.45)', 'important');
+    }
+
+    const dynamicSingleLine = [
+      document.getElementById('chartTitle'),
+      document.getElementById('chartMeta'),
+      document.getElementById('progress'),
+      document.getElementById('currentPrice'),
+      document.getElementById('currentTime'),
+      document.getElementById('ohlc'),
+    ].filter(Boolean);
+
+    dynamicSingleLine.forEach((el) => {
+      el.style.setProperty('white-space', 'nowrap', 'important');
+      el.style.setProperty('overflow', 'hidden', 'important');
+      el.style.setProperty('text-overflow', 'ellipsis', 'important');
+    });
+
+    const title = document.getElementById('chartTitle');
+    if (title) title.setAttribute('title', title.textContent || '');
+    const meta = document.getElementById('chartMeta');
+    if (meta) meta.setAttribute('title', meta.textContent || '');
+  }
+
   function applySavedLayout() {
     if (window.innerWidth < DESKTOP_MIN_WIDTH) {
       restoreAll();
@@ -174,7 +210,20 @@
         if (state) applyOne(el, state);
       });
     }
+    stabilizeDynamicDesktopContent();
   }
+
+  const dynamicObserver = new MutationObserver(() => {
+    if (window.innerWidth < DESKTOP_MIN_WIDTH) return;
+    stabilizeDynamicDesktopContent();
+  });
+  dynamicObserver.observe(document.body, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['class'],
+  });
 
   applySavedLayout();
   window.addEventListener('load', applySavedLayout, { once: true });
