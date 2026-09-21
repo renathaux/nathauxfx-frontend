@@ -204,6 +204,18 @@
     return errors;
   }
 
+  function rToPercent(value) {
+    if (value == null || value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number * 100 : null;
+  }
+
+  function percentToR(value) {
+    if (value == null || value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number / 100 : null;
+  }
+
   function fmt(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) return '';
@@ -273,10 +285,12 @@
 
     const tp1 = value.tp1 || {};
     if (tp1.enabled) {
-      const target = tp1.target_r == null ? '?' : `${fmt(tp1.target_r)}R`;
+      const target = tp1.target_r == null ? '?' : `${fmt(rToPercent(tp1.target_r))}% of SL`;
       const close = tp1.close_percent == null ? '?' : `${fmt(tp1.close_percent)}%`;
       let protection = '?';
-      if (tp1.protection_r != null) protection = Number(tp1.protection_r) === 0 ? 'breakeven' : `+${fmt(tp1.protection_r)}R`;
+      if (tp1.protection_r != null) protection = Number(tp1.protection_r) === 0
+        ? 'breakeven'
+        : `+${fmt(rToPercent(tp1.protection_r))}% of SL`;
       parts.push(`TP1 ${target} / close ${close} / protect ${protection}`);
     }
 
@@ -305,5 +319,7 @@
     clientValidation,
     buildSummary,
     trendTimeframeOptions,
+    rToPercent,
+    percentToR,
   };
 });

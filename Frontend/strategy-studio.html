@@ -116,12 +116,12 @@
           </section>
 
           <section class="builder-section">
-            <div class="section-title"><span>08</span><div><h3>TP1 <em>Optional</em></h3><p>Enabling TP1 automatically requires a partial close and protection.</p></div></div>
+            <div class="section-title"><span>08</span><div><h3>TP1 <em>Optional</em></h3><p>Target and protection are percentages of the Entry-to-SL distance. Example: 70% = 0.70R.</p></div></div>
             <label class="toggle-row"><span><strong>Enable TP1</strong><small>Partial close + protected stop</small></span><input id="tp1Enabled" type="checkbox"><i></i></label>
             <div id="tp1Fields" class="field-grid three-col conditional hidden">
-              <label class="field"><span>TP1 Target (R)</span><input id="tp1Target" type="number" min="0.0001" step="0.01" list="tp1TargetPresets" placeholder="0.75"><small class="field-error" data-error-for="tp1.target_r"></small></label>
-              <label class="field"><span>Close %</span><input id="tp1Close" type="number" min="0.01" max="100" step="0.01" list="tp1ClosePresets" placeholder="80"><small class="field-error" data-error-for="tp1.close_percent"></small></label>
-              <label class="field"><span>Protection (R)</span><input id="tp1Protection" type="number" step="0.01" list="protectionPresets" placeholder="0.2"><small class="field-hint">0 = breakeven.</small><small class="field-error" data-error-for="tp1.protection_r"></small></label>
+              <label class="field"><span>TP1 Target (% of SL)</span><input id="tp1Target" type="number" min="0.01" step="0.01" list="tp1TargetPresets" placeholder="70"><small class="field-hint">70% = 0.70R from entry.</small><small class="field-error" data-error-for="tp1.target_r"></small></label>
+              <label class="field"><span>Close Position (%)</span><input id="tp1Close" type="number" min="0.01" max="100" step="0.01" list="tp1ClosePresets" placeholder="80"><small class="field-hint">Percentage of the position to close at TP1.</small><small class="field-error" data-error-for="tp1.close_percent"></small></label>
+              <label class="field"><span>Protection (% of SL)</span><input id="tp1Protection" type="number" step="0.01" list="protectionPresets" placeholder="20"><small class="field-hint">0% = breakeven; 20% = +0.20R.</small><small class="field-error" data-error-for="tp1.protection_r"></small></label>
             </div>
           </section>
 
@@ -194,14 +194,14 @@
   <datalist id="bodyPresets"><option value="40"><option value="50"><option value="60"></datalist>
   <datalist id="distancePresets"><option value="5"><option value="10"><option value="20"></datalist>
   <datalist id="bufferPresets"><option value="0"><option value="5"><option value="10"></datalist>
-  <datalist id="tp1TargetPresets"><option value="0.5"><option value="0.75"><option value="1"></datalist>
+  <datalist id="tp1TargetPresets"><option value="50"><option value="70"><option value="75"><option value="100"></datalist>
   <datalist id="tp1ClosePresets"><option value="50"><option value="70"><option value="80"></datalist>
-  <datalist id="protectionPresets"><option value="0"><option value="0.2"><option value="0.4"></datalist>
+  <datalist id="protectionPresets"><option value="0"><option value="20"><option value="40"></datalist>
   <datalist id="tp2RPresets"><option value="1"><option value="1.5"><option value="2"></datalist>
 
   <script src="/apiClient.js?v=1"></script>
-  <script src="/strategy-studio/strategy-studio-model.js?v=2"></script>
+  <script src="/strategy-studio/strategy-studio-model.js?v=3"></script>
   <script src="/strategy-studio/strategy-studio-api.js?v=1"></script>
-  <script src="/strategy-studio/strategy-studio.js?v=2"></script>
+  <script src="/strategy-studio/strategy-studio.js?v=3"></script>
 </body>
 </html>
