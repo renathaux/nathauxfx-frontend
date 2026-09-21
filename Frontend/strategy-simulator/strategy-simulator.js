@@ -78,6 +78,12 @@
     }
     const earliest = new Date(coverage.earliest);
     const latest = new Date(coverage.latest);
+    const spanDays = (latest.getTime() - earliest.getTime()) / (24 * 60 * 60 * 1000);
+    const hasFiveYears = Number(coverage.months || 0) >= 59 && spanDays >= 5 * 365 - 45;
+    if (!hasFiveYears) {
+      notice('The five-year candle backfill is still running. Try again after the history update completes.', 'error');
+      return;
+    }
     const fiveYearsAgo = new Date(latest);
     fiveYearsAgo.setUTCFullYear(fiveYearsAgo.getUTCFullYear() - 5);
     const start = earliest > fiveYearsAgo ? earliest : fiveYearsAgo;
@@ -390,7 +396,7 @@
       $('symbolSelect').innerHTML = symbols.map((symbol) => `<option value="${escapeHtml(symbol)}">${escapeHtml(symbol)}</option>`).join('');
       await refreshHistoryCoverage();
       const risk = strategy.definition?.risk || {};
-      $('strategyMeta').textContent = `${symbols.join(' + ')} • ${strategy.definition?.trading_timeframe || '—'} • saved risk ${risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : `${risk.value || '—'}`} • static replay candles • no Neon candle history reads • Simulator only.`;
+      $('strategyMeta').textContent = `${symbols.join(' + ')} • ${strategy.definition?.trading_timeframe || '—'} • saved risk ${risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : `${risk.value || '—'}`} • Fast Backtest up to 5 years • Bar Replay up to 31 days • no Neon candle history reads • Simulator only.`;
     } catch (error) {
       notice(error.message || 'Saved strategy could not be loaded.', 'error');
     } finally {
