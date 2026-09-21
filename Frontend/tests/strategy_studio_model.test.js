@@ -129,6 +129,45 @@ test('TP1 summary uses percentages instead of R labels', () => {
   const summary = StudioModel.buildSummary(value);
   assert.match(summary, /TP1 70% of SL/);
   assert.match(summary, /close 40%/);
-  assert.match(summary, /protect \+20% of SL/);
+  assert.match(summary, /secure 20% of SL/);
   assert.doesNotMatch(summary, /0\.7R|0\.2R/);
+});
+
+
+test('TP2-based TP1 summary and protection steps are explicit', () => {
+  const value = validDraft();
+  value.tp1 = {
+    enabled: true,
+    target_r: 0.7,
+    target_basis: 'TP2_DISTANCE',
+    close_percent: 40,
+    protection_r: null,
+    protection_mode: 'TP2_STEPS',
+    protection_steps: [
+      { trigger_percent: 70, secure_percent: 50 },
+      { trigger_percent: 80, secure_percent: 60 },
+      { trigger_percent: 90, secure_percent: 70 },
+    ],
+  };
+  const errors = StudioModel.clientValidation(value);
+  assert.deepEqual(errors, {});
+  const summary = StudioModel.buildSummary(value);
+  assert.match(summary, /TP1 70% of TP2 path/);
+  assert.match(summary, /step protect 70→50%, 80→60%, 90→70%/);
+});
+
+test('TP2 step protection is rejected when TP1 is based on SL', () => {
+  const value = validDraft();
+  value.tp1 = {
+    enabled: true,
+    target_r: 0.7,
+    target_basis: 'SL_DISTANCE',
+    close_percent: 40,
+    protection_r: null,
+    protection_mode: 'TP2_STEPS',
+    protection_steps: [
+      { trigger_percent: 70, secure_percent: 50 },
+    ],
+  };
+  assert.ok(StudioModel.clientValidation(value)['tp1.protection_mode']);
 });
