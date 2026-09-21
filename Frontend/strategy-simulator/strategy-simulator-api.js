@@ -11,6 +11,8 @@
   const STATIC_ROOT = '/replay-data';
   const STATIC_BASE_TIMEFRAME = '5m';
   const MAX_STATIC_RANGE_DAYS = 31;
+  const MAX_FAST_RANGE_DAYS = 5 * 366;
+  const MAX_MONTH_CACHE = 4;
   const MIN_WARMUP_DAYS = 7;
   const DAY_MS = 86400000;
   const TIMEFRAME_MINUTES = { '5m': 5, '15m': 15, '1h': 60, '4h': 240 };
@@ -177,8 +179,47 @@
     ) {
       throw new Error(`Static simulator file ${symbol} ${month} is invalid.`);
     }
-    if (month !== currentMonth) monthCache.set(key, payload);
+    if (month !== currentMonth) {
+      monthCache.set(key, payload);
+      while (monthCache.size > MAX_MONTH_CACHE) {
+        const oldest = monthCache.keys().next().value;
+        monthCache.delete(oldest);
+      }
+    }
     return payload;
+  }
+
+  function splitRange(start, end, chunkDays = MAX_STATIC_RANGE_DAYS) {
+    const output = [];
+    const chunkMs = Math.max(1, Number(chunkDays) || MAX_STATIC_RANGE_DAYS) * DAY_MS;
+    let cursor = new Date(start);
+    while (cursor < end) {
+      const next = new Date(Math.min(end.getTime(), cursor.getTime() + chunkMs));
+      output.push({ start: new Date(cursor), end: next });
+      cursor = next;
+    }
+    return output;
+  }
+
+  async function historyCoverage(symbolValue) {
+    const symbol = normalizeSymbol(symbolValue);
+    const manifest = await loadManifest();
+    const available = manifest.symbols?.[symbol];
+    if (!available) return { symbol, earliest: null, latest: null, months: 0 };
+    const months = Array.isArray(available.months) ? available.months : [];
+    const firstValues = months
+      .map((month) => Date.parse(available?.[month]?.first_timestamp))
+      .filter(Number.isFinite);
+    const lastValues = months
+      .map((month) => Date.parse(available?.[month]?.last_timestamp))
+      .filter(Number.isFinite);
+    return {
+      symbol,
+      earliest: firstValues.length ? new Date(Math.min(...firstValues)).toISOString() : null,
+      latest: lastValues.length ? new Date(Math.max(...lastValues)).toISOString() : null,
+      months: months.length,
+      backfill: manifest.backfill || null,
+    };
   }
 
   async function loadStatic5m(payload) {
@@ -251,13 +292,80 @@
 
   const getStrategy = (id) => request(`/strategy-studio/strategies/${encodeURIComponent(id)}`);
 
-  async function runSimulation(payload) {
+  async function runChunk(payload, continuation, finalize) {
     const candles = await loadStatic5m(payload);
     return request('/strategy-simulator/run', {
       method: 'POST',
-      body: { ...payload, candles_5m: candles },
+      body: {
+        ...payload,
+        candles_5m: candles,
+        continuation: continuation || null,
+        finalize: Boolean(finalize),
+      },
     });
   }
 
-  return { getStrategy, runSimulation, loadStatic5m, warmupDaysFor };
+  async function runSimulation(payload, options = {}) {
+    const start = new Date(payload?.start);
+    const end = new Date(payload?.end);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+      throw new Error('Choose a valid simulation start and end.');
+    }
+    const rangeDays = (end.getTime() - start.getTime()) / DAY_MS;
+    const mode = String(payload?.mode || 'FAST').toUpperCase();
+    if (mode === 'REPLAY' && rangeDays > MAX_STATIC_RANGE_DAYS) {
+      throw new Error(`Bar Replay is limited to ${MAX_STATIC_RANGE_DAYS} days. Use Fast Backtest for longer history.`);
+    }
+    if (mode === 'FAST' && rangeDays > MAX_FAST_RANGE_DAYS) {
+      throw new Error('Fast Backtest is limited to five years.');
+    }
+
+    const chunks = splitRange(start, end);
+    if (chunks.length === 1) {
+      return runChunk(payload, null, true);
+    }
+
+    const results = [];
+    let continuation = null;
+    let accountScope = null;
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunk = chunks[index];
+      const isLast = index === chunks.length - 1;
+      options.onProgress?.({
+        current: index + 1,
+        total: chunks.length,
+        start: chunk.start.toISOString(),
+        end: chunk.end.toISOString(),
+      });
+      const chunkPayload = {
+        ...payload,
+        mode: 'FAST',
+        start: chunk.start.toISOString(),
+        end: chunk.end.toISOString(),
+      };
+      const result = await runChunk(chunkPayload, continuation, isLast);
+      if (accountScope && result.account_scope && result.account_scope !== accountScope) {
+        throw new Error('Selected cTrader account changed during the backtest. Run it again.');
+      }
+      accountScope ||= result.account_scope || null;
+      continuation = result.continuation || null;
+      results.push(result);
+    }
+    return {
+      ok: true,
+      symbol: normalizeSymbol(payload.symbol),
+      mode: 'FAST',
+      batch_results: results,
+      account_scope: accountScope,
+    };
+  }
+
+  return {
+    getStrategy,
+    runSimulation,
+    loadStatic5m,
+    warmupDaysFor,
+    historyCoverage,
+    splitRange,
+  };
 });

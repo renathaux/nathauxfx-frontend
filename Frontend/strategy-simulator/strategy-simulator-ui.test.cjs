@@ -12,7 +12,7 @@ test('simulator page exposes fast run, replay, metrics, trades, and replay chart
     'fastRunBtn', 'replayRunBtn', 'metricNetPl', 'metricWinRate', 'metricDrawdown',
     'tradeTableBody', 'equityChart', 'replayChart', 'replayPrevBtn', 'replayNextBtn',
     'diagnosticSummary', 'diagCandles', 'diagSetups', 'diagSignals', 'diagTradesOpened',
-    'diagnosticFunnel', 'diagnosticReasons',
+    'diagnosticFunnel', 'diagnosticReasons', 'fiveYearRangeBtn', 'historyCoverage',
   ]) {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
@@ -51,4 +51,13 @@ test('strategy studio simulator button navigates only to a selected saved strate
   assert.match(apiSource, /simulatorBtn/);
   assert.match(apiSource, /strategy-card\.selected/);
   assert.match(controllerSource, /data-strategy-id/);
+});
+
+
+test('controller aggregates five-year backtest chunks and reports progress', () => {
+  const source = read('strategy-simulator/strategy-simulator.js');
+  assert.match(source, /Model\.aggregateSimulationResults/);
+  assert.match(source, /Backtesting chunk/);
+  assert.match(source, /refreshHistoryCoverage/);
+  assert.match(source, /useFullFiveYearHistory/);
 });
