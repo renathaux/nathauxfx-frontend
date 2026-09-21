@@ -226,6 +226,7 @@
     if (stepOption) stepOption.disabled = tp1Basis !== 'TP2_DISTANCE';
     if (tp1Basis !== 'TP2_DISTANCE' && state.draft.tp1?.protection_mode === 'TP2_STEPS') {
       state.draft.tp1.protection_mode = 'FIXED';
+      state.draft.tp1.protection_r = Model.percentToR(toNumber('tp1Protection'));
       state.draft.tp1.protection_steps = [];
       $('tp1ProtectionMode').value = 'FIXED';
       $('tp1FixedProtectionField').classList.remove('hidden');
