@@ -21,3 +21,21 @@ test('Strategy Simulator still posts only to the read-only simulator endpoint', 
     /place_market_order|modify_position|close_position|live-auto-toggle/
   );
 });
+
+
+test('Strategy Simulator adds adaptive pre-roll history', () => {
+  const api = require('./strategy-simulator-api.js');
+  assert.equal(
+    api.warmupDaysFor({
+      trading_timeframe: '5m',
+      trend: { timeframe: '15m', methods: ['BOS_CHOCH', 'SWING_STRUCTURE'] },
+    }),
+    7
+  );
+  assert.ok(
+    api.warmupDaysFor({
+      trading_timeframe: '5m',
+      trend: { timeframe: '4h', methods: ['EMA_200'] },
+    }) >= 50
+  );
+});
