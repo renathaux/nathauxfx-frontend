@@ -6,7 +6,7 @@
   if (!Model || !Api) return;
 
   const $ = (id) => document.getElementById(id);
-  const state = { strategy: null, result: null, replayIndex: 0, busy: false };
+  const state = { strategy: null, result: null, replayIndex: 0, busy: false, coverage: null };
 
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, (char) => ({
@@ -32,6 +32,59 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) throw new Error('Invalid simulation date.');
     return date.toISOString();
+  }
+
+  function coverageDate(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? '—'
+      : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  async function refreshHistoryCoverage() {
+    const symbol = $('symbolSelect').value;
+    if (!symbol) return;
+    $('historyCoverage').textContent = 'Checking available history…';
+    try {
+      const coverage = await Api.historyCoverage(symbol);
+      state.coverage = coverage;
+      if (!coverage.earliest || !coverage.latest) {
+        $('historyCoverage').textContent = `No static history available for ${symbol}.`;
+        return;
+      }
+      const backfill = coverage.backfill;
+      const backfillText = backfill?.complete && Number(backfill?.requested_years || 0) >= 5
+        ? ' • 5Y backfill complete'
+        : backfill?.complete === false
+          ? ' • 5Y backfill in progress'
+          : '';
+      $('historyCoverage').textContent =
+        `Available: ${coverageDate(coverage.earliest)} → ${coverageDate(coverage.latest)}${backfillText}`;
+    } catch (error) {
+      state.coverage = null;
+      $('historyCoverage').textContent = error.message || 'History coverage unavailable.';
+    }
+  }
+
+  async function useFullFiveYearHistory() {
+    if (!state.coverage?.earliest || !state.coverage?.latest) {
+      await refreshHistoryCoverage();
+    }
+    const coverage = state.coverage;
+    if (!coverage?.earliest || !coverage?.latest) {
+      notice('Five-year static history is not available yet.', 'error');
+      return;
+    }
+    const earliest = new Date(coverage.earliest);
+    const latest = new Date(coverage.latest);
+    const fiveYearsAgo = new Date(latest);
+    fiveYearsAgo.setUTCFullYear(fiveYearsAgo.getUTCFullYear() - 5);
+    const start = earliest > fiveYearsAgo ? earliest : fiveYearsAgo;
+    const end = new Date(latest.getTime() + 5 * 60 * 1000);
+    $('startDate').value = toLocalInput(start);
+    $('endDate').value = toLocalInput(end);
+    notice('');
   }
 
   function setDefaultDates() {
@@ -301,9 +354,17 @@
         riskOverride: riskOverride(),
       });
       setBusy(true, mode === 'REPLAY' ? 'Building replay…' : 'Running backtest…');
-      const result = await Api.runSimulation(payload);
+      const response = await Api.runSimulation(payload, {
+        onProgress: ({ current, total }) => {
+          $('runState').textContent = `Backtesting chunk ${current} / ${total}…`;
+        },
+      });
+      const result = Array.isArray(response?.batch_results)
+        ? Model.aggregateSimulationResults(response.batch_results)
+        : response;
       renderResult(result);
-      notice(`${mode === 'REPLAY' ? 'Bar Replay' : 'Fast Backtest'} complete for ${result.symbol} using static candle data.`, 'success');
+      const chunkText = result.batch_chunks > 1 ? ` across ${result.batch_chunks} chunks` : '';
+      notice(`${mode === 'REPLAY' ? 'Bar Replay' : 'Fast Backtest'} complete for ${result.symbol}${chunkText} using static candle data.`, 'success');
     } catch (error) {
       notice(error.message || 'Simulation failed.', 'error');
     } finally {
@@ -327,6 +388,7 @@
       $('strategyTitle').textContent = strategy.name || 'Saved Strategy';
       const symbols = strategy.definition?.symbols || [];
       $('symbolSelect').innerHTML = symbols.map((symbol) => `<option value="${escapeHtml(symbol)}">${escapeHtml(symbol)}</option>`).join('');
+      await refreshHistoryCoverage();
       const risk = strategy.definition?.risk || {};
       $('strategyMeta').textContent = `${symbols.join(' + ')} • ${strategy.definition?.trading_timeframe || '—'} • saved risk ${risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : `${risk.value || '—'}`} • static replay candles • no Neon candle history reads • Simulator only.`;
     } catch (error) {
@@ -336,6 +398,8 @@
     }
   }
 
+  $('symbolSelect').addEventListener('change', refreshHistoryCoverage);
+  $('fiveYearRangeBtn').addEventListener('click', useFullFiveYearHistory);
   $('riskOverrideEnabled').addEventListener('change', () => {
     const enabled = $('riskOverrideEnabled').checked;
     $('riskMethodField').classList.toggle('hidden', !enabled);
