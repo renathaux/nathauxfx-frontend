@@ -91,3 +91,17 @@ test('higher timeframe selector exposes None and clears trend filters', () => {
   assert.match(source, /setCheckedValues\('trendMethodChoices', \[\]\)/);
   assert.match(source, /trendTimeframe.*addEventListener\('change'/s);
 });
+
+
+test('builder exposes remember BOS and LIVE off controls', () => {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const source = fs.readFileSync(controllerPath, 'utf8');
+  assert.match(html, /id="rememberBosEntry"/);
+  assert.match(html, /Remember BOS if confirmation fails/);
+  assert.match(html, /id="turnOffLiveStrategyBtn"/);
+  assert.match(html, /Turn Off LIVE Strategy/);
+  assert.match(source, /remember_bos_on_confirmation_failure/);
+  assert.match(source, /turnOffLiveCurrent/);
+  assert.match(source, /Api\.setLiveHandoff\(current\.strategy_id, false\)/);
+  assert.match(source, /does not close an existing broker position/);
+});

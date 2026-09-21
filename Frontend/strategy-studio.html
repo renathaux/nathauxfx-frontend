@@ -104,6 +104,8 @@
           <section class="builder-section">
             <div class="section-title"><span>06</span><div><h3>Entry Method</h3><p>Choose when a valid setup becomes an entry.</p></div></div>
             <label class="field"><span>Entry Method</span><select id="entryMethod"><option value="">Choose entry method</option><option value="BOS_CHOCH_CLOSE">At BOS / CHOCH candle close</option><option value="CONFIRMATION_CLOSE">At confirmation candle close</option><option value="RETEST">At retest of broken level</option></select><small class="field-error" data-error-for="entry.method"></small></label>
+            <label id="rememberBosField" class="toggle-row conditional hidden"><span><strong>Remember BOS if confirmation fails</strong><small>If the immediate next candle is not the same direction, keep the original BOS/CHOCH level. Wait for price to return through that level and later close beyond it again in the setup direction, then enter. An opposite BOS/CHOCH replaces the remembered setup.</small></span><input id="rememberBosEntry" type="checkbox"><i></i></label>
+            <small class="field-error" data-error-for="entry.remember_bos_on_confirmation_failure"></small>
           </section>
 
           <section class="builder-section">
@@ -208,6 +210,7 @@
           </div>
           <div class="summary-note"><strong>Gated LIVE safety</strong><p>The active LIVE strategy is still protected by the shared broker-boundary fundamental filter. Strategy Studio can choose the strictness, but cannot silently bypass the filter.</p></div>
           <button id="goLiveStrategyBtn" class="button primary" type="button" disabled>Go Live</button>
+          <button id="turnOffLiveStrategyBtn" class="button danger-soft hidden" type="button">Turn Off LIVE Strategy</button>
           <button id="simulatorBtn" class="button simulator-button" type="button" disabled>Simulator</button>
           <p class="simulator-help">Simulator becomes available after the shared evaluator is installed.</p>
         </div>
@@ -228,8 +231,8 @@
   <datalist id="tp2RPresets"><option value="1"><option value="1.5"><option value="2"></datalist>
 
   <script src="/apiClient.js?v=1"></script>
-  <script src="/strategy-studio/strategy-studio-model.js?v=4"></script>
+  <script src="/strategy-studio/strategy-studio-model.js?v=5"></script>
   <script src="/strategy-studio/strategy-studio-api.js?v=1"></script>
-  <script src="/strategy-studio/strategy-studio.js?v=5"></script>
+  <script src="/strategy-studio/strategy-studio.js?v=6"></script>
 </body>
 </html>
