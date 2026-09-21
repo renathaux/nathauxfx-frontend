@@ -11,6 +11,9 @@
   const STATIC_ROOT = '/replay-data';
   const STATIC_BASE_TIMEFRAME = '5m';
   const MAX_STATIC_RANGE_DAYS = 31;
+  const MIN_WARMUP_DAYS = 7;
+  const DAY_MS = 86400000;
+  const TIMEFRAME_MINUTES = { '5m': 5, '15m': 15, '1h': 60, '4h': 240 };
   const manifestCache = { value: null };
   const monthCache = new Map();
 
@@ -93,6 +96,36 @@
     return months;
   }
 
+  function warmupDaysFor(definition) {
+    const value = definition || {};
+    const tradingTf = String(value.trading_timeframe || '5m').toLowerCase();
+    const trend = value.trend || {};
+    const trendTf = String(trend.timeframe || tradingTf).toLowerCase();
+    const methods = Array.isArray(trend.methods) ? trend.methods : [];
+
+    // Seed the structure engine even when no optional trend filter is selected.
+    let requiredMinutes = 100 * (TIMEFRAME_MINUTES[tradingTf] || 5);
+    let trendBars = methods.length ? 100 : 0;
+    if (methods.includes('EMA_50')) trendBars = Math.max(trendBars, 70);
+    if (methods.includes('EMA_200')) trendBars = Math.max(trendBars, 220);
+    requiredMinutes = Math.max(
+      requiredMinutes,
+      trendBars * (TIMEFRAME_MINUTES[trendTf] || TIMEFRAME_MINUTES[tradingTf] || 5)
+    );
+
+    // FX trades roughly five days per week. Convert required market minutes to
+    // calendar time and add a small gap buffer so Monday tests can still warm up.
+    const calendarMinutes = requiredMinutes * 7 / 5 + 2 * 24 * 60;
+    return Math.max(MIN_WARMUP_DAYS, Math.ceil(calendarMinutes / (24 * 60)));
+  }
+
+  function firstAvailableTimestamp(available) {
+    const values = (available?.months || [])
+      .map((month) => Date.parse(available?.[month]?.first_timestamp))
+      .filter(Number.isFinite);
+    return values.length ? Math.min(...values) : null;
+  }
+
   async function staticJson(path, options = {}) {
     if (typeof root?.fetch !== 'function') throw new Error('Network client unavailable');
     const response = await root.fetch(path, {
@@ -164,8 +197,15 @@
     const available = manifest.symbols?.[symbol];
     if (!available) throw new Error(`No static simulator history is available for ${symbol}.`);
 
+    const warmupDays = warmupDaysFor(payload?.strategy_definition);
+    const requestedHistoryStartMs = start.getTime() - warmupDays * DAY_MS;
+    const firstAvailableMs = firstAvailableTimestamp(available);
+    const historyStartMs = firstAvailableMs == null
+      ? requestedHistoryStartMs
+      : Math.max(requestedHistoryStartMs, firstAvailableMs);
+    const historyStart = new Date(historyStartMs);
     const lastIncluded = new Date(end.getTime() - 1);
-    const months = requestedMonths(start, lastIncluded);
+    const months = requestedMonths(historyStart, lastIncluded);
     const availableMonths = new Set((available.months || []).map(String));
     for (const month of months) {
       if (!availableMonths.has(month)) {
@@ -187,7 +227,7 @@
       const volume = Number(row?.volume);
       if (
         !Number.isFinite(timestampMs) ||
-        timestampMs < startMs ||
+        timestampMs < historyStartMs ||
         timestampMs >= endMs ||
         ![open, high, low, close].every(Number.isFinite)
       ) continue;
@@ -203,6 +243,9 @@
       .map(([, candle]) => candle);
 
     if (candles.length < 2) throw new Error('Not enough static candles for this simulation range.');
+    if (!candles.some((row) => Date.parse(row.timestamp) >= startMs)) {
+      throw new Error('No static candles are available inside the selected simulation range.');
+    }
     return candles;
   }
 
@@ -216,5 +259,5 @@
     });
   }
 
-  return { getStrategy, runSimulation, loadStatic5m };
+  return { getStrategy, runSimulation, loadStatic5m, warmupDaysFor };
 });
