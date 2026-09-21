@@ -62,3 +62,18 @@ test('fundamental LIVE policy exposes both supported modes', () => {
   assert.match(html, /REQUIRE_ALIGNMENT/);
   assert.match(html, /historical Simulator results do not model past fundamental states/);
 });
+
+
+test('TP1 controls use percentage language while controller stores R values', () => {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const source = fs.readFileSync(controllerPath, 'utf8');
+  assert.match(html, /TP1 Target \(% of SL\)/);
+  assert.match(html, /Close Position \(%\)/);
+  assert.match(html, /Protection \(% of SL\)/);
+  assert.match(html, /70% = 0\.70R/);
+  assert.match(html, /20% = \+0\.20R/);
+  assert.match(source, /Model\.percentToR\(toNumber\('tp1Target'\)\)/);
+  assert.match(source, /Model\.percentToR\(toNumber\('tp1Protection'\)\)/);
+  assert.match(source, /Model\.rToPercent\(value\.tp1\.target_r\)/);
+  assert.match(source, /Model\.rToPercent\(value\.tp1\.protection_r\)/);
+});
