@@ -25,7 +25,7 @@
         minimum_distance_pips: null,
       },
       confirmation: { rules: [], minimum_body_percent: null },
-      entry: { method: null },
+      entry: { method: null, remember_bos_on_confirmation_failure: false },
       stop_loss: { method: null, buffer_pips: null, fixed_distance: null },
       tp1: {
         enabled: false,
@@ -63,6 +63,7 @@
       breakBody: breakRules.includes('MIN_BODY_PERCENT'),
       breakDistance: breakRules.includes('MIN_DISTANCE'),
       confirmationBody: confirmations.includes('MIN_BODY_PERCENT'),
+      rememberBos: value.entry?.method === 'CONFIRMATION_CLOSE' && confirmations.includes('NEXT_SAME_DIRECTION'),
       stopBuffer: stopMethod === 'LAST_SWING',
       fixedStopDistance: stopMethod === 'FIXED_DISTANCE',
       tp1: Boolean(value.tp1 && value.tp1.enabled),
@@ -87,6 +88,11 @@
         TREND_METHODS.includes(method) && methods.indexOf(method) === index
       );
     }
+
+    if (!value.entry) value.entry = blankStrategy().entry;
+    value.entry.remember_bos_on_confirmation_failure = Boolean(
+      value.entry.remember_bos_on_confirmation_failure
+    );
 
     if (!value.tp1) value.tp1 = blankStrategy().tp1;
     value.tp1.target_basis = value.tp1.target_basis || 'SL_DISTANCE';
@@ -187,6 +193,13 @@
       errors['entry.method'] = 'Retest entry requires Retest broken level confirmation';
     } else if (entry.method === 'BOS_CHOCH_CLOSE' && confirmationRules.length > 0) {
       errors['entry.method'] = 'BOS/CHOCH-close entry cannot depend on future confirmation rules';
+    }
+    if (entry.remember_bos_on_confirmation_failure) {
+      if (entry.method !== 'CONFIRMATION_CLOSE') {
+        errors['entry.remember_bos_on_confirmation_failure'] = 'Remember BOS requires confirmation-close entry';
+      } else if (!confirmationRules.includes('NEXT_SAME_DIRECTION')) {
+        errors['entry.remember_bos_on_confirmation_failure'] = 'Remember BOS requires Next candle closes same direction';
+      }
     }
 
     const stop = value.stop_loss || {};
@@ -338,7 +351,13 @@
       CONFIRMATION_CLOSE: 'confirmation close',
       RETEST: 'retest entry',
     };
-    if (value.entry && value.entry.method) parts.push(entryLabels[value.entry.method] || value.entry.method);
+    if (value.entry && value.entry.method) {
+      let entryText = entryLabels[value.entry.method] || value.entry.method;
+      if (value.entry.remember_bos_on_confirmation_failure) {
+        entryText += ' / remember BOS on failed next candle → enter on valid re-break';
+      }
+      parts.push(entryText);
+    }
 
     const stop = value.stop_loss || {};
     if (stop.method === 'LAST_SWING') {
