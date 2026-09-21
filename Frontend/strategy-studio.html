@@ -73,7 +73,7 @@
               <label class="choice"><input type="checkbox" value="EMA_200"><span>EMA 200</span></label>
               <label class="choice"><input type="checkbox" value="SWING_STRUCTURE"><span>Swing Structure</span></label>
             </div><small class="field-error" data-error-for="trend.methods"></small></div>
-            <label id="trendTimeframeField" class="field conditional hidden"><span>Trend Timeframe</span><select id="trendTimeframe"><option value="">Choose higher timeframe</option></select><small class="field-error" data-error-for="trend.timeframe"></small></label>
+            <label id="trendTimeframeField" class="field"><span>Higher Timeframe</span><select id="trendTimeframe"><option value="">None — no higher timeframe filter</option></select><small class="field-hint">None means the strategy will not use any higher-timeframe trend filter.</small><small class="field-error" data-error-for="trend.timeframe"></small></label>
           </section>
 
           <section class="builder-section">
@@ -230,6 +230,6 @@
   <script src="/apiClient.js?v=1"></script>
   <script src="/strategy-studio/strategy-studio-model.js?v=4"></script>
   <script src="/strategy-studio/strategy-studio-api.js?v=1"></script>
-  <script src="/strategy-studio/strategy-studio.js?v=4"></script>
+  <script src="/strategy-studio/strategy-studio.js?v=5"></script>
 </body>
 </html>

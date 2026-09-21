@@ -80,3 +80,14 @@ test('TP1 controls support SL or TP2 percentage bases and a step ladder', () => 
   assert.match(source, /Model\.percentToR\(toNumber\('tp1Target'\)\)/);
   assert.match(source, /Model\.rToPercent\(value\.tp1\.target_r\)/);
 });
+
+
+test('higher timeframe selector exposes None and clears trend filters', () => {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const source = fs.readFileSync(controllerPath, 'utf8');
+  assert.match(html, /Higher Timeframe/);
+  assert.match(html, /None — no higher timeframe filter/);
+  assert.match(html, /None means the strategy will not use any higher-timeframe trend filter/);
+  assert.match(source, /setCheckedValues\('trendMethodChoices', \[\]\)/);
+  assert.match(source, /trendTimeframe.*addEventListener\('change'/s);
+});

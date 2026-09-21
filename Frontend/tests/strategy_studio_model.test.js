@@ -36,6 +36,8 @@ test('conditional fields follow selected methods', () => {
 
 test('all trend methods expand before API save', () => {
   const value = StudioModel.blankStrategy();
+  value.trading_timeframe = '5m';
+  value.trend.timeframe = '15m';
   value.trend.methods = ['ALL'];
   const normalized = StudioModel.normalizeForApi(value);
   assert.deepEqual(normalized.trend.methods, ['BOS_CHOCH', 'EMA_50', 'EMA_200', 'SWING_STRUCTURE']);
@@ -170,4 +172,18 @@ test('TP2 step protection is rejected when TP1 is based on SL', () => {
     ],
   };
   assert.ok(StudioModel.clientValidation(value)['tp1.protection_mode']);
+});
+
+
+test('None higher timeframe normalizes to no trend methods', () => {
+  const value = validDraft();
+  value.trend = { timeframe: null, methods: ['EMA_50', 'SWING_STRUCTURE'] };
+  const normalized = StudioModel.normalizeForApi(value);
+  assert.equal(normalized.trend.timeframe, null);
+  assert.deepEqual(normalized.trend.methods, []);
+});
+
+test('higher timeframe field is always visible', () => {
+  const value = StudioModel.blankStrategy();
+  assert.equal(StudioModel.visibleFields(value).trendTimeframe, true);
 });
