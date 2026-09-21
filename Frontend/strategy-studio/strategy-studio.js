@@ -231,6 +231,13 @@
       $('tp1FixedProtectionField').classList.remove('hidden');
       $('tp1StepProtectionFields').classList.add('hidden');
     }
+    for (const index of [1, 2, 3]) {
+      const trigger = toNumber(`tp1Step${index}Trigger`);
+      const secure = toNumber(`tp1Step${index}Secure`);
+      const rule = $(`tp1Step${index}Rule`);
+      if (rule) rule.textContent = `${trigger ?? '?'}% → secure ${secure ?? '?'}%`;
+    }
+
     if (tp1Basis === 'TP2_DISTANCE') {
       $('tp1TargetLabel').textContent = 'TP1 Trigger (% of TP2)';
       $('tp1TargetHint').textContent = '70% = TP1 is 70% of the path from Entry to TP2.';
