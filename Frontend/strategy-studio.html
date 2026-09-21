@@ -116,12 +116,40 @@
           </section>
 
           <section class="builder-section">
-            <div class="section-title"><span>08</span><div><h3>TP1 <em>Optional</em></h3><p>Target and protection are percentages of the Entry-to-SL distance. Example: 70% = 0.70R.</p></div></div>
+            <div class="section-title"><span>08</span><div><h3>TP1 <em>Optional</em></h3><p>Choose whether TP1 is measured from the Stop Loss distance or from the Entry-to-TP2 distance.</p></div></div>
             <label class="toggle-row"><span><strong>Enable TP1</strong><small>Partial close + protected stop</small></span><input id="tp1Enabled" type="checkbox"><i></i></label>
-            <div id="tp1Fields" class="field-grid three-col conditional hidden">
-              <label class="field"><span>TP1 Target (% of SL)</span><input id="tp1Target" type="number" min="0.01" step="0.01" list="tp1TargetPresets" placeholder="70"><small class="field-hint">70% = 0.70R from entry.</small><small class="field-error" data-error-for="tp1.target_r"></small></label>
-              <label class="field"><span>Close Position (%)</span><input id="tp1Close" type="number" min="0.01" max="100" step="0.01" list="tp1ClosePresets" placeholder="80"><small class="field-hint">Percentage of the position to close at TP1.</small><small class="field-error" data-error-for="tp1.close_percent"></small></label>
-              <label class="field"><span>Protection (% of SL)</span><input id="tp1Protection" type="number" step="0.01" list="protectionPresets" placeholder="20"><small class="field-hint">0% = breakeven; 20% = +0.20R.</small><small class="field-error" data-error-for="tp1.protection_r"></small></label>
+
+            <div id="tp1Fields" class="conditional hidden">
+              <div class="field-grid three-col">
+                <label class="field"><span>TP1 Calculated From</span><select id="tp1TargetBasis"><option value="SL_DISTANCE">Stop Loss Distance</option><option value="TP2_DISTANCE">TP2 Distance (Entry → TP2)</option></select><small class="field-hint">TP2 mode makes 70% mean 70% of the path from Entry to TP2.</small></label>
+                <label class="field"><span id="tp1TargetLabel">TP1 Trigger (%)</span><input id="tp1Target" type="number" min="0.01" step="0.01" list="tp1TargetPresets" placeholder="70"><small id="tp1TargetHint" class="field-hint">70% = 0.70R from entry.</small><small class="field-error" data-error-for="tp1.target_r"></small></label>
+                <label class="field"><span>Close Position (%)</span><input id="tp1Close" type="number" min="0.01" max="100" step="0.01" list="tp1ClosePresets" placeholder="40"><small class="field-hint">How much of the position closes when TP1 is hit.</small><small class="field-error" data-error-for="tp1.close_percent"></small></label>
+              </div>
+
+              <div class="field-grid two-col">
+                <label class="field"><span>Protection Mode</span><select id="tp1ProtectionMode"><option value="FIXED">One Protection Level</option><option value="TP2_STEPS">Step Protection Toward TP2</option></select><small class="field-error" data-error-for="tp1.protection_mode"></small></label>
+                <label id="tp1FixedProtectionField" class="field"><span id="tp1ProtectionLabel">Secure Profit (%)</span><input id="tp1Protection" type="number" step="0.01" list="protectionPresets" placeholder="20"><small id="tp1ProtectionHint" class="field-hint">0% = breakeven.</small><small class="field-error" data-error-for="tp1.protection_r"></small></label>
+              </div>
+
+              <div id="tp1StepProtectionFields" class="conditional hidden">
+                <div class="locked-rule"><span class="rule-dot"></span><div><strong>Step Protection</strong><small>After TP1, the stop only moves forward at these TP2 progress levels. It does not continuously trail price.</small></div><span class="lock-mark">LADDER</span></div>
+                <div class="field-grid three-col">
+                  <label class="field"><span>At TP2 Progress %</span><input id="tp1Step1Trigger" type="number" min="0.01" max="100" step="0.01" value="70"><small class="field-hint">Price reaches 70% of TP2.</small><small class="field-error" data-error-for="tp1.protection_steps.0"></small></label>
+                  <label class="field"><span>Secure %</span><input id="tp1Step1Secure" type="number" min="0" max="100" step="0.01" value="50"><small class="field-hint">Move SL to 50% of the Entry→TP2 path.</small></label>
+                  <div class="field"><span>Rule</span><div class="locked-rule"><strong id="tp1Step1Rule">70% → secure 50%</strong></div></div>
+                </div>
+                <div class="field-grid three-col">
+                  <label class="field"><span>At TP2 Progress %</span><input id="tp1Step2Trigger" type="number" min="0.01" max="100" step="0.01" value="80"><small class="field-hint">Price reaches 80% of TP2.</small><small class="field-error" data-error-for="tp1.protection_steps.1"></small></label>
+                  <label class="field"><span>Secure %</span><input id="tp1Step2Secure" type="number" min="0" max="100" step="0.01" value="60"><small class="field-hint">Move SL to 60% of the Entry→TP2 path.</small></label>
+                  <div class="field"><span>Rule</span><div class="locked-rule"><strong id="tp1Step2Rule">80% → secure 60%</strong></div></div>
+                </div>
+                <div class="field-grid three-col">
+                  <label class="field"><span>At TP2 Progress %</span><input id="tp1Step3Trigger" type="number" min="0.01" max="100" step="0.01" value="90"><small class="field-hint">Price reaches 90% of TP2.</small><small class="field-error" data-error-for="tp1.protection_steps.2"></small></label>
+                  <label class="field"><span>Secure %</span><input id="tp1Step3Secure" type="number" min="0" max="100" step="0.01" value="70"><small class="field-hint">Move SL to 70% of the Entry→TP2 path.</small></label>
+                  <div class="field"><span>Rule</span><div class="locked-rule"><strong id="tp1Step3Rule">90% → secure 70%</strong></div></div>
+                </div>
+                <small class="field-error" data-error-for="tp1.protection_steps"></small>
+              </div>
             </div>
           </section>
 
@@ -195,13 +223,13 @@
   <datalist id="distancePresets"><option value="5"><option value="10"><option value="20"></datalist>
   <datalist id="bufferPresets"><option value="0"><option value="5"><option value="10"></datalist>
   <datalist id="tp1TargetPresets"><option value="50"><option value="70"><option value="75"><option value="100"></datalist>
-  <datalist id="tp1ClosePresets"><option value="50"><option value="70"><option value="80"></datalist>
+  <datalist id="tp1ClosePresets"><option value="40"><option value="50"><option value="70"><option value="80"></datalist>
   <datalist id="protectionPresets"><option value="0"><option value="20"><option value="40"></datalist>
   <datalist id="tp2RPresets"><option value="1"><option value="1.5"><option value="2"></datalist>
 
   <script src="/apiClient.js?v=1"></script>
-  <script src="/strategy-studio/strategy-studio-model.js?v=3"></script>
+  <script src="/strategy-studio/strategy-studio-model.js?v=4"></script>
   <script src="/strategy-studio/strategy-studio-api.js?v=1"></script>
-  <script src="/strategy-studio/strategy-studio.js?v=3"></script>
+  <script src="/strategy-studio/strategy-studio.js?v=4"></script>
 </body>
 </html>

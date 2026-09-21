@@ -127,9 +127,21 @@
     draft.stop_loss.buffer_pips = toNumber('stopBuffer');
     draft.stop_loss.fixed_distance = toNumber('fixedStopDistance');
     draft.tp1.enabled = $('tp1Enabled').checked;
+    draft.tp1.target_basis = $('tp1TargetBasis').value || 'SL_DISTANCE';
     draft.tp1.target_r = Model.percentToR(toNumber('tp1Target'));
     draft.tp1.close_percent = toNumber('tp1Close');
-    draft.tp1.protection_r = Model.percentToR(toNumber('tp1Protection'));
+    draft.tp1.protection_mode = $('tp1ProtectionMode').value || 'FIXED';
+    if (draft.tp1.protection_mode === 'TP2_STEPS') {
+      draft.tp1.protection_r = null;
+      draft.tp1.protection_steps = [
+        { trigger_percent: toNumber('tp1Step1Trigger'), secure_percent: toNumber('tp1Step1Secure') },
+        { trigger_percent: toNumber('tp1Step2Trigger'), secure_percent: toNumber('tp1Step2Secure') },
+        { trigger_percent: toNumber('tp1Step3Trigger'), secure_percent: toNumber('tp1Step3Secure') },
+      ];
+    } else {
+      draft.tp1.protection_r = Model.percentToR(toNumber('tp1Protection'));
+      draft.tp1.protection_steps = [];
+    }
     draft.tp2.method = $('tp2Method').value || null;
     draft.tp2.value = toNumber('tp2Value');
     draft.risk.method = $('riskMethod').value || null;
@@ -159,9 +171,24 @@
     $('stopBuffer').value = value.stop_loss.buffer_pips ?? '';
     $('fixedStopDistance').value = value.stop_loss.fixed_distance ?? '';
     $('tp1Enabled').checked = Boolean(value.tp1.enabled);
+    $('tp1TargetBasis').value = value.tp1.target_basis || 'SL_DISTANCE';
     $('tp1Target').value = Model.rToPercent(value.tp1.target_r) ?? '';
     $('tp1Close').value = value.tp1.close_percent ?? '';
+    $('tp1ProtectionMode').value = value.tp1.protection_mode || 'FIXED';
     $('tp1Protection').value = Model.rToPercent(value.tp1.protection_r) ?? '';
+    const steps = Array.isArray(value.tp1.protection_steps) && value.tp1.protection_steps.length
+      ? value.tp1.protection_steps
+      : [
+          { trigger_percent: 70, secure_percent: 50 },
+          { trigger_percent: 80, secure_percent: 60 },
+          { trigger_percent: 90, secure_percent: 70 },
+        ];
+    $('tp1Step1Trigger').value = steps[0]?.trigger_percent ?? 70;
+    $('tp1Step1Secure').value = steps[0]?.secure_percent ?? 50;
+    $('tp1Step2Trigger').value = steps[1]?.trigger_percent ?? 80;
+    $('tp1Step2Secure').value = steps[1]?.secure_percent ?? 60;
+    $('tp1Step3Trigger').value = steps[2]?.trigger_percent ?? 90;
+    $('tp1Step3Secure').value = steps[2]?.secure_percent ?? 70;
     $('tp2Method').value = value.tp2.method || '';
     $('tp2Value').value = value.tp2.value ?? '';
     $('riskMethod').value = value.risk.method || '';
@@ -188,9 +215,41 @@
     $('stopBufferField').classList.toggle('hidden', !visible.stopBuffer);
     $('fixedStopField').classList.toggle('hidden', !visible.fixedStopDistance);
     $('tp1Fields').classList.toggle('hidden', !visible.tp1);
+    $('tp1FixedProtectionField').classList.toggle('hidden', !visible.tp1FixedProtection);
+    $('tp1StepProtectionFields').classList.toggle('hidden', !visible.tp1StepProtection);
     $('tp2ValueField').classList.toggle('hidden', !visible.tp2Value);
     $('riskValueField').classList.toggle('hidden', !visible.riskValue);
     $('riskValueLabel').textContent = state.draft.risk.method === 'FIXED_DOLLARS' ? 'Fixed $ Risk' : 'Risk % of Balance';
+
+    const tp1Basis = state.draft.tp1?.target_basis || 'SL_DISTANCE';
+    const stepOption = Array.from($('tp1ProtectionMode').options).find((option) => option.value === 'TP2_STEPS');
+    if (stepOption) stepOption.disabled = tp1Basis !== 'TP2_DISTANCE';
+    if (tp1Basis !== 'TP2_DISTANCE' && state.draft.tp1?.protection_mode === 'TP2_STEPS') {
+      state.draft.tp1.protection_mode = 'FIXED';
+      state.draft.tp1.protection_r = Model.percentToR(toNumber('tp1Protection'));
+      state.draft.tp1.protection_steps = [];
+      $('tp1ProtectionMode').value = 'FIXED';
+      $('tp1FixedProtectionField').classList.remove('hidden');
+      $('tp1StepProtectionFields').classList.add('hidden');
+    }
+    for (const index of [1, 2, 3]) {
+      const trigger = toNumber(`tp1Step${index}Trigger`);
+      const secure = toNumber(`tp1Step${index}Secure`);
+      const rule = $(`tp1Step${index}Rule`);
+      if (rule) rule.textContent = `${trigger ?? '?'}% → secure ${secure ?? '?'}%`;
+    }
+
+    if (tp1Basis === 'TP2_DISTANCE') {
+      $('tp1TargetLabel').textContent = 'TP1 Trigger (% of TP2)';
+      $('tp1TargetHint').textContent = '70% = TP1 is 70% of the path from Entry to TP2.';
+      $('tp1ProtectionLabel').textContent = 'Secure Profit (% of TP2)';
+      $('tp1ProtectionHint').textContent = '50% moves SL to 50% of the Entry→TP2 path.';
+    } else {
+      $('tp1TargetLabel').textContent = 'TP1 Trigger (% of SL)';
+      $('tp1TargetHint').textContent = '70% = 0.70R from entry.';
+      $('tp1ProtectionLabel').textContent = 'Secure Profit (% of SL)';
+      $('tp1ProtectionHint').textContent = '0% = breakeven; 20% = +0.20R.';
+    }
 
     const confirmations = state.draft.confirmation.rules || [];
     Array.from($('entryMethod').options).forEach((option) => {
@@ -547,8 +606,8 @@
       collectDraft();
     }));
 
-    ['trendTimeframe', 'entryMethod', 'stopMethod', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
-    ['breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
+    ['trendTimeframe', 'entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
+    ['breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp1Step1Trigger', 'tp1Step1Secure', 'tp1Step2Trigger', 'tp1Step2Secure', 'tp1Step3Trigger', 'tp1Step3Secure', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
     $('tp1Enabled').addEventListener('change', collectDraft);
   }
 

@@ -27,7 +27,15 @@
       confirmation: { rules: [], minimum_body_percent: null },
       entry: { method: null },
       stop_loss: { method: null, buffer_pips: null, fixed_distance: null },
-      tp1: { enabled: false, target_r: null, close_percent: null, protection_r: null },
+      tp1: {
+        enabled: false,
+        target_r: null,
+        target_basis: 'SL_DISTANCE',
+        close_percent: null,
+        protection_r: null,
+        protection_mode: 'FIXED',
+        protection_steps: [],
+      },
       tp2: { method: null, value: null },
       risk: { method: null, value: null },
       fundamentals: { mode: 'BLOCK_OPPOSITE' },
@@ -58,6 +66,8 @@
       stopBuffer: stopMethod === 'LAST_SWING',
       fixedStopDistance: stopMethod === 'FIXED_DISTANCE',
       tp1: Boolean(value.tp1 && value.tp1.enabled),
+      tp1FixedProtection: Boolean(value.tp1 && value.tp1.enabled && (value.tp1.protection_mode || 'FIXED') === 'FIXED'),
+      tp1StepProtection: Boolean(value.tp1 && value.tp1.enabled && value.tp1.protection_mode === 'TP2_STEPS'),
       tp2Value: tp2Method === 'FIXED_R' || tp2Method === 'FIXED_DISTANCE',
       riskValue: riskMethod === 'PERCENT_BALANCE' || riskMethod === 'FIXED_DOLLARS',
     };
@@ -77,10 +87,23 @@
       );
     }
 
-    if (value.tp1 && value.tp1.enabled === false) {
+    if (!value.tp1) value.tp1 = blankStrategy().tp1;
+    value.tp1.target_basis = value.tp1.target_basis || 'SL_DISTANCE';
+    value.tp1.protection_mode = value.tp1.protection_mode || 'FIXED';
+    value.tp1.protection_steps = Array.isArray(value.tp1.protection_steps)
+      ? value.tp1.protection_steps
+      : [];
+    if (value.tp1.enabled === false) {
       value.tp1.target_r = null;
+      value.tp1.target_basis = 'SL_DISTANCE';
       value.tp1.close_percent = null;
       value.tp1.protection_r = null;
+      value.tp1.protection_mode = 'FIXED';
+      value.tp1.protection_steps = [];
+    } else if (value.tp1.protection_mode === 'TP2_STEPS') {
+      value.tp1.protection_r = null;
+    } else {
+      value.tp1.protection_steps = [];
     }
 
     if (value.stop_loss) {
@@ -177,9 +200,51 @@
 
     const tp1 = value.tp1 || {};
     if (tp1.enabled) {
-      if (!positive(tp1.target_r)) errors['tp1.target_r'] = 'Enter a TP1 target greater than 0';
-      if (!percent(tp1.close_percent)) errors['tp1.close_percent'] = 'Enter a close percentage from 0 to 100';
-      if (!finiteNumber(tp1.protection_r)) errors['tp1.protection_r'] = 'Choose TP1 protection';
+      if (!positive(tp1.target_r)) {
+        errors['tp1.target_r'] = 'Enter a TP1 target greater than 0';
+      } else if (tp1.target_basis === 'TP2_DISTANCE' && tp1.target_r > 1) {
+        errors['tp1.target_r'] = 'TP2-based TP1 must be between 0% and 100%';
+      }
+      if (!percent(tp1.close_percent)) {
+        errors['tp1.close_percent'] = 'Enter a close percentage from 0 to 100';
+      }
+
+      if ((tp1.protection_mode || 'FIXED') === 'FIXED') {
+        if (!finiteNumber(tp1.protection_r)) {
+          errors['tp1.protection_r'] = 'Choose TP1 protection';
+        } else if (tp1.target_basis === 'TP2_DISTANCE' && (tp1.protection_r < 0 || tp1.protection_r > 1)) {
+          errors['tp1.protection_r'] = 'TP2-based protection must be between 0% and 100%';
+        }
+      } else {
+        if (tp1.target_basis !== 'TP2_DISTANCE') {
+          errors['tp1.protection_mode'] = 'Step protection requires TP2-based TP1';
+        }
+        const steps = Array.isArray(tp1.protection_steps) ? tp1.protection_steps : [];
+        if (!steps.length) {
+          errors['tp1.protection_steps'] = 'Add at least one protection step';
+        } else {
+          let previousTrigger = -1;
+          let previousSecure = -1;
+          steps.forEach((step, index) => {
+            const trigger = Number(step?.trigger_percent);
+            const secure = Number(step?.secure_percent);
+            const key = `tp1.protection_steps.${index}`;
+            if (!Number.isFinite(trigger) || trigger <= 0 || trigger > 100) {
+              errors[key] = 'Trigger must be between 0% and 100%';
+            } else if (!Number.isFinite(secure) || secure < 0 || secure > 100) {
+              errors[key] = 'Secure level must be between 0% and 100%';
+            } else if (secure >= trigger) {
+              errors[key] = 'Secure level must stay below its trigger';
+            } else if (trigger <= previousTrigger) {
+              errors[key] = 'Protection triggers must increase';
+            } else if (secure < previousSecure) {
+              errors[key] = 'Secure levels cannot move backward';
+            }
+            previousTrigger = trigger;
+            previousSecure = secure;
+          });
+        }
+      }
     }
 
     const tp2 = value.tp2 || {};
@@ -285,13 +350,21 @@
 
     const tp1 = value.tp1 || {};
     if (tp1.enabled) {
-      const target = tp1.target_r == null ? '?' : `${fmt(rToPercent(tp1.target_r))}% of SL`;
+      const basisLabel = tp1.target_basis === 'TP2_DISTANCE' ? 'TP2 path' : 'SL';
+      const target = tp1.target_r == null ? '?' : `${fmt(rToPercent(tp1.target_r))}% of ${basisLabel}`;
       const close = tp1.close_percent == null ? '?' : `${fmt(tp1.close_percent)}%`;
       let protection = '?';
-      if (tp1.protection_r != null) protection = Number(tp1.protection_r) === 0
-        ? 'breakeven'
-        : `+${fmt(rToPercent(tp1.protection_r))}% of SL`;
-      parts.push(`TP1 ${target} / close ${close} / protect ${protection}`);
+      if (tp1.protection_mode === 'TP2_STEPS') {
+        protection = (tp1.protection_steps || [])
+          .map((step) => `${fmt(step.trigger_percent)}→${fmt(step.secure_percent)}%`)
+          .join(', ');
+        protection = protection ? `step protect ${protection}` : 'step protection';
+      } else if (tp1.protection_r != null) {
+        protection = Number(tp1.protection_r) === 0
+          ? 'breakeven'
+          : `secure ${fmt(rToPercent(tp1.protection_r))}% of ${basisLabel}`;
+      }
+      parts.push(`TP1 ${target} / close ${close} / ${protection}`);
     }
 
     const tp2 = value.tp2 || {};
