@@ -83,6 +83,10 @@
     TREND_EMA_50_DISAGREES: 'EMA 50 trend disagreed',
     TREND_EMA_200_DISAGREES: 'EMA 200 trend disagreed',
     TREND_SWING_STRUCTURE_DISAGREES: 'Swing-structure trend disagreed',
+    TREND_BOS_CHOCH_UNAVAILABLE: 'Higher-timeframe BOS/CHOCH was unavailable',
+    TREND_EMA_50_UNAVAILABLE: 'EMA 50 trend was unavailable',
+    TREND_EMA_200_UNAVAILABLE: 'EMA 200 trend was unavailable',
+    TREND_SWING_STRUCTURE_UNAVAILABLE: 'Swing-structure trend was unavailable',
     BREAK_CLOSE_NOT_BEYOND: 'Break candle did not close beyond level',
     BREAK_BODY_TOO_SMALL: 'Break candle body was too small',
     BREAK_DISTANCE_TOO_SMALL: 'Break distance was too small',
@@ -132,6 +136,10 @@
       $('diagnosticSummary').innerHTML = `<strong>NO TRADES FOUND.</strong> ${setups.toLocaleString()} setup${setups === 1 ? '' : 's'} were detected, but none reached a valid trade entry.`;
     } else {
       $('diagnosticSummary').innerHTML = `<strong>${opened.toLocaleString()} trade${opened === 1 ? '' : 's'} opened.</strong> The evaluator detected ${setups.toLocaleString()} setup${setups === 1 ? '' : 's'} across ${candles.toLocaleString()} candles.`;
+    }
+    const warmup = Number(diagnostics.warmup_candles || 0);
+    if (warmup > 0) {
+      $('diagnosticSummary').innerHTML += ` <span class="muted">Indicators were warmed with ${warmup.toLocaleString()} earlier candles.</span>`;
     }
 
     const passed = diagnostics.stage_pass_counts || {};
