@@ -11,11 +11,25 @@ test('simulator page exposes fast run, replay, metrics, trades, and replay chart
   for (const id of [
     'fastRunBtn', 'replayRunBtn', 'metricNetPl', 'metricWinRate', 'metricDrawdown',
     'tradeTableBody', 'equityChart', 'replayChart', 'replayPrevBtn', 'replayNextBtn',
+    'diagnosticSummary', 'diagCandles', 'diagSetups', 'diagSignals', 'diagTradesOpened',
+    'diagnosticFunnel', 'diagnosticReasons',
   ]) {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
   assert.match(html, /Simulator only/i);
   assert.match(html, /does not enable LIVE trading/i);
+  assert.match(html, /Fast Backtest/);
+  assert.match(html, /Bar Replay/);
+});
+
+test('simulator controller renders zero-trade diagnostics and rejection reasons', () => {
+  const source = read('strategy-simulator/strategy-simulator.js');
+  assert.match(source, /function renderDiagnostics/);
+  assert.match(source, /NO TRADES FOUND/);
+  assert.match(source, /stage_pass_counts/);
+  assert.match(source, /rejection_reasons/);
+  assert.match(source, /no_setup_reasons/);
+  assert.match(source, /BOS_CHOCH_REQUIRED/);
 });
 
 test('simulator api only reads saved strategy and posts to simulator endpoint', () => {
