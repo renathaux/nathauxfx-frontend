@@ -38,7 +38,8 @@
   function renderLiveHandoffState() {
     const node = $('studioLiveReadiness');
     const button = $('goLiveStrategyBtn');
-    if (!node || !button) return;
+    const offButton = $('turnOffLiveStrategyBtn');
+    if (!node || !button || !offButton) return;
     const current = currentStrategy();
     const status = state.liveStatus || {};
     const locked = Boolean(current?.locked);
@@ -59,6 +60,13 @@
       node.className = 'notice studio-live-readiness';
       button.textContent = 'Go Live';
     }
+    button.classList.toggle('hidden', live_handoff_enabled);
+    offButton.classList.toggle('hidden', !live_handoff_enabled);
+    offButton.disabled = Boolean(state.busy || !live_handoff_enabled);
+    offButton.title = live_handoff_enabled
+      ? 'Stop future Strategy Studio LIVE entries. Existing broker positions and LIVE Auto are not changed.'
+      : 'Strategy Studio LIVE is not enabled for this strategy';
+
     button.disabled = Boolean(
       state.busy || !current || current.state !== 'ACTIVE' || locked
       || live_handoff_enabled || !parityVerified(status)
@@ -123,6 +131,13 @@
     draft.confirmation.rules = checkedValues('confirmationChoices');
     draft.confirmation.minimum_body_percent = toNumber('confirmationBody');
     draft.entry.method = $('entryMethod').value || null;
+    const rememberBosAllowed = (
+      draft.entry.method === 'CONFIRMATION_CLOSE'
+      && draft.confirmation.rules.includes('NEXT_SAME_DIRECTION')
+    );
+    draft.entry.remember_bos_on_confirmation_failure = Boolean(
+      rememberBosAllowed && $('rememberBosEntry').checked
+    );
     draft.stop_loss.method = $('stopMethod').value || null;
     draft.stop_loss.buffer_pips = toNumber('stopBuffer');
     draft.stop_loss.fixed_distance = toNumber('fixedStopDistance');
@@ -167,6 +182,7 @@
     setCheckedValues('confirmationChoices', value.confirmation.rules);
     $('confirmationBody').value = value.confirmation.minimum_body_percent ?? '';
     $('entryMethod').value = value.entry.method || '';
+    $('rememberBosEntry').checked = Boolean(value.entry.remember_bos_on_confirmation_failure);
     $('stopMethod').value = value.stop_loss.method || '';
     $('stopBuffer').value = value.stop_loss.buffer_pips ?? '';
     $('fixedStopDistance').value = value.stop_loss.fixed_distance ?? '';
@@ -212,6 +228,11 @@
     $('breakBodyField').classList.toggle('hidden', !visible.breakBody);
     $('breakDistanceField').classList.toggle('hidden', !visible.breakDistance);
     $('confirmationBodyField').classList.toggle('hidden', !visible.confirmationBody);
+    $('rememberBosField').classList.toggle('hidden', !visible.rememberBos);
+    if (!visible.rememberBos) {
+      $('rememberBosEntry').checked = false;
+      if (state.draft.entry) state.draft.entry.remember_bos_on_confirmation_failure = false;
+    }
     $('stopBufferField').classList.toggle('hidden', !visible.stopBuffer);
     $('fixedStopField').classList.toggle('hidden', !visible.fixedStopDistance);
     $('tp1Fields').classList.toggle('hidden', !visible.tp1);
@@ -553,6 +574,41 @@
     }
   }
 
+  async function turnOffLiveCurrent() {
+    const current = currentStrategy();
+    if (!current) return;
+    const status = state.liveStatus || {};
+    const liveEnabled = Boolean(
+      current.live_handoff_enabled
+      || (status.enabled && (!status.enabled_strategy_id || status.enabled_strategy_id === current.strategy_id))
+    );
+    if (!liveEnabled) {
+      notice('Strategy Studio LIVE is already off for this strategy.');
+      return;
+    }
+    const ok = await showConfirmation({
+      title: 'Turn Off Strategy Studio LIVE?',
+      message: `Stop future Strategy Studio LIVE entries from “${current.name}”? This does not close an existing broker position and does not toggle global LIVE Auto.`,
+      confirmLabel: 'Turn Off LIVE',
+      danger: true,
+    });
+    if (!ok) return;
+    state.busy = true;
+    renderDraftState();
+    try {
+      const response = await Api.setLiveHandoff(current.strategy_id, false);
+      state.liveStatus = response.state || response.live_state || response;
+      notice('Strategy Studio LIVE is off. No new entries will come from this strategy.', 'success');
+      await loadStrategies(current.strategy_id);
+      await loadLiveStatus();
+    } catch (error) {
+      notice(`Could not turn off Strategy Studio LIVE: ${error.message}`, 'error');
+    } finally {
+      state.busy = false;
+      renderDraftState();
+    }
+  }
+
   async function resetDraft() {
     const ok = await showConfirmation({
       title: 'Reset Draft?',
@@ -619,6 +675,7 @@
     ['entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
     ['breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp1Step1Trigger', 'tp1Step1Secure', 'tp1Step2Trigger', 'tp1Step2Secure', 'tp1Step3Trigger', 'tp1Step3Secure', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
     $('tp1Enabled').addEventListener('change', collectDraft);
+    $('rememberBosEntry').addEventListener('change', collectDraft);
   }
 
   function bindActions() {
@@ -631,6 +688,7 @@
     $('deleteStrategyBtn').addEventListener('click', deleteCurrent);
     $('resetDraftBtn').addEventListener('click', resetDraft);
     $('goLiveStrategyBtn').addEventListener('click', goLiveCurrent);
+    $('turnOffLiveStrategyBtn').addEventListener('click', turnOffLiveCurrent);
     $('simulatorBtn').title = simulatorUnavailableText;
   }
 
