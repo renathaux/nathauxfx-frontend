@@ -127,9 +127,9 @@
     draft.stop_loss.buffer_pips = toNumber('stopBuffer');
     draft.stop_loss.fixed_distance = toNumber('fixedStopDistance');
     draft.tp1.enabled = $('tp1Enabled').checked;
-    draft.tp1.target_r = toNumber('tp1Target');
+    draft.tp1.target_r = Model.percentToR(toNumber('tp1Target'));
     draft.tp1.close_percent = toNumber('tp1Close');
-    draft.tp1.protection_r = toNumber('tp1Protection');
+    draft.tp1.protection_r = Model.percentToR(toNumber('tp1Protection'));
     draft.tp2.method = $('tp2Method').value || null;
     draft.tp2.value = toNumber('tp2Value');
     draft.risk.method = $('riskMethod').value || null;
@@ -159,9 +159,9 @@
     $('stopBuffer').value = value.stop_loss.buffer_pips ?? '';
     $('fixedStopDistance').value = value.stop_loss.fixed_distance ?? '';
     $('tp1Enabled').checked = Boolean(value.tp1.enabled);
-    $('tp1Target').value = value.tp1.target_r ?? '';
+    $('tp1Target').value = Model.rToPercent(value.tp1.target_r) ?? '';
     $('tp1Close').value = value.tp1.close_percent ?? '';
-    $('tp1Protection').value = value.tp1.protection_r ?? '';
+    $('tp1Protection').value = Model.rToPercent(value.tp1.protection_r) ?? '';
     $('tp2Method').value = value.tp2.method || '';
     $('tp2Value').value = value.tp2.value ?? '';
     $('riskMethod').value = value.risk.method || '';
