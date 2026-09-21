@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101f">
   <title>NathauxFX — Strategy Simulator</title>
-  <link rel="stylesheet" href="/strategy-simulator/strategy-simulator.css?v=2">
+  <link rel="stylesheet" href="/strategy-simulator/strategy-simulator.css?v=3">
 </head>
 <body>
   <div class="sim-shell">
@@ -27,6 +27,10 @@
         <label class="risk-toggle"><span>Temporary Risk Override</span><input id="riskOverrideEnabled" type="checkbox"></label>
         <label id="riskMethodField" class="hidden"><span>Override Method</span><select id="riskMethod"><option value="PERCENT_BALANCE">% Balance</option><option value="FIXED_DOLLARS">Fixed $</option></select></label>
         <label id="riskValueField" class="hidden"><span>Override Value</span><input id="riskValue" type="number" min="0.0001" step="0.01" value="1"></label>
+      </div>
+      <div class="range-tools">
+        <button id="fiveYearRangeBtn" class="button ghost" type="button">Use Full 5Y History</button>
+        <span id="historyCoverage" class="muted">Checking available history…</span>
       </div>
       <div class="action-row"><button id="fastRunBtn" class="button primary" type="button">Fast Backtest</button><button id="replayRunBtn" class="button secondary" type="button">Bar Replay</button><span id="runState" class="muted"></span></div>
     </section>
@@ -81,8 +85,8 @@
     </section>
   </div>
 
-  <script src="/strategy-simulator/strategy-simulator-model.js?v=2"></script>
-  <script src="/strategy-simulator/strategy-simulator-api.js?v=3"></script>
-  <script src="/strategy-simulator/strategy-simulator.js?v=4"></script>
+  <script src="/strategy-simulator/strategy-simulator-model.js?v=3"></script>
+  <script src="/strategy-simulator/strategy-simulator-api.js?v=4"></script>
+  <script src="/strategy-simulator/strategy-simulator.js?v=5"></script>
 </body>
 </html>
