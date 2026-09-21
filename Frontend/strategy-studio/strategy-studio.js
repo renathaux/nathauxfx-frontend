@@ -200,7 +200,7 @@
   function populateTrendTimeframes(tradingTimeframe, selected) {
     const select = $('trendTimeframe');
     const options = Model.trendTimeframeOptions(tradingTimeframe);
-    select.innerHTML = '<option value="">Choose higher timeframe</option>' +
+    select.innerHTML = '<option value="">None — no higher timeframe filter</option>' +
       options.map((item) => `<option value="${item}">${item}</option>`).join('');
     select.value = options.includes(selected) ? selected : '';
     if (selected && !options.includes(selected)) state.draft.trend.timeframe = null;
@@ -208,7 +208,7 @@
 
   function renderConditionalFields() {
     const visible = Model.visibleFields(state.draft);
-    $('trendTimeframeField').classList.toggle('hidden', !visible.trendTimeframe);
+    $('trendTimeframeField').classList.remove('hidden');
     $('breakBodyField').classList.toggle('hidden', !visible.breakBody);
     $('breakDistanceField').classList.toggle('hidden', !visible.breakDistance);
     $('confirmationBodyField').classList.toggle('hidden', !visible.confirmationBody);
@@ -603,10 +603,20 @@
         const all = document.querySelector('#trendMethodChoices input[value="ALL"]');
         if (all) all.checked = false;
       }
+      if (event.target.checked && !$('trendTimeframe').value) {
+        const options = Model.trendTimeframeOptions(state.draft.trading_timeframe);
+        if (options.length) $('trendTimeframe').value = options[0];
+      }
       collectDraft();
     }));
 
-    ['trendTimeframe', 'entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
+    $('trendTimeframe').addEventListener('change', () => {
+      if (!$('trendTimeframe').value) {
+        setCheckedValues('trendMethodChoices', []);
+      }
+      collectDraft();
+    });
+    ['entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
     ['breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp1Step1Trigger', 'tp1Step1Secure', 'tp1Step2Trigger', 'tp1Step2Secure', 'tp1Step3Trigger', 'tp1Step3Secure', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
     $('tp1Enabled').addEventListener('change', collectDraft);
   }
