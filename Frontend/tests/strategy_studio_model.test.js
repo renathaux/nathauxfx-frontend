@@ -36,6 +36,8 @@ test('conditional fields follow selected methods', () => {
 
 test('all trend methods expand before API save', () => {
   const value = StudioModel.blankStrategy();
+  value.trading_timeframe = '5m';
+  value.trend.timeframe = '15m';
   value.trend.methods = ['ALL'];
   const normalized = StudioModel.normalizeForApi(value);
   assert.deepEqual(normalized.trend.methods, ['BOS_CHOCH', 'EMA_50', 'EMA_200', 'SWING_STRUCTURE']);
