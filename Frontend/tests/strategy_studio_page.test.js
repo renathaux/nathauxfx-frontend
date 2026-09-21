@@ -64,16 +64,19 @@ test('fundamental LIVE policy exposes both supported modes', () => {
 });
 
 
-test('TP1 controls use percentage language while controller stores R values', () => {
+test('TP1 controls support SL or TP2 percentage bases and a step ladder', () => {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const source = fs.readFileSync(controllerPath, 'utf8');
-  assert.match(html, /TP1 Target \(% of SL\)/);
-  assert.match(html, /Close Position \(%\)/);
-  assert.match(html, /Protection \(% of SL\)/);
-  assert.match(html, /70% = 0\.70R/);
-  assert.match(html, /20% = \+0\.20R/);
+  assert.match(html, /id="tp1TargetBasis"/);
+  assert.match(html, /Stop Loss Distance/);
+  assert.match(html, /TP2 Distance \(Entry → TP2\)/);
+  assert.match(html, /id="tp1ProtectionMode"/);
+  assert.match(html, /Step Protection Toward TP2/);
+  assert.match(html, /70% → secure 50%/);
+  assert.match(html, /80% → secure 60%/);
+  assert.match(html, /90% → secure 70%/);
+  assert.match(source, /draft\.tp1\.target_basis/);
+  assert.match(source, /draft\.tp1\.protection_steps/);
   assert.match(source, /Model\.percentToR\(toNumber\('tp1Target'\)\)/);
-  assert.match(source, /Model\.percentToR\(toNumber\('tp1Protection'\)\)/);
   assert.match(source, /Model\.rToPercent\(value\.tp1\.target_r\)/);
-  assert.match(source, /Model\.rToPercent\(value\.tp1\.protection_r\)/);
 });
