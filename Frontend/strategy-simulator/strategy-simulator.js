@@ -66,11 +66,116 @@
     $('metricAmbiguous').textContent = Model.formatMetric(metrics.ambiguous_trades);
   }
 
+  const DIAGNOSTIC_STAGES = [
+    ['trend', 'Trend passed'],
+    ['structure', 'Structure found'],
+    ['break_validation', 'Break rules passed'],
+    ['confirmation', 'Confirmation passed'],
+    ['entry', 'Entry available'],
+    ['stop_loss', 'Stop loss available'],
+    ['tp2', 'TP2 available'],
+    ['risk', 'Risk passed'],
+  ];
+
+  const DIAGNOSTIC_REASON_LABELS = {
+    BOS_CHOCH_REQUIRED: 'No BOS/CHOCH setup on candle',
+    TREND_BOS_CHOCH_DISAGREES: 'Higher-timeframe BOS/CHOCH disagreed',
+    TREND_EMA_50_DISAGREES: 'EMA 50 trend disagreed',
+    TREND_EMA_200_DISAGREES: 'EMA 200 trend disagreed',
+    TREND_SWING_STRUCTURE_DISAGREES: 'Swing-structure trend disagreed',
+    BREAK_CLOSE_NOT_BEYOND: 'Break candle did not close beyond level',
+    BREAK_BODY_TOO_SMALL: 'Break candle body was too small',
+    BREAK_DISTANCE_TOO_SMALL: 'Break distance was too small',
+    CONFIRMATION_PENDING: 'Confirmation was still pending',
+    IMMEDIATE_CONFIRMATION_MISSED: 'Immediate confirmation was missed',
+    NEXT_CANDLE_WRONG_DIRECTION: 'Next candle was the wrong direction',
+    SECOND_CLOSE_NOT_BEYOND: 'Second close did not stay beyond the level',
+    RETEST_PENDING: 'Retest never completed in the tested range',
+    CONFIRMATION_BODY_TOO_SMALL: 'Confirmation candle body was too small',
+    ENTRY_UNAVAILABLE: 'Entry price was unavailable',
+    STOP_LOSS_UNAVAILABLE: 'Stop loss could not be built',
+    TP2_OPPOSITE_SWING_UNAVAILABLE: 'Opposite-swing TP2 was unavailable',
+    RISK_BUDGET_INVALID: 'Risk budget was invalid',
+    NO_VALID_ENTRY: 'Setup never reached a valid entry',
+  };
+
+  function diagnosticReasonLabel(reason) {
+    if (DIAGNOSTIC_REASON_LABELS[reason]) return DIAGNOSTIC_REASON_LABELS[reason];
+    return String(reason || 'Unknown reason').toLowerCase().replaceAll('_', ' ').replace(/^./, (char) => char.toUpperCase());
+  }
+
+  function renderDiagnostics(diagnostics) {
+    const hasData = diagnostics && Number.isFinite(Number(diagnostics.candles_analyzed));
+    if (!hasData) {
+      $('diagCandles').textContent = '—';
+      $('diagSetups').textContent = '—';
+      $('diagSignals').textContent = '—';
+      $('diagTradesOpened').textContent = '—';
+      $('diagnosticSummary').textContent = 'Run Fast Backtest to see where setups passed, waited, or were blocked.';
+      $('diagnosticFunnel').innerHTML = '<div class="muted">No backtest diagnostics yet.</div>';
+      $('diagnosticReasons').innerHTML = '<div class="muted">No rejection reasons yet.</div>';
+      return;
+    }
+
+    const candles = Number(diagnostics.candles_analyzed || 0);
+    const setups = Number(diagnostics.setups_detected || 0);
+    const signals = Number(diagnostics.signals_emitted || 0);
+    const opened = Number(diagnostics.trades_opened || 0);
+    $('diagCandles').textContent = candles.toLocaleString();
+    $('diagSetups').textContent = setups.toLocaleString();
+    $('diagSignals').textContent = signals.toLocaleString();
+    $('diagTradesOpened').textContent = opened.toLocaleString();
+
+    if (opened === 0 && setups === 0) {
+      $('diagnosticSummary').innerHTML = `<strong>NO TRADES FOUND.</strong> ${candles.toLocaleString()} candles were checked, but no BOS/CHOCH setup reached the evaluator.`;
+    } else if (opened === 0) {
+      $('diagnosticSummary').innerHTML = `<strong>NO TRADES FOUND.</strong> ${setups.toLocaleString()} setup${setups === 1 ? '' : 's'} were detected, but none reached a valid trade entry.`;
+    } else {
+      $('diagnosticSummary').innerHTML = `<strong>${opened.toLocaleString()} trade${opened === 1 ? '' : 's'} opened.</strong> The evaluator detected ${setups.toLocaleString()} setup${setups === 1 ? '' : 's'} across ${candles.toLocaleString()} candles.`;
+    }
+
+    const passed = diagnostics.stage_pass_counts || {};
+    const denominator = Math.max(setups, 1);
+    $('diagnosticFunnel').innerHTML = DIAGNOSTIC_STAGES.map(([key, label]) => {
+      const count = Number(passed[key] || 0);
+      const width = Math.max(0, Math.min(100, (count / denominator) * 100));
+      return `<div class="diagnostic-row">
+        <div class="diagnostic-row-head"><span>${escapeHtml(label)}</span><strong>${count.toLocaleString()}</strong></div>
+        <div class="diagnostic-track"><span style="width:${width.toFixed(1)}%"></span></div>
+      </div>`;
+    }).join('');
+
+    const rejectionEntries = Object.entries(diagnostics.rejection_reasons || {})
+      .sort((a, b) => Number(b[1]) - Number(a[1]));
+    const noSetupEntries = Object.entries(diagnostics.no_setup_reasons || {})
+      .sort((a, b) => Number(b[1]) - Number(a[1]));
+    const reasonRows = rejectionEntries.length ? rejectionEntries : noSetupEntries;
+    if (!reasonRows.length) {
+      $('diagnosticReasons').innerHTML = '<div class="diagnostic-good">No blocked or unfinished setups in this run.</div>';
+    } else {
+      $('diagnosticReasons').innerHTML = reasonRows.map(([reason, count]) => `<div class="diagnostic-reason">
+        <span>${escapeHtml(diagnosticReasonLabel(reason))}</span><strong>${Number(count).toLocaleString()}</strong>
+      </div>`).join('');
+      if (rejectionEntries.length && noSetupEntries.length) {
+        const noSetupCount = noSetupEntries.reduce((sum, [, count]) => sum + Number(count || 0), 0);
+        $('diagnosticReasons').innerHTML += `<div class="diagnostic-note">${noSetupCount.toLocaleString()} other evaluated candles had no active BOS/CHOCH setup.</div>`;
+      }
+    }
+  }
+
   function renderEquity(curve = []) {
     const svg = $('equityChart');
     const points = Model.equityPoints(curve, 700, 260, 24);
     if (!points.length) {
       svg.innerHTML = '<text x="350" y="135" text-anchor="middle" fill="#8ea1bc">No equity data yet</text>';
+      return;
+    }
+    if (points.length === 1) {
+      const balance = curve[0]?.balance;
+      const label = Number.isFinite(Number(balance))
+        ? `No resolved trades — equity stayed at ${Model.formatMetric(balance, 'money')}`
+        : 'No resolved trades — equity did not change';
+      svg.innerHTML = `<text x="350" y="135" text-anchor="middle" fill="#8ea1bc">${escapeHtml(label)}</text>`;
       return;
     }
     const grid = [55, 105, 155, 205].map((y) => `<line class="grid-line" x1="24" y1="${y}" x2="676" y2="${y}"/>`).join('');
@@ -162,6 +267,7 @@
   function renderResult(result) {
     state.result = result;
     renderMetrics(result.metrics || {});
+    renderDiagnostics(result.diagnostics || {});
     renderEquity(result.equity_curve || []);
     renderTrades(result.trades || []);
     renderAssumptions(result.assumptions || {});
@@ -189,7 +295,7 @@
       setBusy(true, mode === 'REPLAY' ? 'Building replay…' : 'Running backtest…');
       const result = await Api.runSimulation(payload);
       renderResult(result);
-      notice(`${mode === 'REPLAY' ? 'Replay' : 'Fast Run'} complete for ${result.symbol} using static candle data.`, 'success');
+      notice(`${mode === 'REPLAY' ? 'Bar Replay' : 'Fast Backtest'} complete for ${result.symbol} using static candle data.`, 'success');
     } catch (error) {
       notice(error.message || 'Simulation failed.', 'error');
     } finally {
@@ -235,6 +341,7 @@
 
   setDefaultDates();
   renderMetrics();
+  renderDiagnostics();
   renderEquity();
   setBusy(false);
   loadStrategy();
