@@ -59,7 +59,7 @@
     const riskMethod = value.risk && value.risk.method;
 
     return {
-      trendTimeframe: Boolean(value.trend && value.trend.methods && value.trend.methods.length),
+      trendTimeframe: true,
       breakBody: breakRules.includes('MIN_BODY_PERCENT'),
       breakDistance: breakRules.includes('MIN_DISTANCE'),
       confirmationBody: confirmations.includes('MIN_BODY_PERCENT'),
@@ -78,6 +78,7 @@
     value.schema_version = 1;
 
     if (!value.trend) value.trend = { timeframe: null, methods: [] };
+    if (!value.trend.timeframe) value.trend.methods = [];
     const methods = Array.isArray(value.trend.methods) ? value.trend.methods : [];
     if (methods.includes('ALL')) {
       value.trend.methods = TREND_METHODS.slice();
