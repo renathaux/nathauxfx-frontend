@@ -187,3 +187,32 @@ test('higher timeframe field is always visible', () => {
   const value = StudioModel.blankStrategy();
   assert.equal(StudioModel.visibleFields(value).trendTimeframe, true);
 });
+
+
+test('remember BOS requires next-same-direction confirmation', () => {
+  const value = validDraft();
+  value.confirmation.rules = ['SECOND_CLOSE_BEYOND'];
+  value.entry = {
+    method: 'CONFIRMATION_CLOSE',
+    remember_bos_on_confirmation_failure: true,
+  };
+  assert.ok(StudioModel.clientValidation(value)['entry.remember_bos_on_confirmation_failure']);
+});
+
+test('remember BOS is valid with confirmation close and next same direction', () => {
+  const value = validDraft();
+  value.confirmation.rules = ['NEXT_SAME_DIRECTION'];
+  value.entry = {
+    method: 'CONFIRMATION_CLOSE',
+    remember_bos_on_confirmation_failure: true,
+  };
+  assert.deepEqual(StudioModel.clientValidation(value), {});
+  assert.match(StudioModel.buildSummary(value), /remember BOS on failed next candle/);
+});
+
+test('legacy entry defaults remember BOS off', () => {
+  const value = validDraft();
+  value.entry = { method: 'BOS_CHOCH_CLOSE' };
+  const normalized = StudioModel.normalizeForApi(value);
+  assert.equal(normalized.entry.remember_bos_on_confirmation_failure, false);
+});
