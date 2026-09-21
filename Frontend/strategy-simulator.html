@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101f">
   <title>NathauxFX — Strategy Simulator</title>
-  <link rel="stylesheet" href="/strategy-simulator/strategy-simulator.css?v=1">
+  <link rel="stylesheet" href="/strategy-simulator/strategy-simulator.css?v=2">
 </head>
 <body>
   <div class="sim-shell">
     <header class="sim-topbar">
       <a class="brand" href="/strategy-studio.html"><span class="brand-mark">N</span><span><strong>NathauxFX</strong><small>Strategy Simulator</small></span></a>
-      <div><span class="eyebrow">STAGE 2 • SIMULATOR ONLY</span><h1>Backtest a saved strategy</h1><p>Fast Run and Replay use the same evaluator and static closed-candle history.</p></div>
+      <div><span class="eyebrow">STAGE 2 • SIMULATOR ONLY</span><h1>Backtest a saved strategy</h1><p>Fast Backtest and Bar Replay use the same evaluator and static closed-candle history.</p></div>
       <div class="safety-badge">LIVE trading remains OFF</div>
     </header>
 
@@ -28,7 +28,7 @@
         <label id="riskMethodField" class="hidden"><span>Override Method</span><select id="riskMethod"><option value="PERCENT_BALANCE">% Balance</option><option value="FIXED_DOLLARS">Fixed $</option></select></label>
         <label id="riskValueField" class="hidden"><span>Override Value</span><input id="riskValue" type="number" min="0.0001" step="0.01" value="1"></label>
       </div>
-      <div class="action-row"><button id="fastRunBtn" class="button primary" type="button">Fast Run</button><button id="replayRunBtn" class="button secondary" type="button">Run Replay</button><span id="runState" class="muted"></span></div>
+      <div class="action-row"><button id="fastRunBtn" class="button primary" type="button">Fast Backtest</button><button id="replayRunBtn" class="button secondary" type="button">Bar Replay</button><span id="runState" class="muted"></span></div>
     </section>
 
     <section class="metric-grid">
@@ -40,6 +40,21 @@
       <article class="metric-card"><span>Max Drawdown</span><strong id="metricDrawdown">—</strong></article>
       <article class="metric-card"><span>Profit Factor</span><strong id="metricProfitFactor">—</strong></article>
       <article class="metric-card"><span>Ambiguous</span><strong id="metricAmbiguous">—</strong></article>
+    </section>
+
+    <section class="panel diagnostics-panel">
+      <div class="panel-title"><div><span class="eyebrow">BACKTEST EXPLANATION</span><h2>What the strategy actually did</h2></div></div>
+      <div id="diagnosticSummary" class="diagnostic-summary muted">Run Fast Backtest to see where setups passed, waited, or were blocked.</div>
+      <div class="diagnostic-kpis">
+        <article class="diagnostic-kpi"><span>Candles Checked</span><strong id="diagCandles">—</strong></article>
+        <article class="diagnostic-kpi"><span>Setups Detected</span><strong id="diagSetups">—</strong></article>
+        <article class="diagnostic-kpi"><span>Signals</span><strong id="diagSignals">—</strong></article>
+        <article class="diagnostic-kpi"><span>Trades Opened</span><strong id="diagTradesOpened">—</strong></article>
+      </div>
+      <div class="diagnostic-columns">
+        <div><h3>Evaluation Funnel</h3><div id="diagnosticFunnel" class="diagnostic-list"><div class="muted">No backtest diagnostics yet.</div></div></div>
+        <div><h3>Why Setups Stopped</h3><div id="diagnosticReasons" class="diagnostic-list"><div class="muted">No rejection reasons yet.</div></div></div>
+      </div>
     </section>
 
     <div class="results-grid">
@@ -57,7 +72,7 @@
       <div class="panel-title"><div><span class="eyebrow">REPLAY</span><h2>Bar-by-bar Replay</h2></div><span id="replayProgress" class="muted">0 / 0</span></div>
       <svg id="replayChart" viewBox="0 0 900 360" role="img" aria-label="Replay candle chart"></svg>
       <div class="replay-controls"><button id="replayPrevBtn" class="button ghost" type="button">Previous</button><input id="replaySlider" type="range" min="0" max="0" value="0"><button id="replayNextBtn" class="button ghost" type="button">Next</button></div>
-      <div id="replayFacts" class="replay-facts muted">Run Replay to inspect evaluator decisions candle by candle.</div>
+      <div id="replayFacts" class="replay-facts muted">Use Bar Replay to inspect evaluator decisions candle by candle.</div>
     </section>
 
     <section class="panel trades-panel">
@@ -68,6 +83,6 @@
 
   <script src="/strategy-simulator/strategy-simulator-model.js?v=2"></script>
   <script src="/strategy-simulator/strategy-simulator-api.js?v=2"></script>
-  <script src="/strategy-simulator/strategy-simulator.js?v=2"></script>
+  <script src="/strategy-simulator/strategy-simulator.js?v=3"></script>
 </body>
 </html>
