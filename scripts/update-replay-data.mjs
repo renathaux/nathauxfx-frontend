@@ -8,6 +8,7 @@ const TIMEFRAME = '5m';
 const SOURCE = 'CTRADER_CLOSED_CANDLES_STATIC_EXPORT';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_API_BASE = 'https://api.nathauxfx.com';
+const DEFAULT_BACKFILL_YEARS = 5;
 const REPLAY_ROOT = path.resolve('Frontend/replay-data');
 const MANIFEST_PATH = path.join(REPLAY_ROOT, 'manifest.json');
 
@@ -338,7 +339,10 @@ async function runBackfill({ manifest, apiBase, now, years }) {
 
 async function main() {
   const requestedMode = String(process.argv[2] || 'auto').toLowerCase();
-  const years = Math.max(1, Math.min(10, Number(process.argv[3] || process.env.BACKFILL_YEARS || 5)));
+  const years = Math.max(
+    1,
+    Math.min(10, Number(process.argv[3] || process.env.BACKFILL_YEARS || DEFAULT_BACKFILL_YEARS))
+  );
   const apiBase = String(process.env.REPLAY_HISTORY_API || DEFAULT_API_BASE).replace(/\/$/, '');
   const now = new Date();
 
@@ -346,6 +350,7 @@ async function main() {
   manifest.version = 1;
   manifest.base_timeframe = TIMEFRAME;
   manifest.source = SOURCE;
+  manifest.target_history_years = years;
 
   let mode = requestedMode;
   if (mode === 'auto') {
@@ -391,6 +396,7 @@ if (isMain) {
 }
 
 export {
+  DEFAULT_BACKFILL_YEARS,
   addMonths,
   canonicalCandles,
   earliestManifestTimestamp,
