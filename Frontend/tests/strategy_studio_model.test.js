@@ -107,3 +107,28 @@ test('fundamental policy appears in live summary', () => {
   value.fundamentals = { mode: 'REQUIRE_ALIGNMENT' };
   assert.match(StudioModel.buildSummary(value), /LIVE fundamentals require alignment/);
 });
+
+
+test('TP1 percentage helpers convert to and from stored R values', () => {
+  assert.equal(StudioModel.percentToR(70), 0.7);
+  assert.equal(StudioModel.percentToR(20), 0.2);
+  assert.equal(StudioModel.rToPercent(0.7), 70);
+  assert.equal(StudioModel.rToPercent(0.2), 20);
+  assert.equal(StudioModel.percentToR(null), null);
+  assert.equal(StudioModel.rToPercent(null), null);
+});
+
+test('TP1 summary uses percentages instead of R labels', () => {
+  const value = validDraft();
+  value.tp1 = {
+    enabled: true,
+    target_r: 0.7,
+    close_percent: 40,
+    protection_r: 0.2,
+  };
+  const summary = StudioModel.buildSummary(value);
+  assert.match(summary, /TP1 70% of SL/);
+  assert.match(summary, /close 40%/);
+  assert.match(summary, /protect \+20% of SL/);
+  assert.doesNotMatch(summary, /0\.7R|0\.2R/);
+});
