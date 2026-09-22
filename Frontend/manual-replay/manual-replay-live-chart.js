@@ -10,6 +10,7 @@
     lastCandles: [],
     draft: null,
     openTrade: null,
+    metrics: null,
     callbacks: {},
     priceLines: new Map(),
     resizeObserver: null,
@@ -89,7 +90,7 @@
         timeVisible: true,
         secondsVisible: false,
         barSpacing: 14,
-        rightOffset: 10,
+        rightOffset: 22,
         lockVisibleTimeRangeOnResize: true,
       },
     };
@@ -140,29 +141,9 @@
   }
 
   function rebuildPriceLines() {
+    // Do not draw infinite Lightweight Charts price lines for manual positions.
+    // The manual replay uses a TradingView-style position box instead.
     clearPriceLines();
-    const position = currentPosition();
-    if (!position) {
-      positionDragLayer();
-      return;
-    }
-
-    createPriceLine('entry', position.entry, {
-      color: '#77adff',
-      title: state.openTrade ? `${position.side} ENTRY` : 'ENTRY',
-      lineStyle: 2,
-    });
-    createPriceLine('sl', position.sl, {
-      color: '#ff687a',
-      title: 'SL',
-      lineStyle: 2,
-    });
-    createPriceLine('tp', position.tp, {
-      color: '#35d5a2',
-      title: 'TP',
-      lineStyle: 2,
-    });
-
     positionDragLayer();
   }
 
@@ -184,6 +165,62 @@
     } catch (_error) {
       return null;
     }
+  }
+
+  function ensurePositionTool() {
+    if (!state.layer) return null;
+    let tool = state.layer.querySelector('.manual-replay-position-tool');
+    if (!tool) {
+      tool = document.createElement('div');
+      tool.className = 'manual-replay-position-tool';
+      tool.innerHTML = `
+        <div class="manual-replay-position-zone profit"></div>
+        <div class="manual-replay-position-zone risk"></div>
+        <div class="manual-replay-position-info"></div>
+      `;
+      state.layer.prepend(tool);
+    }
+    return tool;
+  }
+
+  function positionAnchorX(position) {
+    if (!state.chart || !state.container) return null;
+    const scale = state.chart.timeScale();
+    let x = null;
+
+    if (state.openTrade?.entryTime && typeof scale.timeToCoordinate === 'function') {
+      try {
+        x = scale.timeToCoordinate(normalizeTime(state.openTrade.entryTime));
+      } catch (_error) {}
+    }
+
+    if (!Number.isFinite(Number(x)) && state.lastCandles.length && typeof scale.logicalToCoordinate === 'function') {
+      try {
+        x = scale.logicalToCoordinate(state.lastCandles.length - 1);
+      } catch (_error) {}
+    }
+
+    return Number.isFinite(Number(x)) ? Number(x) : null;
+  }
+
+  function positionSummary(position) {
+    const riskDistance = Math.abs(Number(position.entry) - Number(position.sl));
+    const rewardDistance = Math.abs(Number(position.tp) - Number(position.entry));
+    const rr = riskDistance > 0 ? rewardDistance / riskDistance : null;
+    const riskDollars = Number(state.metrics?.riskDollars ?? position.riskDollars);
+    const rewardDollars = Number(
+      state.metrics?.rewardDollars ??
+      (Number.isFinite(riskDollars) && Number.isFinite(rr) ? riskDollars * rr : NaN)
+    );
+    const money = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)}` : '—';
+    const rrText = Number.isFinite(Number(state.metrics?.rr))
+      ? Number(state.metrics.rr).toFixed(2)
+      : Number.isFinite(rr) ? rr.toFixed(2) : '—';
+    return {
+      risk: money(riskDollars),
+      reward: money(rewardDollars),
+      rr: rrText,
+    };
   }
 
   function ensureDragLine(field, label, className) {
@@ -227,31 +264,72 @@
   }
 
   function positionDragLayer() {
-    if (!state.layer) return;
+    if (!state.layer || !state.container) return;
     const position = currentPosition();
     if (!position) {
       state.layer.replaceChildren();
       return;
     }
 
+    const entryY = priceToY(position.entry);
+    const slY = priceToY(position.sl);
+    const tpY = priceToY(position.tp);
+    const anchorX = positionAnchorX(position);
+    if (![entryY, slY, tpY, anchorX].every((value) => Number.isFinite(Number(value)))) {
+      state.layer.replaceChildren();
+      return;
+    }
+
+    const containerWidth = state.container.clientWidth || 800;
+    const containerHeight = state.container.clientHeight || 460;
+    const endX = Math.max(180, containerWidth - 72);
+    const startX = Math.max(10, Math.min(Number(anchorX), endX - 150));
+    const width = Math.max(150, endX - startX);
+
+    const tool = ensurePositionTool();
+    const side = position.side === 'SELL' ? 'short' : 'long';
+    tool.className = `manual-replay-position-tool ${side} ${state.openTrade ? 'active' : 'draft'}`;
+
+    const profit = tool.querySelector('.manual-replay-position-zone.profit');
+    const risk = tool.querySelector('.manual-replay-position-zone.risk');
+    const info = tool.querySelector('.manual-replay-position-info');
+
+    const placeZone = (node, y1, y2) => {
+      const top = Math.max(0, Math.min(y1, y2));
+      const bottom = Math.min(containerHeight, Math.max(y1, y2));
+      node.style.left = `${Math.round(startX)}px`;
+      node.style.top = `${Math.round(top)}px`;
+      node.style.width = `${Math.round(width)}px`;
+      node.style.height = `${Math.max(1, Math.round(bottom - top))}px`;
+    };
+    placeZone(profit, entryY, tpY);
+    placeZone(risk, entryY, slY);
+
+    const summary = positionSummary(position);
+    info.textContent = `${position.side === 'BUY' ? 'LONG' : 'SHORT'} ${state.openTrade ? 'ACTIVE' : 'POSITION'} • Risk ${summary.risk} • Reward ${summary.reward} • R:R ${summary.rr}`;
+    info.style.left = `${Math.round(startX + 10)}px`;
+    const infoTop = Math.max(8, Math.min(containerHeight - 34, entryY - 29));
+    info.style.top = `${Math.round(infoTop)}px`;
+
     const entry = ensureDragLine('entry', 'ENTRY', 'entry');
     const sl = ensureDragLine('sl', 'SL', 'sl');
     const tp = ensureDragLine('tp', 'TP', 'tp');
 
     const lineStates = [
-      [entry, position.entry, state.openTrade || !state.draft],
-      [sl, position.sl, Boolean(state.openTrade)],
-      [tp, position.tp, Boolean(state.openTrade)],
+      [entry, position.entry, entryY, true],
+      [sl, position.sl, slY, Boolean(state.openTrade)],
+      [tp, position.tp, tpY, Boolean(state.openTrade)],
     ];
 
-    for (const [node, price, locked] of lineStates) {
+    for (const [node, value, y, locked] of lineStates) {
       if (!node) continue;
-      const y = priceToY(price);
-      node.classList.toggle('hidden', y == null);
-      if (y == null) continue;
+      node.classList.remove('hidden');
+      node.style.left = `${Math.round(startX)}px`;
+      node.style.right = 'auto';
+      node.style.width = `${Math.round(width)}px`;
       node.style.transform = `translateY(${Math.round(y)}px)`;
       node.classList.toggle('locked', Boolean(locked));
-      node.querySelector('span').textContent = `${node.dataset.replayPriceField.toUpperCase()} ${formatPrice(price)}`;
+      node.querySelector('span').textContent = `${node.dataset.replayPriceField.toUpperCase()} ${formatPrice(value)}`;
     }
   }
 
@@ -330,6 +408,7 @@
     state.container = null;
     state.layer = null;
     state.lastCandles = [];
+    state.metrics = null;
     state.priceLines.clear();
     state.drag = null;
     state.initialized = false;
@@ -376,7 +455,7 @@
       state.userMovedRange = false;
       try {
         state.chart.timeScale().fitContent();
-        state.chart.timeScale().applyOptions({ rightOffset: 10 });
+        state.chart.timeScale().applyOptions({ rightOffset: 22 });
       } catch (_error) {}
     } else if (!state.userMovedRange && isSingleAppend) {
       try { state.chart.timeScale().scrollToRealTime(); } catch (_error) {}
@@ -385,15 +464,17 @@
     requestAnimationFrame(positionDragLayer);
   }
 
-  function setPosition({ draft = null, openTrade = null } = {}) {
+  function setPosition({ draft = null, openTrade = null, metrics = null } = {}) {
     state.draft = draft;
     state.openTrade = openTrade;
+    state.metrics = metrics;
     rebuildPriceLines();
   }
 
   function clearPosition() {
     state.draft = null;
     state.openTrade = null;
+    state.metrics = null;
     rebuildPriceLines();
   }
 
@@ -416,7 +497,7 @@
     try {
       state.chart.priceScale('right').applyOptions({ autoScale: true });
       state.chart.timeScale().fitContent();
-      state.chart.timeScale().applyOptions({ rightOffset: 10, barSpacing: 14 });
+      state.chart.timeScale().applyOptions({ rightOffset: 22, barSpacing: 14 });
     } catch (_error) {}
     requestAnimationFrame(positionDragLayer);
   }
