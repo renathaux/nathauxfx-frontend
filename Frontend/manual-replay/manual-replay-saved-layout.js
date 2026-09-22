@@ -206,13 +206,35 @@
     if (meta) meta.setAttribute('title', meta.textContent || '');
   }
 
+  function modernTicketLayoutEnabled() {
+    return Boolean(document.getElementById('positionSizingMode'));
+  }
+
   function applySavedLayout() {
     if (window.innerWidth < DESKTOP_MIN_WIDTH) {
       restoreAll();
       return;
     }
 
+    const modernTicket = modernTicketLayoutEnabled();
+    const modernTicketPrefixes = new Set([
+      'ticketField',
+      'ticketFieldText',
+      'ticketFieldControl',
+      'draftMetrics',
+      'priceHint',
+      'buyButton',
+      'sellButton',
+      'resetButton',
+    ]);
+
     for (const [prefix, selector, all] of specs) {
+      // The old saved desktop layout predates Position Sizing + Manual Lot.
+      // Replaying those index-based transforms over the expanded ticket
+      // overlays Risk Method on top of Position Sizing and hides the new
+      // selector. Let the modern ticket flow naturally inside the preserved
+      // sidebar while keeping the rest of the user's saved desktop layout.
+      if (modernTicket && modernTicketPrefixes.has(prefix)) continue;
       const elements = all
         ? Array.from(document.querySelectorAll(selector))
         : [document.querySelector(selector)].filter(Boolean);
@@ -221,6 +243,35 @@
         if (state) applyOne(el, state, prefix);
       });
     }
+
+    if (modernTicket) {
+      const tradePanel = document.querySelector('.trade-panel');
+      if (tradePanel) {
+        tradePanel.style.setProperty('height', 'auto', 'important');
+        tradePanel.style.setProperty('min-height', '724px', 'important');
+        tradePanel.style.setProperty('overflow', 'visible', 'important');
+      }
+      const ticketGrid = document.querySelector('.ticket-grid');
+      if (ticketGrid) {
+        ticketGrid.style.setProperty('transform', 'none', 'important');
+        ticketGrid.style.setProperty('height', 'auto', 'important');
+      }
+      const metrics = document.querySelector('.draft-metrics');
+      if (metrics) {
+        metrics.style.setProperty('height', 'auto', 'important');
+        metrics.style.setProperty('transform', 'none', 'important');
+      }
+      const sizing = document.getElementById('positionSizingMode');
+      if (sizing) {
+        sizing.style.setProperty('display', 'block', 'important');
+        sizing.style.setProperty('visibility', 'visible', 'important');
+        sizing.style.setProperty('opacity', '1', 'important');
+        sizing.style.setProperty('transform', 'none', 'important');
+        sizing.style.setProperty('width', '100%', 'important');
+        sizing.style.setProperty('height', '40px', 'important');
+      }
+    }
+
     stabilizeDynamicDesktopContent();
   }
 
