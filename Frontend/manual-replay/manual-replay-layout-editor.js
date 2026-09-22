@@ -163,6 +163,7 @@
       deleted: Boolean(restored?.deleted),
       text: restored?.text != null ? String(restored.text) : null,
       originalText,
+      baseStyle: el.getAttribute('style'),
     };
 
     states.set(el, state);
@@ -280,6 +281,10 @@
         deleted: previous.deleted,
         text: previous.text,
       });
+      if (!state.geometryTouched) {
+        if (state.baseStyle == null) el.removeAttribute('style');
+        else el.setAttribute('style', state.baseStyle);
+      }
       if (previous.currentText != null && elementTextValue(el) != null) {
         setElementText(el, previous.currentText);
       }
@@ -347,7 +352,7 @@
       lockButton.textContent = state?.locked ? '🔓 UNLOCK' : '🔒 LOCK';
       lockButton.classList.toggle('is-locked', Boolean(state?.locked));
     }
-    if (deleteButton) deleteButton.disabled = !activeElement;
+    if (deleteButton) deleteButton.disabled = !activeElement || Boolean(state?.locked);
     frame.classList.toggle('locked', Boolean(state?.locked));
     frame.querySelectorAll('.manual-layout-hover-handle').forEach((handle) => {
       handle.classList.toggle('disabled', Boolean(state?.locked));
@@ -651,6 +656,7 @@
   toolbar.innerHTML = [
     '<strong>MANUAL REPLAY LAYOUT EDITOR</strong>',
     '<span class="manual-layout-help">Click an item to select it. Selection stays until you click another item. Drag middle to move, use handles to resize. Ctrl/Cmd+Z = undo.</span>',
+    '<button id="manualLayoutUndo" type="button">UNDO</button>',
     '<button id="manualLayoutUndoDelete" type="button">UNDO DELETE</button>',
     '<button id="manualLayoutRestoreDeleted" type="button">RESTORE DELETED</button>',
     '<button id="manualLayoutSave" type="button">SAVE LAYOUT</button>',
@@ -679,6 +685,12 @@
     event.preventDefault();
     event.stopPropagation();
     deleteActiveItem();
+  });
+
+  document.getElementById('manualLayoutUndo')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    undoLastEdit();
   });
 
   document.getElementById('manualLayoutUndoDelete')?.addEventListener('click', (event) => {
