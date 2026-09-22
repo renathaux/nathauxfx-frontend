@@ -81,15 +81,20 @@
         <div class="ticket-grid">
           <label><span>Direction</span><input id="draftDirection" type="text" value="—" readonly></label>
           <label><span>Entry</span><input id="draftEntry" type="text" value="—" readonly></label>
-          <label><span>Risk Method</span><select id="riskMethod"><option value="PERCENT">% Balance</option><option value="FIXED">Fixed $</option></select></label>
-          <label><span>Risk Value</span><input id="riskValue" type="number" min="0.01" step="0.01" value="1"></label>
+          <label><span>Position Sizing</span><select id="positionSizingMode"><option value="AUTO_RISK">Auto Risk</option><option value="MANUAL_LOT">Manual Lot Size</option></select></label>
+          <label id="riskMethodField"><span>Risk Method</span><select id="riskMethod"><option value="PERCENT">% Balance</option><option value="FIXED">Fixed $</option></select></label>
+          <label id="riskValueField"><span>Risk Value</span><input id="riskValue" type="number" min="0.01" step="0.01" value="1"></label>
+          <label id="lotSizeField" class="hidden"><span>Lot Size</span><input id="lotSize" type="number" min="0.01" step="0.01" value="0.10"><small>Lot stays fixed. Moving SL or TP recalculates pips and dollars.</small></label>
           <label><span>Stop Loss</span><input id="slPrice" type="number" step="any" placeholder="Required"></label>
           <label><span>Take Profit</span><input id="tpPrice" type="number" step="any" placeholder="Required"></label>
         </div>
-        <div class="draft-metrics" aria-live="polite">
-          <div><span>R:R</span><strong id="draftRr">—</strong></div>
+        <div class="draft-metrics manual-sizing-metrics" aria-live="polite">
+          <div><span>Lot</span><strong id="draftLot">—</strong></div>
+          <div><span>SL Pips</span><strong id="draftSlPips">—</strong></div>
           <div><span>Risk</span><strong id="draftRisk">—</strong></div>
+          <div><span>TP Pips</span><strong id="draftTpPips">—</strong></div>
           <div><span>Projected Reward</span><strong id="draftReward">—</strong></div>
+          <div><span>R:R</span><strong id="draftRr">—</strong></div>
         </div>
         <p id="pricePickHint" class="price-pick-hint">SL selected • move over the chart to see a price • click the chart to set SL</p>
 
@@ -126,8 +131,8 @@
       <div class="panel-title"><div><span class="eyebrow">YOUR DECISIONS</span><h2>Manual Trade Log</h2></div></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>Side</th><th>Entry Time</th><th>Exit Time</th><th>Entry</th><th>Exit</th><th>SL</th><th>TP</th><th>Result</th><th>R</th><th>P/L</th></tr></thead>
-          <tbody id="tradeBody"><tr><td colspan="11" class="empty">No manual trades yet.</td></tr></tbody>
+          <thead><tr><th>#</th><th>Side</th><th>Lot</th><th>Entry Time</th><th>Exit Time</th><th>Entry</th><th>Exit</th><th>SL</th><th>TP</th><th>Result</th><th>R</th><th>P/L</th></tr></thead>
+          <tbody id="tradeBody"><tr><td colspan="12" class="empty">No manual trades yet.</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -139,9 +144,9 @@
   ></script>
   <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
-  <script src="/manual-replay/manual-replay-position.js?v=3"></script>
+  <script src="/manual-replay/manual-replay-position.js?v=4"></script>
   <script src="/manual-replay/manual-replay-live-chart.js?v=5"></script>
-  <script src="/manual-replay/manual-replay.js?v=14"></script>
+  <script src="/manual-replay/manual-replay.js?v=15"></script>
   <script src="/manual-replay/manual-replay-saved-layout.js?v=4"></script>
   <script src="/manual-replay/manual-replay-layout-editor.js?v=6"></script>
 </body>
