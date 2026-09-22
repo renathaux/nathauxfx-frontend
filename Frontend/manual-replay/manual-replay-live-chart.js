@@ -87,18 +87,48 @@
       },
       rightPriceScale: {
         borderColor: '#1f2937',
+        autoScale: true,
         scaleMargins: {
           top: 0.08,
           bottom: 0.08,
         },
+      },
+      // Treat the chart as a movable viewport over a larger world instead of
+      // a fixed card. This mirrors the TradingView interaction model:
+      // drag to pan, wheel/pinch to zoom, and drag either axis to rescale.
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: true,
+      },
+      handleScale: {
+        axisPressedMouseMove: {
+          time: true,
+          price: true,
+        },
+        axisDoubleClickReset: {
+          time: true,
+          price: true,
+        },
+        mouseWheel: true,
+        pinch: true,
+      },
+      kineticScroll: {
+        mouse: true,
+        touch: true,
       },
       timeScale: {
         borderColor: '#1f2937',
         timeVisible: true,
         secondsVisible: false,
         barSpacing: 14,
+        minBarSpacing: 0.5,
         rightOffset: 22,
-        lockVisibleTimeRangeOnResize: true,
+        fixLeftEdge: false,
+        fixRightEdge: false,
+        rightBarStaysOnScroll: false,
+        lockVisibleTimeRangeOnResize: false,
       },
     };
   }
