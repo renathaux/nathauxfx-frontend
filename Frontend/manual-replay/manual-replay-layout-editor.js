@@ -367,7 +367,7 @@
 
   function startMove(event, el) {
     const state = states.get(el);
-    if (!state) return;
+    if (!state || state.locked || state.deleted) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
