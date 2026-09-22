@@ -204,3 +204,41 @@ body.manual-replay-fullscreen-fallback #replayWorkspace{
     max-height:42vh!important;
   }
 }
+
+/* Full Manual Replay layout editor v4. Per-item controls only appear while the
+   cursor is over an editable item. */
+#manualLayoutHoverActions{
+  position:absolute!important;
+  left:8px!important;
+  bottom:-39px!important;
+  z-index:2147483647!important;
+  display:flex!important;
+  gap:5px!important;
+  pointer-events:auto!important;
+}
+#manualLayoutHoverActions button{
+  min-height:28px!important;
+  height:28px!important;
+  padding:0 8px!important;
+  border:1px solid #3979bf!important;
+  border-radius:6px!important;
+  background:#07192c!important;
+  color:#e7f1ff!important;
+  font:800 9px/1 Arial,sans-serif!important;
+  letter-spacing:.03em!important;
+  white-space:nowrap!important;
+  cursor:pointer!important;
+  pointer-events:auto!important;
+}
+#manualLayoutHoverActions button:hover{border-color:#f5bd48!important;color:#ffe3a1!important}
+#manualLayoutHoverActions button:disabled{opacity:.35!important;cursor:not-allowed!important}
+#manualLayoutHoverActions [data-layout-action="delete"]{border-color:#8c3544!important;color:#ff9eaa!important}
+#manualLayoutHoverActions [data-layout-action="lock"].is-locked{border-color:#f5bd48!important;color:#ffd46b!important}
+#manualLayoutHoverFrame.locked{border-style:solid!important;border-color:#f5bd48!important}
+#manualLayoutHoverFrame.locked .manual-layout-hover-handle,
+.manual-layout-hover-handle.disabled{
+  opacity:.22!important;
+  pointer-events:none!important;
+}
+.manual-replay-layout-editing .manual-layout-locked{cursor:not-allowed!important}
+.manual-layout-deleted{display:none!important}
