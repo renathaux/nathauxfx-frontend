@@ -28,6 +28,12 @@
       gesture: null,
     },
     userMovedRange: false,
+    drawings: [],
+    drawingMode: null,
+    drawingScope: 'default',
+    selectedDrawingId: null,
+    drawingGesture: null,
+    drawingUndo: [],
     initialized: false,
   };
 
@@ -366,6 +372,412 @@
     }
   }
 
+
+
+  const DRAWING_STORAGE_PREFIX = 'nathauxfx_manual_replay_drawings_v1:';
+  const MAX_DRAWING_UNDO = 50;
+
+  function currentReplayPrice() {
+    const candle = state.lastCandles[state.lastCandles.length - 1];
+    return Number.isFinite(Number(candle?.close)) ? Number(candle.close) : null;
+  }
+
+  function pipSizeForSymbol() {
+    return String(state.symbol || '').toUpperCase() === 'XAUUSD' ? 0.01 : 0.0001;
+  }
+
+  function liveTradeSnapshot() {
+    const trade = state.openTrade;
+    const market = currentReplayPrice();
+    if (!trade || !Number.isFinite(market)) return null;
+    const riskDistance = Number(trade.initialRiskDistance) > 0
+      ? Number(trade.initialRiskDistance)
+      : Math.abs(Number(trade.entry) - Number(trade.initialSl ?? trade.sl));
+    if (!Number.isFinite(riskDistance) || riskDistance <= 0) return null;
+    const sign = trade.side === 'SELL' ? -1 : 1;
+    const move = sign * (market - Number(trade.entry));
+    const r = move / riskDistance;
+    const pnl = r * Number(trade.riskDollars || 0);
+    const pips = move / pipSizeForSymbol();
+    return { market, r, pnl, pips };
+  }
+
+  function ensureTradeHologram() {
+    if (!state.layer) return null;
+    let node = state.layer.querySelector('.manual-replay-trade-hologram');
+    if (!node) {
+      node = document.createElement('div');
+      node.className = 'manual-replay-trade-hologram';
+      node.innerHTML = '<strong></strong><span class="pips"></span><span class="r"></span>';
+      state.layer.appendChild(node);
+    }
+    return node;
+  }
+
+  function signedMoney(value) {
+    if (!Number.isFinite(Number(value))) return '—';
+    const n = Number(value);
+    return (n >= 0 ? '+' : '-') + String.fromCharCode(36) + Math.abs(n).toFixed(2);
+  }
+
+  function signedNumber(value, digits, suffix) {
+    if (!Number.isFinite(Number(value))) return '—';
+    const n = Number(value);
+    return (n >= 0 ? '+' : '') + n.toFixed(digits) + suffix;
+  }
+
+  function updateTradeHologram() {
+    if (!state.layer || !state.container) return;
+    const node = ensureTradeHologram();
+    const snapshot = liveTradeSnapshot();
+    if (!snapshot) {
+      node?.classList.add('hidden');
+      return;
+    }
+
+    node.classList.remove('hidden', 'positive', 'negative', 'flat');
+    node.classList.add(snapshot.pnl > 0.005 ? 'positive' : snapshot.pnl < -0.005 ? 'negative' : 'flat');
+    node.querySelector('strong').textContent = signedMoney(snapshot.pnl);
+    node.querySelector('.pips').textContent = signedNumber(snapshot.pips, 1, ' pips');
+    node.querySelector('.r').textContent = signedNumber(snapshot.r, 2, 'R');
+
+    const y = priceToY(snapshot.market);
+    const width = state.container.clientWidth || 800;
+    const height = state.container.clientHeight || 460;
+    const left = Math.max(16, Math.min(width - 190, priceAxisStartX() - 185));
+    const top = Number.isFinite(y)
+      ? Math.max(18, Math.min(height - 74, y - 32))
+      : 18;
+    node.style.left = Math.round(left) + 'px';
+    node.style.top = Math.round(top) + 'px';
+  }
+
+  function drawingStorageKey() {
+    return DRAWING_STORAGE_PREFIX + encodeURIComponent(String(state.drawingScope || 'default'));
+  }
+
+  function cloneDrawings(value = state.drawings) {
+    return JSON.parse(JSON.stringify(value || []));
+  }
+
+  function loadDrawings() {
+    try {
+      const raw = window.localStorage?.getItem(drawingStorageKey());
+      const parsed = raw ? JSON.parse(raw) : [];
+      state.drawings = Array.isArray(parsed) ? parsed : [];
+    } catch (_error) {
+      state.drawings = [];
+    }
+    state.selectedDrawingId = null;
+    state.drawingUndo = [];
+  }
+
+  function saveDrawings() {
+    try {
+      window.localStorage?.setItem(drawingStorageKey(), JSON.stringify(state.drawings));
+    } catch (_error) {}
+  }
+
+  function pushDrawingUndo() {
+    state.drawingUndo.push(cloneDrawings());
+    if (state.drawingUndo.length > MAX_DRAWING_UNDO) state.drawingUndo.shift();
+  }
+
+  function undoDrawingEdit() {
+    const previous = state.drawingUndo.pop();
+    if (!previous) return false;
+    state.drawings = previous;
+    if (!state.drawings.some((item) => item.id === state.selectedDrawingId)) {
+      state.selectedDrawingId = null;
+    }
+    saveDrawings();
+    renderDrawings();
+    return true;
+  }
+
+  function drawingById(id) {
+    return state.drawings.find((item) => item.id === id) || null;
+  }
+
+  function drawingPointFromEvent(event) {
+    if (!state.chart || !state.container) return null;
+    const rect = state.container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    if (x < 0 || y < 0 || x >= priceAxisStartX() || y > rect.height) return null;
+    let logical = null;
+    try { logical = state.chart.timeScale().coordinateToLogical(x); } catch (_error) {}
+    const price = yToPrice(y);
+    if (!Number.isFinite(Number(logical)) || !Number.isFinite(Number(price))) return null;
+    return { logical: Number(logical), price: Number(price), x, y };
+  }
+
+  function logicalToX(logical) {
+    if (!state.chart || !Number.isFinite(Number(logical))) return null;
+    try {
+      const value = state.chart.timeScale().logicalToCoordinate(Number(logical));
+      return Number.isFinite(Number(value)) ? Number(value) : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function normalizedRect(drawing) {
+    const left = Math.min(Number(drawing.a.logical), Number(drawing.b.logical));
+    const right = Math.max(Number(drawing.a.logical), Number(drawing.b.logical));
+    const high = Math.max(Number(drawing.a.price), Number(drawing.b.price));
+    const low = Math.min(Number(drawing.a.price), Number(drawing.b.price));
+    return { left, right, high, low };
+  }
+
+  function ensureDrawingSvg() {
+    if (!state.layer) return null;
+    let svg = state.layer.querySelector('.manual-replay-drawing-layer');
+    if (!svg) {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'manual-replay-drawing-layer');
+      svg.setAttribute('aria-label', 'Manual chart drawings');
+      state.layer.prepend(svg);
+    }
+    const width = state.container?.clientWidth || 800;
+    const height = state.container?.clientHeight || 460;
+    svg.setAttribute('width', String(width));
+    svg.setAttribute('height', String(height));
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+    return svg;
+  }
+
+  function circleHandle(id, handle, x, y) {
+    if (![x, y].every((value) => Number.isFinite(Number(value)))) return '';
+    return '<circle class="manual-drawing-handle" data-replay-drawing="1" data-drawing-id="' +
+      id + '" data-drawing-handle="' + handle + '" cx="' + x + '" cy="' + y + '" r="6"></circle>';
+  }
+
+  function renderLineDrawing(drawing, selected) {
+    const x1 = logicalToX(drawing.a.logical);
+    const y1 = priceToY(drawing.a.price);
+    const x2 = logicalToX(drawing.b.logical);
+    const y2 = priceToY(drawing.b.price);
+    if (![x1, y1, x2, y2].every((value) => Number.isFinite(Number(value)))) return '';
+    const selectedClass = selected ? ' selected' : '';
+    let html = '<g class="manual-drawing line' + selectedClass + '" data-drawing-group="' + drawing.id + '">' +
+      '<line class="manual-drawing-hit" data-replay-drawing="1" data-drawing-body="1" data-drawing-id="' + drawing.id +
+      '" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '"></line>' +
+      '<line class="manual-drawing-line" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '"></line>';
+    if (selected) {
+      html += circleHandle(drawing.id, 'a', x1, y1);
+      html += circleHandle(drawing.id, 'b', x2, y2);
+    }
+    return html + '</g>';
+  }
+
+  function rectHandlePoints(x1, y1, x2, y2) {
+    const left = Math.min(x1, x2);
+    const right = Math.max(x1, x2);
+    const top = Math.min(y1, y2);
+    const bottom = Math.max(y1, y2);
+    const midX = (left + right) / 2;
+    const midY = (top + bottom) / 2;
+    return {
+      nw: [left, top], n: [midX, top], ne: [right, top],
+      e: [right, midY], se: [right, bottom], s: [midX, bottom],
+      sw: [left, bottom], w: [left, midY],
+    };
+  }
+
+  function renderRectDrawing(drawing, selected) {
+    const rect = normalizedRect(drawing);
+    const x1 = logicalToX(rect.left);
+    const x2 = logicalToX(rect.right);
+    const y1 = priceToY(rect.high);
+    const y2 = priceToY(rect.low);
+    if (![x1, y1, x2, y2].every((value) => Number.isFinite(Number(value)))) return '';
+    const left = Math.min(x1, x2);
+    const top = Math.min(y1, y2);
+    const width = Math.max(1, Math.abs(x2 - x1));
+    const height = Math.max(1, Math.abs(y2 - y1));
+    const selectedClass = selected ? ' selected' : '';
+    let html = '<g class="manual-drawing rect' + selectedClass + '" data-drawing-group="' + drawing.id + '">' +
+      '<rect class="manual-drawing-rect" data-replay-drawing="1" data-drawing-body="1" data-drawing-id="' + drawing.id +
+      '" x="' + left + '" y="' + top + '" width="' + width + '" height="' + height + '"></rect>';
+    if (selected) {
+      const points = rectHandlePoints(x1, y1, x2, y2);
+      for (const handle of ['nw','n','ne','e','se','s','sw','w']) {
+        html += circleHandle(drawing.id, handle, points[handle][0], points[handle][1]);
+      }
+    }
+    return html + '</g>';
+  }
+
+  function renderDrawings() {
+    if (!state.layer || !state.container) return;
+    const svg = ensureDrawingSvg();
+    if (!svg) return;
+    svg.innerHTML = state.drawings.map((drawing) => {
+      const selected = drawing.id === state.selectedDrawingId;
+      return drawing.type === 'rect'
+        ? renderRectDrawing(drawing, selected)
+        : renderLineDrawing(drawing, selected);
+    }).join('');
+  }
+
+  function setDrawingMode(mode) {
+    const normalized = ['line', 'rect'].includes(mode) ? mode : null;
+    state.drawingMode = normalized;
+    state.drawingGesture = null;
+    state.callbacks.onDrawingModeChange?.(normalized);
+    renderDrawings();
+  }
+
+  function setDrawingScope(scope) {
+    const normalized = String(scope || 'default');
+    if (normalized === state.drawingScope) return;
+    state.drawingScope = normalized;
+    loadDrawings();
+    renderDrawings();
+  }
+
+  function finishDrawingGesture() {
+    const gesture = state.drawingGesture;
+    if (!gesture) return;
+    const drawing = drawingById(gesture.id);
+    if (drawing?.type === 'rect') {
+      const rect = normalizedRect(drawing);
+      drawing.a = { logical: rect.left, price: rect.high };
+      drawing.b = { logical: rect.right, price: rect.low };
+    }
+    state.drawingGesture = null;
+    saveDrawings();
+    if (gesture.type === 'create') setDrawingMode(null);
+    renderDrawings();
+  }
+
+  function applyRectangleHandle(drawing, handle, point) {
+    const rect = normalizedRect(drawing);
+    let left = rect.left;
+    let right = rect.right;
+    let high = rect.high;
+    let low = rect.low;
+    if (handle.includes('w')) left = point.logical;
+    if (handle.includes('e')) right = point.logical;
+    if (handle.includes('n')) high = point.price;
+    if (handle.includes('s')) low = point.price;
+    if (left > right) [left, right] = [right, left];
+    if (low > high) [low, high] = [high, low];
+    drawing.a = { logical: left, price: high };
+    drawing.b = { logical: right, price: low };
+  }
+
+  function updateDrawingGesture(event) {
+    const gesture = state.drawingGesture;
+    if (!gesture || gesture.pointerId !== event.pointerId) return false;
+    const drawing = drawingById(gesture.id);
+    const point = drawingPointFromEvent(event);
+    if (!drawing || !point) return false;
+
+    if (gesture.type === 'create') {
+      drawing.b = { logical: point.logical, price: point.price };
+    } else if (gesture.type === 'move') {
+      const logicalDelta = point.logical - gesture.start.logical;
+      const priceDelta = point.price - gesture.start.price;
+      drawing.a = {
+        logical: gesture.original.a.logical + logicalDelta,
+        price: gesture.original.a.price + priceDelta,
+      };
+      drawing.b = {
+        logical: gesture.original.b.logical + logicalDelta,
+        price: gesture.original.b.price + priceDelta,
+      };
+    } else if (gesture.type === 'resize') {
+      if (drawing.type === 'line') {
+        drawing[gesture.handle] = { logical: point.logical, price: point.price };
+      } else {
+        applyRectangleHandle(drawing, gesture.handle, point);
+      }
+    }
+
+    renderDrawings();
+    event.preventDefault();
+    event.stopImmediatePropagation?.();
+    return true;
+  }
+
+  function beginDrawingGesture(event) {
+    if (event.button !== 0) return false;
+    const handle = event.target.closest?.('[data-drawing-handle]');
+    const body = event.target.closest?.('[data-drawing-body]');
+    const point = drawingPointFromEvent(event);
+
+    if (handle) {
+      const id = handle.getAttribute('data-drawing-id');
+      const drawing = drawingById(id);
+      if (!drawing || !point) return false;
+      pushDrawingUndo();
+      state.selectedDrawingId = id;
+      state.drawingGesture = {
+        type: 'resize',
+        id,
+        handle: handle.getAttribute('data-drawing-handle'),
+        pointerId: event.pointerId,
+      };
+    } else if (body) {
+      const id = body.getAttribute('data-drawing-id');
+      const drawing = drawingById(id);
+      if (!drawing || !point) return false;
+      pushDrawingUndo();
+      state.selectedDrawingId = id;
+      state.drawingGesture = {
+        type: 'move',
+        id,
+        pointerId: event.pointerId,
+        start: { logical: point.logical, price: point.price },
+        original: cloneDrawings([drawing])[0],
+      };
+    } else if (state.drawingMode && point) {
+      pushDrawingUndo();
+      const id = 'drawing_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      state.drawings.push({
+        id,
+        type: state.drawingMode,
+        a: { logical: point.logical, price: point.price },
+        b: { logical: point.logical, price: point.price },
+      });
+      state.selectedDrawingId = id;
+      state.drawingGesture = { type: 'create', id, pointerId: event.pointerId };
+    } else {
+      if (state.selectedDrawingId) {
+        state.selectedDrawingId = null;
+        renderDrawings();
+      }
+      return false;
+    }
+
+    try { state.interactionHost?.setPointerCapture?.(event.pointerId); } catch (_error) {}
+    renderDrawings();
+    event.preventDefault();
+    event.stopImmediatePropagation?.();
+    return true;
+  }
+
+  function deleteSelectedDrawing() {
+    if (!state.selectedDrawingId) return false;
+    const index = state.drawings.findIndex((item) => item.id === state.selectedDrawingId);
+    if (index < 0) return false;
+    pushDrawingUndo();
+    state.drawings.splice(index, 1);
+    state.selectedDrawingId = null;
+    saveDrawings();
+    renderDrawings();
+    return true;
+  }
+
+  function clearPositionDom() {
+    if (!state.layer) return;
+    state.positionHitbox = null;
+    state.layer.querySelector('.manual-replay-position-tool')?.remove();
+    state.layer.querySelectorAll('[data-replay-price-field]').forEach((node) => node.remove());
+  }
+
   function ensurePositionTool() {
     if (!state.layer) return null;
     let tool = state.layer.querySelector('.manual-replay-position-tool');
@@ -494,10 +906,11 @@
 
   function positionDragLayer() {
     if (!state.layer || !state.container) return;
+    renderDrawings();
+    updateTradeHologram();
     const position = currentPosition();
     if (!position) {
-      state.positionHitbox = null;
-      state.layer.replaceChildren();
+      clearPositionDom();
       return;
     }
 
@@ -506,7 +919,7 @@
     const tpY = priceToY(position.tp);
     const anchorX = positionAnchorX(position);
     if (![entryY, slY, tpY, anchorX].every((value) => Number.isFinite(Number(value)))) {
-      state.layer.replaceChildren();
+      clearPositionDom();
       return;
     }
 
@@ -683,7 +1096,8 @@
 
     const onVerticalPointerDown = (event) => {
       if (event.button !== 0) return;
-      if (event.target.closest?.('[data-replay-price-field]')) return;
+      if (state.drawingMode || state.drawingGesture) return;
+      if (event.target.closest?.('[data-replay-price-field], [data-replay-drawing]')) return;
       const rect = state.container.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
@@ -705,6 +1119,19 @@
         event.preventDefault();
         event.stopPropagation();
       }
+    };
+
+    const onDrawingPointerMove = (event) => {
+      updateDrawingGesture(event);
+    };
+
+    const onDrawingPointerEnd = (event) => {
+      const gesture = state.drawingGesture;
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      try { state.interactionHost?.releasePointerCapture?.(event.pointerId); } catch (_error) {}
+      finishDrawingGesture();
+      event.preventDefault();
+      event.stopImmediatePropagation?.();
     };
 
     const onVerticalPointerMove = (event) => {
@@ -775,13 +1202,44 @@
       togglePositionLocked('double-click');
     };
     const onKeyDown = (event) => {
-      if (event.code !== 'Space' || !currentPosition() || state.positionLocked) return;
       const tag = String(document.activeElement?.tagName || '').toUpperCase();
-      if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tag) || document.activeElement?.isContentEditable) return;
+      const typing = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tag) || document.activeElement?.isContentEditable;
+
+      if (!typing && (event.metaKey || event.ctrlKey) && String(event.key).toLowerCase() === 'z') {
+        if (undoDrawingEdit()) {
+          event.preventDefault();
+          return;
+        }
+      }
+
+      if (!typing && (event.key === 'Delete' || event.key === 'Backspace')) {
+        if (deleteSelectedDrawing()) {
+          event.preventDefault();
+          return;
+        }
+      }
+
+      if (event.key === 'Escape') {
+        if (state.drawingMode || state.selectedDrawingId) {
+          state.drawingMode = null;
+          state.drawingGesture = null;
+          state.selectedDrawingId = null;
+          state.callbacks.onDrawingModeChange?.(null);
+          renderDrawings();
+          event.preventDefault();
+          return;
+        }
+      }
+
+      if (event.code !== 'Space' || !currentPosition() || state.positionLocked || typing) return;
       event.preventDefault();
       setPositionLocked(true, 'space');
     };
+    interactionHost.addEventListener('pointerdown', beginDrawingGesture, true);
     interactionHost.addEventListener('pointerdown', onVerticalPointerDown, true);
+    window.addEventListener('pointermove', onDrawingPointerMove, true);
+    window.addEventListener('pointerup', onDrawingPointerEnd, true);
+    window.addEventListener('pointercancel', onDrawingPointerEnd, true);
     window.addEventListener('pointermove', onVerticalPointerMove, true);
     window.addEventListener('pointerup', onVerticalPointerEnd, true);
     window.addEventListener('pointercancel', onVerticalPointerEnd, true);
@@ -790,6 +1248,9 @@
     document.addEventListener('keydown', onKeyDown, true);
     state.interactionHost = interactionHost;
     state.interactionHandlers = {
+      beginDrawingGesture,
+      onDrawingPointerMove,
+      onDrawingPointerEnd,
       onVerticalPointerDown,
       onVerticalPointerMove,
       onVerticalPointerEnd,
@@ -817,11 +1278,15 @@
       state.clickTimer = null;
     }
     if (state.interactionHost && state.interactionHandlers) {
+      state.interactionHost.removeEventListener('pointerdown', state.interactionHandlers.beginDrawingGesture, true);
       state.interactionHost.removeEventListener('pointerdown', state.interactionHandlers.onVerticalPointerDown, true);
       state.interactionHost.removeEventListener('wheel', state.interactionHandlers.onVerticalWheel, true);
       state.interactionHost.removeEventListener('dblclick', state.interactionHandlers.onDoubleClick, true);
     }
     if (state.interactionHandlers) {
+      window.removeEventListener('pointermove', state.interactionHandlers.onDrawingPointerMove, true);
+      window.removeEventListener('pointerup', state.interactionHandlers.onDrawingPointerEnd, true);
+      window.removeEventListener('pointercancel', state.interactionHandlers.onDrawingPointerEnd, true);
       window.removeEventListener('pointermove', state.interactionHandlers.onVerticalPointerMove, true);
       window.removeEventListener('pointerup', state.interactionHandlers.onVerticalPointerEnd, true);
       window.removeEventListener('pointercancel', state.interactionHandlers.onVerticalPointerEnd, true);
@@ -844,6 +1309,12 @@
     state.positionHitbox = null;
     state.positionLocked = false;
     state.positionKey = null;
+    state.drawings = [];
+    state.drawingMode = null;
+    state.drawingScope = 'default';
+    state.selectedDrawingId = null;
+    state.drawingGesture = null;
+    state.drawingUndo = [];
     state.verticalViewport.scale = 1;
     state.verticalViewport.offsetRatio = 0;
     state.verticalViewport.gesture = null;
@@ -955,6 +1426,10 @@
     setCandles,
     setPosition,
     clearPosition,
+    setDrawingMode,
+    setDrawingScope,
+    deleteSelectedDrawing,
+    undoDrawingEdit,
     zoomBy,
     resetView,
     resize: resizeChart,
@@ -966,6 +1441,9 @@
       positionLocked: state.positionLocked,
       verticalScale: state.verticalViewport.scale,
       verticalOffsetRatio: state.verticalViewport.offsetRatio,
+      drawingMode: state.drawingMode,
+      drawings: state.drawings.length,
+      selectedDrawingId: state.selectedDrawingId,
     }),
   };
 })();

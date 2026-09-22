@@ -395,3 +395,55 @@ test('price autoscale uses only the visible replay candles', () => {
   assert.match(liveChart, /const padding = baseSpan \* 0\.08/);
   assert.match(liveChart, /subscribeVisibleLogicalRangeChange\([\s\S]*refreshVerticalViewport\(\)/);
 });
+
+
+test('active manual trade shows a live hologram with money pips and R', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(liveChart, /function liveTradeSnapshot/);
+  assert.match(liveChart, /initialRiskDistance/);
+  assert.match(liveChart, /const pnl = r \* Number\(trade\.riskDollars/);
+  assert.match(liveChart, /const pips = move \/ pipSizeForSymbol\(\)/);
+  assert.match(liveChart, /manual-replay-trade-hologram/);
+  assert.match(liveChart, /signedMoney\(snapshot\.pnl\)/);
+  assert.match(liveChart, /signedNumber\(snapshot\.pips, 1, ' pips'\)/);
+  assert.match(liveChart, /signedNumber\(snapshot\.r, 2, 'R'\)/);
+  assert.match(css, /manual-replay-trade-hologram\.positive/);
+  assert.match(css, /manual-replay-trade-hologram\.negative/);
+});
+
+test('manual replay has line and support resistance rectangle drawing tools', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(html, /id="drawLineBtn"/);
+  assert.match(html, /id="drawRectBtn"/);
+  assert.match(html, /S\/R Zone/);
+  assert.match(app, /toggleDrawingMode\('line'\)/);
+  assert.match(app, /toggleDrawingMode\('rect'\)/);
+  assert.match(liveChart, /function setDrawingMode/);
+  assert.match(liveChart, /coordinateToLogical/);
+  assert.match(liveChart, /logicalToCoordinate/);
+  assert.match(liveChart, /manual-replay-drawing-layer/);
+  assert.match(liveChart, /manual-drawing-line/);
+  assert.match(liveChart, /manual-drawing-rect/);
+  assert.match(css, /manual-drawing-line/);
+  assert.match(css, /manual-drawing-rect/);
+});
+
+test('support resistance rectangle exposes all eight resize handles', () => {
+  assert.match(liveChart, /\['nw','n','ne','e','se','s','sw','w'\]/);
+  assert.match(liveChart, /function applyRectangleHandle/);
+  assert.match(liveChart, /handle\.includes\('w'\)/);
+  assert.match(liveChart, /handle\.includes\('e'\)/);
+  assert.match(liveChart, /handle\.includes\('n'\)/);
+  assert.match(liveChart, /handle\.includes\('s'\)/);
+});
+
+test('manual chart drawings persist by replay symbol timeframe and support undo delete', () => {
+  assert.match(liveChart, /nathauxfx_manual_replay_drawings_v1/);
+  assert.match(liveChart, /window\.localStorage/);
+  assert.match(liveChart, /function pushDrawingUndo/);
+  assert.match(liveChart, /function undoDrawingEdit/);
+  assert.match(liveChart, /function deleteSelectedDrawing/);
+  assert.match(liveChart, /event\.key === 'Delete'/);
+  assert.match(liveChart, /String\(event\.key\)\.toLowerCase\(\) === 'z'/);
+  assert.match(app, /setDrawingScope\?\.\(symbol \+ '\\|' \+ \$\('timeframe'\)\.value\)/);
+});
