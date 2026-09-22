@@ -61,3 +61,17 @@ test('controller aggregates five-year backtest chunks and reports progress', () 
   assert.match(source, /refreshHistoryCoverage/);
   assert.match(source, /useFullFiveYearHistory/);
 });
+
+
+test('simulator exposes direct year jump controls', () => {
+  const html = read('strategy-simulator.html');
+  const source = read('strategy-simulator/strategy-simulator.js');
+  const css = read('strategy-simulator/strategy-simulator.css');
+  assert.match(html, /id="startYear"/);
+  assert.match(html, /id="endYear"/);
+  assert.match(html, /date-input-row/);
+  assert.match(source, /function applyYearJump/);
+  assert.match(source, /function syncAllYearJumps/);
+  assert.match(source, /startYear.*applyYearJump/);
+  assert.match(css, /date-year-jump/);
+});

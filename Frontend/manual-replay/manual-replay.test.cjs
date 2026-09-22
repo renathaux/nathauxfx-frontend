@@ -85,3 +85,15 @@ test('manual replay static history does not require backend auth', () => {
   assert.match(api, /fetchJson/);
   assert.match(api, /STATIC_REPLAY_HISTORY/);
 });
+
+
+test('manual replay exposes visible year jump controls', () => {
+  assert.match(html, /id="startYear"/);
+  assert.match(html, /id="endYear"/);
+  assert.match(html, /date-input-row/);
+  assert.match(app, /function applyYearJump/);
+  assert.match(app, /populateYearJump\('startYear'/);
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(css, /grid-template-columns:86px minmax\(0,1fr\)/);
+  assert.match(css, /position:static!important/);
+});

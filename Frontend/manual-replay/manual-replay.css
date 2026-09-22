@@ -61,27 +61,28 @@
 }
 
 
-/* Safari's native datetime picker is month-oriented. This compact selector
-   jumps years without changing the saved Replay Setup geometry. */
-.setup-grid .date-field{position:relative}
+/* Safari's native datetime picker is month-oriented. Keep a real, visible
+   year dropdown beside each date so old replay years are one click away. */
+.setup-grid .date-field{min-width:0}
+.setup-grid .date-input-row{display:grid;grid-template-columns:86px minmax(0,1fr);gap:7px;align-items:center}
 .setup-grid .date-year-jump{
-  position:absolute!important;
-  top:-1px!important;
-  right:0!important;
-  z-index:80!important;
-  width:68px!important;
-  min-height:18px!important;
-  height:18px!important;
-  padding:0 15px 0 5px!important;
-  border-radius:6px!important;
+  position:static!important;
+  width:86px!important;
+  min-width:86px!important;
+  min-height:40px!important;
+  height:40px!important;
+  padding:9px 8px!important;
+  border-radius:10px!important;
   border:1px solid #365273!important;
   background:#0b1d31!important;
-  color:#c8d8ea!important;
-  font-size:10px!important;
-  font-weight:800!important;
-  line-height:16px!important;
+  color:#f5bd48!important;
+  font-size:12px!important;
+  font-weight:900!important;
+  line-height:normal!important;
   pointer-events:auto!important;
 }
+.setup-grid .date-input-row input{min-width:0}
 @media(max-width:720px){
-  .setup-grid .date-year-jump{width:72px!important}
+  .setup-grid .date-input-row{grid-template-columns:82px minmax(0,1fr)}
+  .setup-grid .date-year-jump{width:82px!important;min-width:82px!important}
 }
