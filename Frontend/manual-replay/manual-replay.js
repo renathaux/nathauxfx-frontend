@@ -207,10 +207,14 @@
     return Math.abs(Number(entry)) >= 100 ? 0.01 : 0.00001;
   }
 
+  function editablePosition() {
+    return state.openTrade || state.positionDraft || null;
+  }
+
   function syncDraftInputs() {
-    const draft = state.positionDraft;
-    $('slPrice').value = draft && draft.sl != null && Number.isFinite(Number(draft.sl)) ? price(draft.sl) : '';
-    $('tpPrice').value = draft && draft.tp != null && Number.isFinite(Number(draft.tp)) ? price(draft.tp) : '';
+    const position = editablePosition();
+    $('slPrice').value = position && position.sl != null && Number.isFinite(Number(position.sl)) ? price(position.sl) : '';
+    $('tpPrice').value = position && position.tp != null && Number.isFinite(Number(position.tp)) ? price(position.tp) : '';
   }
 
   function positionMetrics() {
@@ -264,7 +268,28 @@
   }
 
   function updateDraftLevel(field, rawValue) {
-    if (!state.positionDraft || state.openTrade) return;
+    if (!['sl', 'tp'].includes(field)) return;
+
+    if (state.openTrade) {
+      const trade = state.openTrade;
+      const current = Number(currentCandle()?.close);
+      const gap = minimumPriceDistance(trade.entry);
+      const value = Position.validateActivePositionLevel(
+        trade,
+        field,
+        rawValue,
+        current,
+        gap,
+      );
+      if (value == null) return;
+      state.openTrade = {
+        ...trade,
+        [field]: value,
+      };
+      return;
+    }
+
+    if (!state.positionDraft) return;
     state.positionDraft = Position.updateDraftLevel(
       state.positionDraft,
       field,
@@ -311,7 +336,9 @@
   }
 
   function tradeR(trade, exitPrice) {
-    const distance = Math.abs(trade.entry - trade.sl);
+    const distance = Number(trade.initialRiskDistance) > 0
+      ? Number(trade.initialRiskDistance)
+      : Math.abs(Number(trade.entry) - Number(trade.initialSl ?? trade.sl));
     if (!distance) return 0;
     const sign = trade.side === 'BUY' ? 1 : -1;
     return sign * (Number(exitPrice) - trade.entry) / distance;
@@ -351,6 +378,7 @@
       resolved,
     });
     state.openTrade = null;
+    syncDraftInputs();
     renderAll();
   }
 
@@ -364,7 +392,9 @@
       return;
     }
     if (slHit) {
-      closeTrade('SL', trade.sl, -1, true);
+      const securedR = tradeR(trade, trade.sl);
+      const outcome = securedR > 0 ? 'PROTECTED_SL' : Math.abs(securedR) < 0.0001 ? 'BREAKEVEN' : 'SL';
+      closeTrade(outcome, trade.sl, securedR, true);
       return;
     }
     if (tpHit) {
@@ -444,15 +474,25 @@
     const trade = state.openTrade;
     $('positionCard').classList.toggle('hidden', !trade);
     const draft = state.positionDraft;
+    const editor = trade || draft;
     const draftMetrics = positionMetrics();
-    $('draftDirection').value = draft ? (draft.side === 'BUY' ? 'LONG / BUY' : 'SHORT / SELL') : '—';
-    $('draftEntry').value = draft ? price(draft.entry) : '—';
-    $('draftRr').textContent = draftMetrics && Number.isFinite(draftMetrics.rr) ? draftMetrics.rr.toFixed(2) : '—';
-    $('draftRisk').textContent = draftMetrics && Number.isFinite(draftMetrics.riskDollars) ? money(draftMetrics.riskDollars) : '—';
-    $('draftReward').textContent = draftMetrics && Number.isFinite(draftMetrics.rewardDollars) ? money(draftMetrics.rewardDollars) : '—';
+    $('draftDirection').value = editor ? (editor.side === 'BUY' ? 'LONG / BUY' : 'SHORT / SELL') : '—';
+    $('draftEntry').value = editor ? price(editor.entry) : '—';
+
+    if (trade) {
+      const targetR = tradeR(trade, trade.tp);
+      $('draftRr').textContent = Number.isFinite(targetR) ? targetR.toFixed(2) : '—';
+      $('draftRisk').textContent = money(trade.riskDollars);
+      $('draftReward').textContent = Number.isFinite(targetR) ? money(targetR * trade.riskDollars) : '—';
+    } else {
+      $('draftRr').textContent = draftMetrics && Number.isFinite(draftMetrics.rr) ? draftMetrics.rr.toFixed(2) : '—';
+      $('draftRisk').textContent = draftMetrics && Number.isFinite(draftMetrics.riskDollars) ? money(draftMetrics.riskDollars) : '—';
+      $('draftReward').textContent = draftMetrics && Number.isFinite(draftMetrics.rewardDollars) ? money(draftMetrics.rewardDollars) : '—';
+    }
+
     const ready = Boolean(draft && draftMetrics && draftMetrics.valid && !trade);
-    $('buyBtn').disabled = !ready || draft.side !== 'BUY';
-    $('sellBtn').disabled = !ready || draft.side !== 'SELL';
+    $('buyBtn').disabled = !ready || draft?.side !== 'BUY';
+    $('sellBtn').disabled = !ready || draft?.side !== 'SELL';
     $('longPositionBtn').disabled = !state.candles.length || Boolean(trade);
     $('shortPositionBtn').disabled = !state.candles.length || Boolean(trade);
     $('longPositionBtn').setAttribute('aria-pressed', String(Boolean(draft && draft.side === 'BUY')));
@@ -460,8 +500,12 @@
     $('longPositionBtn').classList.toggle('is-active', Boolean(draft && draft.side === 'BUY'));
     $('shortPositionBtn').classList.toggle('is-active', Boolean(draft && draft.side === 'SELL'));
     $('cancelPositionBtn').disabled = !draft || Boolean(trade);
-    $('slPrice').disabled = !draft || Boolean(trade);
-    $('tpPrice').disabled = !draft || Boolean(trade);
+
+    // SL and TP remain editable after entry so the user can secure profit or
+    // extend/reduce the target during manual replay.
+    $('slPrice').disabled = !editor;
+    $('tpPrice').disabled = !editor;
+
     if (!trade) return;
     const current = Number(currentCandle().close);
     $('positionSide').textContent = trade.side;
@@ -562,8 +606,7 @@
       onChartClick(value) {
         if (
           !state.candles.length ||
-          !state.positionDraft ||
-          state.openTrade ||
+          !editablePosition() ||
           !Number.isFinite(Number(value))
         ) return;
         const target = $(state.activePriceField || 'slPrice');
@@ -573,16 +616,16 @@
         const label = state.activePriceField === 'tpPrice'
           ? 'Take Profit'
           : 'Stop Loss';
-        notice(`${label} set to ${price(value)} from the chart.`, 'success');
+        notice(`${label} ${state.openTrade ? 'modified' : 'set'} to ${price(value)} from the chart.`, 'success');
       },
       onDraftLevel(field, value) {
-        if (!state.positionDraft || state.openTrade) return;
+        if (!editablePosition()) return;
         updateDraftLevel(field, value);
         syncDraftInputs();
         LiveChart.setPosition({
           draft: state.positionDraft,
           openTrade: state.openTrade,
-          metrics: positionMetrics(),
+          metrics: state.openTrade ? overlayMetrics(state.openTrade) : positionMetrics(),
         });
         renderPosition();
       },

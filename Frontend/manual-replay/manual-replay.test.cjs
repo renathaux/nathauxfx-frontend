@@ -55,19 +55,21 @@ test('manual ticket typing updates draft state without reformatting every keystr
   assert.match(app, /addEventListener\('change', commitDraftInputs\)/);
 });
 
-test('manual replay chart exposes pointer handles only through the position overlay renderer', () => {
-  assert.match(app, /data-position-handle/);
-  assert.match(app, /options\.draggable\s*&&\s*\['sl',\s*'tp'\]\.includes\(field\)/);
-  assert.match(app, /pointerdown/);
-  assert.match(app, /setPointerCapture/);
-  assert.match(app, /requestAnimationFrame/);
-  assert.match(app, /position-overlay historical/);
-  assert.match(app, /visibleReplayWindow/);
+test('manual replay chart exposes draggable SL and TP handles through the live position overlay', () => {
+  assert.match(liveChart, /data-replay-price-field/);
+  assert.match(liveChart, /pointerdown/);
+  assert.match(liveChart, /setPointerCapture/);
+  assert.match(liveChart, /onDraftLevel/);
+  assert.match(liveChart, /\[sl, position\.sl, slY, false\]/);
+  assert.match(liveChart, /\[tp, position\.tp, tpY, false\]/);
+  assert.match(liveChart, /requestAnimationFrame\(positionDragLayer\)/);
 });
 
-test('position overlay reserves empty right-side room without loading future candles', () => {
-  assert.match(app, /const futureSlots = Math\.max\(8, Math\.ceil\(rows\.length \* 0\.18\)\)/);
-  assert.match(app, /plotW \/ Math\.max\(rows\.length \+ futureSlots, 1\)/);
+test('position tool reserves right-side room without loading future candles', () => {
+  assert.match(liveChart, /rightOffset:\s*22/);
+  assert.match(liveChart, /desiredWidth = Math\.max\(190, Math\.min\(340, barSpacing \* 18\)\)/);
+  assert.match(app, /const revealed = state\.candles\.slice\(0, state\.index \+ 1\)/);
+  assert.match(app, /LiveChart\.setCandles\(revealed/);
 });
 
 test('position tools expose pressed state and coarse-pointer touch targets', () => {
@@ -107,7 +109,7 @@ test('manual replay uses a real risk reward position box instead of full-width p
   assert.match(liveChart, /manual-replay-position-zone risk/);
   assert.match(liveChart, /LONG.*POSITION/);
   assert.match(liveChart, /SHORT.*POSITION/);
-  assert.match(liveChart, /clearPriceLines\(\);[\s\S]*positionDragLayer\(\);/);
+  assert.match(liveChart, /clearPriceLines\(\);[\s\S]*requestAnimationFrame\(positionDragLayer\)/);
   assert.doesNotMatch(liveChart, /createPriceLine\('entry',[\s\S]*createPriceLine\('sl',[\s\S]*createPriceLine\('tp'/);
   assert.match(css, /manual-replay-position-zone\.profit/);
   assert.match(css, /manual-replay-position-zone\.risk/);
@@ -120,11 +122,30 @@ test('TradingView-style position box starts at the active candle and uses compac
   assert.match(liveChart, /state\.lastCandles\.at\(-1\)\?\.time/);
   assert.match(liveChart, /if \(!Number\.isFinite\(x\)/);
   assert.match(liveChart, /barSpacing \* 18/);
-  assert.match(liveChart, /Target: \+\$\{summary\.reward\}/);
-  assert.match(liveChart, /Stop: -\$\{summary\.risk\}/);
-  assert.match(liveChart, /Risk\/Reward Ratio:/);
+  assert.match(liveChart, /Target: \$\{summary\.targetMoneyText\}/);
+  assert.match(liveChart, /Stop: \$\{summary\.stopMoneyText\}/);
+  assert.match(liveChart, /Initial Risk/);
   assert.match(css, /manual-replay-position-caption\.target/);
   assert.match(css, /manual-replay-position-caption\.stop/);
   assert.match(css, /#089981/);
   assert.match(css, /#f23645/);
+});
+
+
+test('active manual positions stay editable and labels are hover-only', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(app, /function editablePosition/);
+  assert.match(app, /validateActivePositionLevel/);
+  assert.match(app, /PROTECTED_SL/);
+  assert.match(app, /initialRiskDistance/);
+  assert.match(app, /\$\('slPrice'\)\.disabled = !editor/);
+  assert.match(app, /\$\('tpPrice'\)\.disabled = !editor/);
+  assert.match(liveChart, /hoverPoint/);
+  assert.match(liveChart, /show-details/);
+  assert.match(liveChart, /autoscaleInfoProvider/);
+  assert.match(liveChart, /positionAwareAutoscale/);
+  assert.match(liveChart, /\[sl, position\.sl, slY, false\]/);
+  assert.match(liveChart, /\[tp, position\.tp, tpY, false\]/);
+  assert.match(css, /manual-replay-position-tool\.show-details/);
+  assert.match(css, /opacity:0/);
 });

@@ -106,7 +106,8 @@ test('opening a draft creates only its matching virtual side at current close', 
   assert.deepEqual(buy, {
     tradeId: 'manual_test', side: 'BUY', entryIndex: 8,
     entryTime: '2026-09-19T12:00:00.000Z', entry: 101,
-    sl: 90, tp: 120, riskDollars: 100,
+    sl: 90, tp: 120, initialSl: 90, initialTp: 120,
+    initialRiskDistance: 11, riskDollars: 100,
   });
   assert.throws(() => Position.createVirtualTrade({
     draft: { side: 'SELL', entry: 100, sl: 110, tp: 80 },
@@ -190,4 +191,17 @@ test('draft, drag, metrics, and virtual opening are local-only operations', () =
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+
+test('active stop can cross entry to secure profit but cannot cross current market', () => {
+  const buy = { side: 'BUY', entry: 100, sl: 90, tp: 120 };
+  assert.equal(Position.validateActivePositionLevel(buy, 'sl', 105, 110, 1), 105);
+  assert.equal(Position.validateActivePositionLevel(buy, 'sl', 115, 110, 1), 109);
+  assert.equal(Position.validateActivePositionLevel(buy, 'tp', 108, 110, 1), 111);
+
+  const sell = { side: 'SELL', entry: 100, sl: 110, tp: 80 };
+  assert.equal(Position.validateActivePositionLevel(sell, 'sl', 95, 90, 1), 95);
+  assert.equal(Position.validateActivePositionLevel(sell, 'sl', 85, 90, 1), 91);
+  assert.equal(Position.validateActivePositionLevel(sell, 'tp', 92, 90, 1), 89);
 });

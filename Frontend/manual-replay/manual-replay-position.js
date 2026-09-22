@@ -44,6 +44,31 @@
     return null;
   }
 
+  function validateActivePositionLevel(position, field, candidate, currentPrice, minimumDistance) {
+    const value = parseOptionalPrice(candidate);
+    const entry = Number(position && position.entry);
+    const market = Number(currentPrice);
+    if (value == null || !Number.isFinite(entry) || !Number.isFinite(market)) return null;
+    const gap = Number.isFinite(Number(minimumDistance)) && Number(minimumDistance) > 0
+      ? Number(minimumDistance)
+      : defaultMinimumDistance(entry);
+    const side = position && position.side === 'SELL' ? 'SELL' : 'BUY';
+
+    if (field === 'sl') {
+      // After entry the stop may cross entry to secure profit, but it must stay
+      // on the non-triggered side of the current market price.
+      return side === 'BUY'
+        ? Math.min(value, market - gap)
+        : Math.max(value, market + gap);
+    }
+    if (field === 'tp') {
+      return side === 'BUY'
+        ? Math.max(value, market + gap)
+        : Math.min(value, market - gap);
+    }
+    return null;
+  }
+
   function calculatePositionMetrics({ draft, riskMethod, riskValue, balance }) {
     const entry = parseOptionalPrice(draft && draft.entry);
     const sl = parseOptionalPrice(draft && draft.sl);
@@ -113,6 +138,7 @@
     if (!directionValid) throw new Error(`${draft.side} position levels are invalid at the current close.`);
     const risk = Number(riskDollars);
     if (!Number.isFinite(risk) || risk <= 0) throw new Error('Risk value must be greater than zero.');
+    const initialRiskDistance = Math.abs(entry - sl);
     return {
       tradeId: tradeId || `manual_${Date.now()}`,
       side: draft.side,
@@ -121,6 +147,9 @@
       entry,
       sl,
       tp,
+      initialSl: sl,
+      initialTp: tp,
+      initialRiskDistance,
       riskDollars: risk,
     };
   }
@@ -174,6 +203,7 @@
     parseOptionalPrice,
     createPositionDraft,
     validatePositionLevel,
+    validateActivePositionLevel,
     calculatePositionMetrics,
     visibleCandleScale,
     clampPriceToScale,
