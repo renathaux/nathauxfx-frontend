@@ -151,8 +151,9 @@ test('active manual positions stay editable and labels are hover-only', () => {
   assert.match(app, /\$\('tpPrice'\)\.disabled = !editor/);
   assert.match(liveChart, /hoverPoint/);
   assert.match(liveChart, /show-details/);
-  assert.doesNotMatch(liveChart, /autoscaleInfoProvider/);
+  assert.match(liveChart, /autoscaleInfoProvider/);
   assert.doesNotMatch(liveChart, /positionAwareAutoscale/);
+  assert.match(liveChart, /transformedCandleAutoscale/);
   assert.match(liveChart, /\[sl, position\.sl, slY, state\.positionLocked\]/);
   assert.match(liveChart, /\[tp, position\.tp, tpY, state\.positionLocked\]/);
   assert.match(css, /manual-replay-position-tool\.show-details/);
