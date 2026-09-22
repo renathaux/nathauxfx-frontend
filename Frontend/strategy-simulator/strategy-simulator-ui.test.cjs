@@ -75,3 +75,13 @@ test('simulator exposes direct year jump controls', () => {
   assert.match(source, /startYear.*applyYearJump/);
   assert.match(css, /date-year-jump/);
 });
+
+
+test('year jump clamps to the valid five-year coverage window', () => {
+  const source = read('strategy-simulator/strategy-simulator.js');
+  assert.match(source, /function clampSimulationRange/);
+  assert.match(source, /fiveYearsBeforeEnd\.setFullYear\(fiveYearsBeforeEnd\.getFullYear\(\) - 5\)/);
+  assert.match(source, /if \(start < fiveYearsBeforeEnd\) start = fiveYearsBeforeEnd/);
+  assert.match(source, /if \(mode === 'FAST'\) clampSimulationRange\(\)/);
+  assert.match(source, /coverageLatest\.getTime\(\) \+ 5 \* 60 \* 1000/);
+});

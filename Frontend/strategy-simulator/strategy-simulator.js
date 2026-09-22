@@ -73,6 +73,47 @@
     syncYearJump('endDate', 'endYear');
   }
 
+  function clampSimulationRange() {
+    const startInput = $('startDate');
+    const endInput = $('endDate');
+    if (!startInput?.value || !endInput?.value) return;
+
+    let start = new Date(startInput.value);
+    let end = new Date(endInput.value);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+
+    const coverageStart = state.coverage?.earliest ? new Date(state.coverage.earliest) : null;
+    const coverageLatest = state.coverage?.latest ? new Date(state.coverage.latest) : null;
+    const coverageEnd = coverageLatest && !Number.isNaN(coverageLatest.getTime())
+      ? new Date(coverageLatest.getTime() + 5 * 60 * 1000)
+      : null;
+
+    if (coverageStart && !Number.isNaN(coverageStart.getTime()) && start < coverageStart) {
+      start = coverageStart;
+    }
+    if (coverageEnd && end > coverageEnd) {
+      end = coverageEnd;
+    }
+
+    // Keep Fast Backtest inside a true five-calendar-year window. This is
+    // stricter than the API's leap-year-safe day cap and makes the year jump
+    // predictable: choosing 2021 with a 2026 end date lands on the earliest
+    // valid 2021 date instead of producing a >5Y error.
+    const fiveYearsBeforeEnd = new Date(end);
+    fiveYearsBeforeEnd.setFullYear(fiveYearsBeforeEnd.getFullYear() - 5);
+    if (start < fiveYearsBeforeEnd) start = fiveYearsBeforeEnd;
+
+    if (end <= start) {
+      end = new Date(start.getTime() + 5 * 60 * 1000);
+      if (coverageEnd && end > coverageEnd) end = coverageEnd;
+    }
+
+    startInput.value = toLocalInput(start);
+    endInput.value = toLocalInput(end);
+    syncYearJump('startDate', 'startYear');
+    syncYearJump('endDate', 'endYear');
+  }
+
   function applyYearJump(inputId, selectId) {
     const input = $(inputId);
     const select = $(selectId);
@@ -89,6 +130,7 @@
     const lastDay = new Date(nextYear, month + 1, 0).getDate();
     current.setDate(Math.min(date, lastDay));
     input.value = toLocalInput(current);
+    clampSimulationRange();
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
@@ -116,6 +158,7 @@
       const coverage = await Api.historyCoverage(symbol);
       state.coverage = coverage;
       syncAllYearJumps();
+      clampSimulationRange();
       if (!coverage.earliest || !coverage.latest) {
         $('historyCoverage').textContent = `No static history available for ${symbol}.`;
         return;
@@ -417,6 +460,7 @@
     if (!state.strategy || state.busy) return;
     notice('');
     try {
+      if (mode === 'FAST') clampSimulationRange();
       const start = inputToIso('startDate');
       const end = inputToIso('endDate');
       if (new Date(end) <= new Date(start)) throw new Error('End must be after start.');
