@@ -365,3 +365,17 @@ test('manual replay supports true vertical world panning and custom price-axis z
   assert.match(liveChart, /if \(x >= priceAxisStartX\(\)\)[\s\S]*resetVerticalViewport\(\)/);
   assert.match(liveChart, /verticalOffsetRatio: state\.verticalViewport\.offsetRatio/);
 });
+
+
+test('zoom buttons and two-finger vertical gestures control both axes', () => {
+  assert.match(liveChart, /function applyUnifiedZoom/);
+  assert.match(liveChart, /factor > 1 = zoom OUT/);
+  assert.match(liveChart, /state\.verticalViewport\.scale \* zoomFactor/);
+  assert.match(liveChart, /currentSpacing \/ zoomFactor/);
+  assert.match(liveChart, /applyUnifiedZoom\(direction < 0 \? \(1 \/ 1\.2\) : 1\.2\)/);
+  assert.match(liveChart, /swipe up -> zoom out \/ create free space/);
+  assert.match(liveChart, /swipe down -> zoom in \/ bring everything closer/);
+  assert.match(liveChart, /Math\.abs\(deltaX\) > Math\.abs\(deltaY\)/);
+  assert.match(liveChart, /const factor = Math\.exp\(deltaY \/ 650\)/);
+  assert.match(liveChart, /applyUnifiedZoom\(factor\)/);
+});
