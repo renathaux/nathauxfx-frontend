@@ -230,8 +230,8 @@
       initialRiskDistance,
       riskDollars: risk,
       ...(Number.isFinite(Number(lotSize)) && Number(lotSize) > 0 ? { lotSize: Number(lotSize) } : {}),
-      ...(Number.isFinite(Number(riskPips)) ? { riskPips: Number(riskPips) } : {}),
-      ...(Number.isFinite(Number(rewardPips)) ? { rewardPips: Number(rewardPips) } : {}),
+      ...(riskPips != null && Number.isFinite(Number(riskPips)) ? { riskPips: Number(riskPips) } : {}),
+      ...(rewardPips != null && Number.isFinite(Number(rewardPips)) ? { rewardPips: Number(rewardPips) } : {}),
       sizingMode: String(sizingMode || 'AUTO_RISK').toUpperCase(),
     };
   }
