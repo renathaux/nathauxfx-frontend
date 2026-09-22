@@ -326,7 +326,11 @@ test('position drawings do not flatten candles while vertical world transforms c
   assert.doesNotMatch(liveChart, /CANDLE_VERTICAL_CONTEXT_MULTIPLIER/);
   assert.match(liveChart, /function transformedCandleAutoscale/);
   assert.match(liveChart, /autoscaleInfoProvider/);
-  assert.match(liveChart, /baseMin = Number\(original\.priceRange\.minValue\)/);
+  assert.match(liveChart, /function visibleCandlePriceRange/);
+  assert.match(liveChart, /getVisibleLogicalRange\(\)/);
+  assert.match(liveChart, /state\.lastCandles\[index\]/);
+  assert.match(liveChart, /baseMin = Number\(visible\?\.low\)/);
+  assert.match(liveChart, /baseMax = Number\(visible\?\.high\)/);
   assert.doesNotMatch(liveChart, /transformedCandleAutoscale[\s\S]{0,800}currentPosition\(\)/);
   assert.match(liveChart, /Long\/Short is a drawing overlay, like TradingView/);
   assert.match(liveChart, /Do not reset the price scale when SL\/TP changes/);
@@ -378,4 +382,16 @@ test('zoom buttons and trackpad zoom auto-fit visible candles like TradingView',
   assert.match(liveChart, /const factor = Math\.exp\(deltaY \/ 650\)/);
   assert.match(liveChart, /applyManagedZoom\(factor\)/);
   assert.doesNotMatch(liveChart, /state\.verticalViewport\.scale \* zoomFactor/);
+});
+
+
+test('price autoscale uses only the visible replay candles', () => {
+  assert.match(liveChart, /function visibleCandlePriceRange/);
+  assert.match(liveChart, /Math\.floor\(Number\(logicalRange\.from\)\)/);
+  assert.match(liveChart, /Math\.ceil\(Number\(logicalRange\.to\)\)/);
+  assert.match(liveChart, /Math\.min\(low, candleLow\)/);
+  assert.match(liveChart, /Math\.max\(high, candleHigh\)/);
+  assert.match(liveChart, /price scale follows ONLY candles currently/);
+  assert.match(liveChart, /const padding = baseSpan \* 0\.08/);
+  assert.match(liveChart, /subscribeVisibleLogicalRangeChange\([\s\S]*refreshVerticalViewport\(\)/);
 });
