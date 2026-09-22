@@ -108,6 +108,7 @@ test('opening a draft creates only its matching virtual side at current close', 
     entryTime: '2026-09-19T12:00:00.000Z', entry: 101,
     sl: 90, tp: 120, initialSl: 90, initialTp: 120,
     initialRiskDistance: 11, riskDollars: 100,
+    sizingMode: 'AUTO_RISK',
   });
   assert.throws(() => Position.createVirtualTrade({
     draft: { side: 'SELL', entry: 100, sl: 110, tp: 80 },
@@ -204,4 +205,56 @@ test('active stop can cross entry to secure profit but cannot cross current mark
   assert.equal(Position.validateActivePositionLevel(sell, 'sl', 95, 90, 1), 95);
   assert.equal(Position.validateActivePositionLevel(sell, 'sl', 85, 90, 1), 91);
   assert.equal(Position.validateActivePositionLevel(sell, 'tp', 92, 90, 1), 89);
+});
+
+
+test('manual lot sizing recalculates EURUSD pips and dollars from fixed lot size', () => {
+  const metrics = Position.calculatePositionMetrics({
+    draft: { side: 'BUY', entry: 1.1000, sl: 1.0950, tp: 1.1100 },
+    balance: 10000,
+    symbol: 'EURUSD',
+    sizingMode: 'MANUAL_LOT',
+    lotSize: 0.20,
+  });
+  assert.equal(metrics.valid, true);
+  assert.ok(Math.abs(metrics.riskPips - 50) < 1e-8);
+  assert.ok(Math.abs(metrics.rewardPips - 100) < 1e-8);
+  assert.ok(Math.abs(metrics.riskDollars - 100) < 1e-8);
+  assert.ok(Math.abs(metrics.rewardDollars - 200) < 1e-8);
+  assert.ok(Math.abs(metrics.riskPercent - 1) < 1e-8);
+  assert.equal(metrics.lotSize, 0.20);
+});
+
+test('manual lot sizing recalculates XAUUSD pips and dollars from fixed lot size', () => {
+  const metrics = Position.calculatePositionMetrics({
+    draft: { side: 'BUY', entry: 2000, sl: 1995, tp: 2010 },
+    balance: 10000,
+    symbol: 'XAUUSD',
+    sizingMode: 'MANUAL_LOT',
+    lotSize: 0.10,
+  });
+  assert.equal(metrics.valid, true);
+  assert.equal(metrics.riskPips, 500);
+  assert.equal(metrics.rewardPips, 1000);
+  assert.equal(metrics.riskDollars, 50);
+  assert.equal(metrics.rewardDollars, 100);
+  assert.equal(metrics.lotSize, 0.10);
+});
+
+test('manual lot trade stores lot and pip snapshot for the trade log', () => {
+  const trade = Position.createVirtualTrade({
+    draft: { side: 'SELL', entry: 1.1000, sl: 1.1050, tp: 1.0900 },
+    currentClose: 1.1000,
+    entryIndex: 5,
+    entryTime: '2026-09-20T10:00:00Z',
+    riskDollars: 50,
+    lotSize: 0.10,
+    riskPips: 50,
+    rewardPips: 100,
+    sizingMode: 'MANUAL_LOT',
+  });
+  assert.equal(trade.lotSize, 0.10);
+  assert.equal(trade.riskPips, 50);
+  assert.equal(trade.rewardPips, 100);
+  assert.equal(trade.sizingMode, 'MANUAL_LOT');
 });
