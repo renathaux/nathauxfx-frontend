@@ -654,9 +654,8 @@
     state.draft = draft;
     state.openTrade = openTrade;
     state.metrics = metrics;
-    try {
-      state.chart?.priceScale('right')?.applyOptions?.({ autoScale: true });
-    } catch (_error) {}
+    // Do not reset the price scale when SL/TP changes. TradingView drawing
+    // tools move independently from the candle scale and preserve manual zoom.
     rebuildPriceLines();
   }
 
