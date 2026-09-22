@@ -16,6 +16,12 @@
     resizeObserver: null,
     drag: null,
     hoverPoint: null,
+    positionHitbox: null,
+    positionLocked: false,
+    positionKey: null,
+    clickTimer: null,
+    interactionHost: null,
+    interactionHandlers: null,
     userMovedRange: false,
     initialized: false,
   };
@@ -168,6 +174,41 @@
     return state.openTrade || state.draft || null;
   }
 
+  function positionIdentity(position) {
+    if (!position) return null;
+    return [
+      position.tradeId || 'draft',
+      position.side || '',
+      position.entryTime || '',
+      Number(position.entry),
+    ].join('|');
+  }
+
+  function positionRegionAtPoint(x, y) {
+    const box = state.positionHitbox;
+    if (!box || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) return null;
+    if (x < box.left || x > box.right) return null;
+    if (y >= box.profitTop && y <= box.profitBottom) return 'tp';
+    if (y >= box.riskTop && y <= box.riskBottom) return 'sl';
+    return null;
+  }
+
+  function setPositionLocked(locked, reason = 'manual') {
+    if (!currentPosition()) return false;
+    const next = Boolean(locked);
+    if (state.positionLocked === next) return false;
+    state.positionLocked = next;
+    state.drag = null;
+    state.callbacks.onPositionLockChange?.(next, reason);
+    requestAnimationFrame(positionDragLayer);
+    return true;
+  }
+
+  function togglePositionLocked(reason = 'double-click') {
+    if (!currentPosition()) return;
+    setPositionLocked(!state.positionLocked, reason);
+  }
+
   function rebuildPriceLines() {
     // Do not draw infinite Lightweight Charts price lines for manual positions.
     // The manual replay uses a TradingView-style position box instead.
@@ -292,7 +333,7 @@
       state.layer.appendChild(node);
 
       node.addEventListener('pointerdown', (event) => {
-        if (!currentPosition() || field === 'entry') return;
+        if (!currentPosition() || field === 'entry' || state.positionLocked) return;
         event.preventDefault();
         event.stopPropagation();
         state.drag = { field, pointerId: event.pointerId };
@@ -325,6 +366,7 @@
     if (!state.layer || !state.container) return;
     const position = currentPosition();
     if (!position) {
+      state.positionHitbox = null;
       state.layer.replaceChildren();
       return;
     }
@@ -353,7 +395,7 @@
 
     const tool = ensurePositionTool();
     const side = position.side === 'SELL' ? 'short' : 'long';
-    tool.className = `manual-replay-position-tool ${side} ${state.openTrade ? 'active' : 'draft'}`;
+    tool.className = `manual-replay-position-tool ${side} ${state.openTrade ? 'active' : 'draft'} ${state.positionLocked ? 'position-locked' : ''}`.trim();
 
     const profit = tool.querySelector('.manual-replay-position-zone.profit');
     const risk = tool.querySelector('.manual-replay-position-zone.risk');
@@ -378,6 +420,15 @@
     const riskTop = Math.min(entryY, slY);
     const riskBottom = Math.max(entryY, slY);
 
+    state.positionHitbox = {
+      left: startX,
+      right: endX,
+      profitTop,
+      profitBottom,
+      riskTop,
+      riskBottom,
+    };
+
     targetCaption.textContent = `Target: ${summary.targetMoneyText} • ${summary.targetRText}`;
     targetCaption.style.left = `${Math.round(startX + width / 2)}px`;
     targetCaption.style.top = `${Math.round(Math.max(8, Math.min(containerHeight - 28, (profitTop + profitBottom) / 2 - 10)))}px`;
@@ -388,7 +439,7 @@
     stopCaption.style.top = `${Math.round(Math.max(8, Math.min(containerHeight - 28, (riskTop + riskBottom) / 2 - 10)))}px`;
     stopCaption.classList.toggle('compact', riskBottom - riskTop < 38);
 
-    info.textContent = `${position.side === 'BUY' ? 'LONG POSITION' : 'SHORT POSITION'} • Initial Risk ${summary.risk}`;
+    info.textContent = `${position.side === 'BUY' ? 'LONG POSITION' : 'SHORT POSITION'} • Initial Risk ${summary.risk}${state.positionLocked ? ' • 🔒 LOCKED' : ''}`;
     info.style.left = `${Math.round(startX + width / 2)}px`;
     const infoTop = Math.max(8, Math.min(containerHeight - 34, entryY - 14));
     info.style.top = `${Math.round(infoTop)}px`;
@@ -411,8 +462,8 @@
 
     const lineStates = [
       [entry, position.entry, entryY, true],
-      [sl, position.sl, slY, false],
-      [tp, position.tp, tpY, false],
+      [sl, position.sl, slY, state.positionLocked],
+      [tp, position.tp, tpY, state.positionLocked],
     ];
 
     for (const [node, value, y, locked] of lineStates) {
@@ -479,10 +530,49 @@
     });
 
     state.chart.subscribeClick((param) => {
-      if (!param?.point) return;
-      const price = yToPrice(param.point.y);
-      if (Number.isFinite(price)) state.callbacks.onChartClick?.(price);
+      if (!param?.point || !currentPosition() || state.positionLocked) return;
+      const point = { x: Number(param.point.x), y: Number(param.point.y) };
+      const region = positionRegionAtPoint(point.x, point.y);
+      if (!region) return;
+      const price = yToPrice(point.y);
+      if (!Number.isFinite(price)) return;
+
+      // Delay the single-click action briefly so a double-click can toggle
+      // lock without first moving SL/TP.
+      if (state.clickTimer) window.clearTimeout(state.clickTimer);
+      state.clickTimer = window.setTimeout(() => {
+        state.clickTimer = null;
+        if (state.positionLocked) return;
+        state.callbacks.onChartClick?.(price, region);
+      }, 220);
     });
+
+    const interactionHost = state.container.parentElement || state.container;
+    const onDoubleClick = (event) => {
+      if (!currentPosition()) return;
+      const rect = state.container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      if (!positionRegionAtPoint(x, y)) return;
+      if (state.clickTimer) {
+        window.clearTimeout(state.clickTimer);
+        state.clickTimer = null;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      togglePositionLocked('double-click');
+    };
+    const onKeyDown = (event) => {
+      if (event.code !== 'Space' || !currentPosition() || state.positionLocked) return;
+      const tag = String(document.activeElement?.tagName || '').toUpperCase();
+      if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tag) || document.activeElement?.isContentEditable) return;
+      event.preventDefault();
+      setPositionLocked(true, 'space');
+    };
+    interactionHost.addEventListener('dblclick', onDoubleClick, true);
+    document.addEventListener('keydown', onKeyDown, true);
+    state.interactionHost = interactionHost;
+    state.interactionHandlers = { onDoubleClick, onKeyDown };
 
     if (window.ResizeObserver) {
       state.resizeObserver = new ResizeObserver(resizeChart);
@@ -498,6 +588,18 @@
   function destroy() {
     try { state.resizeObserver?.disconnect?.(); } catch (_error) {}
     state.resizeObserver = null;
+    if (state.clickTimer) {
+      window.clearTimeout(state.clickTimer);
+      state.clickTimer = null;
+    }
+    if (state.interactionHost && state.interactionHandlers?.onDoubleClick) {
+      state.interactionHost.removeEventListener('dblclick', state.interactionHandlers.onDoubleClick, true);
+    }
+    if (state.interactionHandlers?.onKeyDown) {
+      document.removeEventListener('keydown', state.interactionHandlers.onKeyDown, true);
+    }
+    state.interactionHost = null;
+    state.interactionHandlers = null;
     if (state.chart) {
       try { state.chart.remove(); } catch (_error) {}
     }
@@ -510,6 +612,9 @@
     state.priceLines.clear();
     state.drag = null;
     state.hoverPoint = null;
+    state.positionHitbox = null;
+    state.positionLocked = false;
+    state.positionKey = null;
     state.initialized = false;
     state.userMovedRange = false;
   }
@@ -564,6 +669,12 @@
   }
 
   function setPosition({ draft = null, openTrade = null, metrics = null } = {}) {
+    const nextPosition = openTrade || draft || null;
+    const nextKey = positionIdentity(nextPosition);
+    if (nextKey !== state.positionKey) {
+      state.positionKey = nextKey;
+      state.positionLocked = false;
+    }
     state.draft = draft;
     state.openTrade = openTrade;
     state.metrics = metrics;
@@ -577,6 +688,9 @@
     state.draft = null;
     state.openTrade = null;
     state.metrics = null;
+    state.positionHitbox = null;
+    state.positionLocked = false;
+    state.positionKey = null;
     rebuildPriceLines();
   }
 
@@ -620,6 +734,7 @@
       symbol: state.symbol,
       candles: state.lastCandles.length,
       userMovedRange: state.userMovedRange,
+      positionLocked: state.positionLocked,
     }),
   };
 })();
