@@ -124,6 +124,94 @@
     ['tradeTableCell', '.log-panel td', true]
   ];
 
+  const EDITOR_STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v4';
+  const LEGACY_EDITOR_STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v3';
+
+  // Mirrors the editor targets so locally saved full-layout changes (including
+  // text edits and deletions) also appear after the user exits edit mode.
+  const editorSpecs = [
+    ['header', '.topbar'],
+    ['brand', '.brand'],
+    ['brandMark', '.brand-mark'],
+    ['brandTitle', '.brand strong'],
+    ['brandSubtitle', '.brand small'],
+    ['headingBlock', '.heading'],
+    ['headingEyebrow', '.heading .eyebrow'],
+    ['headingTitle', '.heading h1'],
+    ['headingText', '.heading p'],
+    ['safeBadge', '.safe-badge'],
+    ['notice', '#notice'],
+    ['setupPanel', '.setup-panel'],
+    ['setupTitleBlock', '.setup-panel .panel-title > div:first-child'],
+    ['setupEyebrow', '.setup-panel .eyebrow'],
+    ['setupTitle', '.setup-panel h2'],
+    ['setupNav', '.setup-panel .nav-actions'],
+    ['setupNavButton', '.setup-panel .nav-actions .button', true],
+    ['setupGrid', '.setup-grid'],
+    ['setupField', '.setup-grid label', true],
+    ['setupFieldText', '.setup-grid label > span', true],
+    ['setupFieldControl', '.setup-grid input, .setup-grid select:not(.date-year-jump)', true],
+    ['dateYearJump', '.setup-grid .date-year-jump', true],
+    ['loadButton', '#loadBtn'],
+    ['mainGrid', '.main-grid'],
+    ['chartPanel', '.chart-panel'],
+    ['chartToolbar', '.chart-toolbar'],
+    ['chartTitleBlock', '.chart-toolbar > div:first-child'],
+    ['chartEyebrow', '.chart-toolbar .eyebrow'],
+    ['chartTitle', '#chartTitle'],
+    ['chartMeta', '#chartMeta'],
+    ['playback', '.playback'],
+    ['playbackItem', '.playback > *', true],
+    ['positionTools', '.position-tools'],
+    ['positionTool', '.position-tools > *', true],
+    ['chartWrap', '.chart-wrap'],
+    ['candleStrip', '.candle-strip'],
+    ['currentPrice', '#currentPrice'],
+    ['currentTime', '#currentTime'],
+    ['ohlc', '#ohlc'],
+    ['tradePanel', '.trade-panel'],
+    ['tradeEyebrow', '.trade-panel > .eyebrow'],
+    ['tradeTitle', '.trade-panel > h2'],
+    ['tradeIntro', '.trade-panel > p'],
+    ['ticketGrid', '.ticket-grid'],
+    ['ticketField', '.ticket-grid label', true],
+    ['ticketFieldText', '.ticket-grid label > span', true],
+    ['ticketFieldControl', '.ticket-grid input, .ticket-grid select', true],
+    ['draftMetrics', '.draft-metrics'],
+    ['draftMetricCard', '.draft-metrics > div', true],
+    ['draftMetricLabel', '.draft-metrics > div > span', true],
+    ['draftMetricValue', '.draft-metrics > div > strong', true],
+    ['priceHint', '#pricePickHint'],
+    ['sideButtons', '.side-buttons'],
+    ['buyButton', '#buyBtn'],
+    ['sellButton', '#sellBtn'],
+    ['positionCard', '#positionCard'],
+    ['positionHead', '#positionCard .position-head'],
+    ['positionHeadItem', '#positionCard .position-head > *', true],
+    ['positionRow', '#positionCard .position-row', true],
+    ['positionRowItem', '#positionCard .position-row > *', true],
+    ['closeButton', '#closeBtn'],
+    ['resetButton', '#resetBtn'],
+    ['metricGrid', '.metric-grid'],
+    ['metricCard', '.metric-grid article', true],
+    ['metricLabel', '.metric-grid article span', true],
+    ['metricValue', '.metric-grid article strong', true],
+    ['logPanel', '.log-panel'],
+    ['logTitleBlock', '.log-panel .panel-title > div'],
+    ['logEyebrow', '.log-panel .eyebrow'],
+    ['logTitle', '.log-panel h2'],
+    ['tableWrap', '.log-panel .table-wrap'],
+    ['tradeTable', '.log-panel table'],
+    ['tradeTableHeader', '.log-panel th', true],
+    ['tradeTableCell', '.log-panel td', true],
+  ];
+
+  let editorSaved = null;
+  try {
+    const raw = localStorage.getItem(EDITOR_STORAGE_KEY) || localStorage.getItem(LEGACY_EDITOR_STORAGE_KEY);
+    editorSaved = JSON.parse(raw || 'null');
+  } catch (_error) {}
+
   const originals = new WeakMap();
 
   function keyFor(prefix, el, index) {
@@ -206,6 +294,56 @@
     if (meta) meta.setAttribute('title', meta.textContent || '');
   }
 
+  function editorTextValue(el) {
+    if (!el) return null;
+    const tag = String(el.tagName || '').toUpperCase();
+    const simpleTags = new Set(['BUTTON', 'A', 'H1', 'H2', 'H3', 'P', 'SPAN', 'STRONG', 'SMALL', 'TH', 'TD']);
+    if (!simpleTags.has(tag)) return null;
+    if (tag !== 'BUTTON' && el.childElementCount > 0) return null;
+    return String(el.textContent || '');
+  }
+
+  function applyEditorOverrides({ transforms = true } = {}) {
+    // The editor script owns its own restoration when layoutEdit=1.
+    if (new URLSearchParams(window.location.search).get('layoutEdit') === '1') return;
+    const items = editorSaved?.items;
+    if (!items || typeof items !== 'object') return;
+
+    for (const [prefix, selector, all] of editorSpecs) {
+      const elements = all
+        ? Array.from(document.querySelectorAll(selector))
+        : [document.querySelector(selector)].filter(Boolean);
+      elements.forEach((el, index) => {
+        const item = items[keyFor(prefix, el, index)];
+        if (!item) return;
+
+        if (item.text != null && editorTextValue(el) != null) {
+          el.textContent = String(item.text);
+        }
+
+        if (item.deleted) {
+          el.style.setProperty('display', 'none', 'important');
+          return;
+        }
+
+        if (!transforms) return;
+        const width = Number(item.width);
+        const height = Number(item.height);
+        const x = Number(item.x);
+        const y = Number(item.y);
+        if ([width, height, x, y].every(Number.isFinite)) {
+          el.style.setProperty('box-sizing', 'border-box', 'important');
+          el.style.setProperty('width', `${Math.round(width)}px`, 'important');
+          el.style.setProperty('height', `${Math.round(height)}px`, 'important');
+          el.style.setProperty('max-width', 'none', 'important');
+          el.style.setProperty('min-width', '0', 'important');
+          el.style.setProperty('min-height', '0', 'important');
+          el.style.setProperty('transform', `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`, 'important');
+        }
+      });
+    }
+  }
+
   function modernTicketLayoutEnabled() {
     return Boolean(document.getElementById('positionSizingMode'));
   }
@@ -218,6 +356,7 @@
     );
     if (fullscreenActive || window.innerWidth < DESKTOP_MIN_WIDTH) {
       restoreAll();
+      applyEditorOverrides({ transforms: false });
       return;
     }
 
@@ -277,6 +416,7 @@
       }
     }
 
+    applyEditorOverrides({ transforms: window.innerWidth >= DESKTOP_MIN_WIDTH && !fullscreenActive });
     stabilizeDynamicDesktopContent();
   }
 

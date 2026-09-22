@@ -8,6 +8,8 @@ const html = fs.readFileSync(path.join(root, 'manual-replay.html'), 'utf8');
 const api = fs.readFileSync(path.join(__dirname, 'manual-replay-api.js'), 'utf8');
 const app = fs.readFileSync(path.join(__dirname, 'manual-replay.js'), 'utf8');
 const liveChart = fs.readFileSync(path.join(__dirname, 'manual-replay-live-chart.js'), 'utf8');
+const layoutEditor = fs.readFileSync(path.join(__dirname, 'manual-replay-layout-editor.js'), 'utf8');
+const savedLayout = fs.readFileSync(path.join(__dirname, 'manual-replay-saved-layout.js'), 'utf8');
 
 test('manual replay is standalone and does not require a strategy', () => {
   assert.match(html, /Manual Trading Replay/);
@@ -215,4 +217,49 @@ test('manual replay exposes a fullscreen chart workspace with the ticket visible
   assert.match(css, /grid-template-columns:minmax\(0,1fr\) 330px/);
   assert.match(savedLayout, /fullscreenActive/);
   assert.match(savedLayout, /document\.addEventListener\('fullscreenchange', applySavedLayout\)/);
+});
+
+
+test('full layout editor can edit text lock delete move and stretch', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(layoutEditor, /layoutEdit/);
+  assert.match(layoutEditor, /nathauxfx_manual_replay_layout_editor_v4/);
+  assert.match(layoutEditor, /data-layout-action="text"/);
+  assert.match(layoutEditor, /data-layout-action="lock"/);
+  assert.match(layoutEditor, /data-layout-action="delete"/);
+  assert.match(layoutEditor, /function editActiveText/);
+  assert.match(layoutEditor, /function toggleActiveLock/);
+  assert.match(layoutEditor, /function deleteActiveItem/);
+  assert.match(layoutEditor, /function startMove/);
+  assert.match(layoutEditor, /function startResize/);
+  assert.match(layoutEditor, /dirs = \['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'\]/);
+  assert.match(layoutEditor, /UNDO DELETE/);
+  assert.match(layoutEditor, /RESTORE DELETED/);
+  assert.match(layoutEditor, /locked: Boolean\(state\.locked\)/);
+  assert.match(layoutEditor, /deleted: Boolean\(state\.deleted\)/);
+  assert.match(layoutEditor, /state\.text != null/);
+  assert.match(css, /#manualLayoutHoverActions/);
+  assert.match(css, /manual-layout-hover-handle\[data-dir="n"\]/);
+  assert.match(css, /manual-layout-hover-handle\[data-dir="w"\]/);
+  assert.match(css, /manual-layout-hover-handle\[data-dir="se"\]/);
+});
+
+test('full editor targets buttons cards blocks and individual text controls', () => {
+  assert.match(layoutEditor, /prefix: 'playbackItem'/);
+  assert.match(layoutEditor, /prefix: 'positionTool'/);
+  assert.match(layoutEditor, /prefix: 'tradePanel'/);
+  assert.match(layoutEditor, /prefix: 'ticketField'/);
+  assert.match(layoutEditor, /prefix: 'draftMetricCard'/);
+  assert.match(layoutEditor, /prefix: 'metricCard'/);
+  assert.match(layoutEditor, /prefix: 'tradeTableHeader'/);
+  assert.match(layoutEditor, /prefix: 'dateYearJump'/);
+});
+
+test('saved full editor changes persist after exiting edit mode', () => {
+  assert.match(savedLayout, /EDITOR_STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v4'/);
+  assert.match(savedLayout, /function applyEditorOverrides/);
+  assert.match(savedLayout, /item\.deleted/);
+  assert.match(savedLayout, /item\.text != null/);
+  assert.match(savedLayout, /translate3d/);
+  assert.match(savedLayout, /layoutEdit.*=== '1'/);
 });

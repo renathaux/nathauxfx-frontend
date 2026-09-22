@@ -4,7 +4,8 @@
   const params = new URLSearchParams(window.location.search);
   if (params.get('layoutEdit') !== '1') return;
 
-  const STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v3';
+  const STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v4';
+  const LEGACY_STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v3';
   const dirs = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
   const states = new Map();
   let activeElement = null;
@@ -34,6 +35,7 @@
     { prefix: 'setupField', selector: '.setup-grid label', all: true, minW: 90, minH: 54 },
     { prefix: 'setupFieldText', selector: '.setup-grid label > span', all: true, minW: 38, minH: 14 },
     { prefix: 'setupFieldControl', selector: '.setup-grid input, .setup-grid select:not(.date-year-jump)', all: true, minW: 70, minH: 30 },
+    { prefix: 'dateYearJump', selector: '.setup-grid .date-year-jump', all: true, minW: 68, minH: 30 },
     { prefix: 'loadButton', selector: '#loadBtn', minW: 80, minH: 32 },
 
     { prefix: 'mainGrid', selector: '.main-grid', minW: 720, minH: 460 },
@@ -94,7 +96,8 @@
 
   let saved = null;
   try {
-    saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+    saved = JSON.parse(raw || 'null');
   } catch (_error) {}
 
   function setImportant(el, prop, value) {
@@ -111,23 +114,49 @@
     return `${prefix}[${index}]`;
   }
 
+  function elementTextValue(el) {
+    if (!el) return null;
+    const tag = String(el.tagName || '').toUpperCase();
+    const simpleTags = new Set(['BUTTON', 'A', 'H1', 'H2', 'H3', 'P', 'SPAN', 'STRONG', 'SMALL', 'TH', 'TD']);
+    if (!simpleTags.has(tag)) return null;
+    if (tag !== 'BUTTON' && el.childElementCount > 0) return null;
+    return String(el.textContent || '');
+  }
+
+  function setElementText(el, value) {
+    if (!el || value == null) return;
+    el.textContent = String(value);
+  }
+
   function registerElement(el, spec, index) {
     if (!el || states.has(el)) return;
-    const rect = el.getBoundingClientRect();
-    if (rect.width < 2 || rect.height < 2) return;
-
     const key = stableKey(spec.prefix, el, index);
     const restored = saved?.items?.[key];
+
+    const originalText = elementTextValue(el);
+    if (restored?.text != null && originalText != null) {
+      setElementText(el, restored.text);
+    }
+
+    const rect = el.getBoundingClientRect();
+    // Hidden items can have a zero rect when the editor is reopened. Still
+    // register them so RESTORE DELETED can bring them back.
+    if ((rect.width < 2 || rect.height < 2) && !restored?.deleted) return;
+
     const state = {
       key,
       minW: spec.minW || 20,
       minH: spec.minH || 14,
       x: numeric(restored?.x, 0),
       y: numeric(restored?.y, 0),
-      width: numeric(restored?.width, rect.width),
-      height: numeric(restored?.height, rect.height),
+      width: numeric(restored?.width, rect.width || spec.minW || 20),
+      height: numeric(restored?.height, rect.height || spec.minH || 14),
       touched: Boolean(restored),
       label: spec.prefix,
+      locked: Boolean(restored?.locked),
+      deleted: Boolean(restored?.deleted),
+      text: restored?.text != null ? String(restored.text) : null,
+      originalText,
     };
 
     states.set(el, state);
@@ -152,6 +181,26 @@
   }
 
   function applyState(el, state) {
+    if (!el || !state) return;
+
+    el.classList.toggle('manual-layout-locked', Boolean(state.locked));
+    el.classList.toggle('manual-layout-deleted', Boolean(state.deleted));
+
+    if (state.text != null && elementTextValue(el) != null) {
+      setElementText(el, state.text);
+    }
+
+    if (state.deleted) {
+      el.style.setProperty('display', 'none', 'important');
+      state.touched = true;
+      syncFrame();
+      return;
+    }
+
+    if (el.style.getPropertyValue('display') === 'none') {
+      el.style.removeProperty('display');
+    }
+
     setImportant(el, 'box-sizing', 'border-box');
     setImportant(el, 'width', `${Math.round(state.width)}px`);
     setImportant(el, 'height', `${Math.round(state.height)}px`);
@@ -183,6 +232,11 @@
   frame.id = 'manualLayoutHoverFrame';
   frame.innerHTML = `
     <div id="manualLayoutHoverLabel"></div>
+    <div id="manualLayoutHoverActions">
+      <button type="button" data-layout-action="text">✎ TEXT</button>
+      <button type="button" data-layout-action="lock">🔒 LOCK</button>
+      <button type="button" data-layout-action="delete">✕ DELETE</button>
+    </div>
     ${dirs.map((dir) => `<span class="manual-layout-hover-handle" data-dir="${dir}"></span>`).join('')}
   `;
   document.body.appendChild(frame);
@@ -200,7 +254,79 @@
     }
     document.getElementById('manualLayoutHoverLabel').textContent = frameLabel(activeElement);
     frame.classList.add('show');
+    syncHoverActions();
     syncFrame();
+  }
+
+  function syncHoverActions() {
+    const state = activeElement ? states.get(activeElement) : null;
+    const textButton = frame.querySelector('[data-layout-action="text"]');
+    const lockButton = frame.querySelector('[data-layout-action="lock"]');
+    const deleteButton = frame.querySelector('[data-layout-action="delete"]');
+    if (textButton) textButton.disabled = !activeElement || elementTextValue(activeElement) == null;
+    if (lockButton) {
+      lockButton.textContent = state?.locked ? '🔓 UNLOCK' : '🔒 LOCK';
+      lockButton.classList.toggle('is-locked', Boolean(state?.locked));
+    }
+    if (deleteButton) deleteButton.disabled = !activeElement;
+    frame.classList.toggle('locked', Boolean(state?.locked));
+    frame.querySelectorAll('.manual-layout-hover-handle').forEach((handle) => {
+      handle.classList.toggle('disabled', Boolean(state?.locked));
+    });
+  }
+
+  function editActiveText() {
+    if (!activeElement) return;
+    const state = states.get(activeElement);
+    if (!state) return;
+    const current = elementTextValue(activeElement);
+    if (current == null) return toast('This block has no direct text. Hover its text child instead.');
+    const next = window.prompt('Edit text:', current);
+    if (next == null) return;
+    state.text = String(next);
+    state.touched = true;
+    setElementText(activeElement, state.text);
+    syncFrame();
+    toast('Text updated. Save when finished.');
+  }
+
+  function toggleActiveLock() {
+    if (!activeElement) return;
+    const state = states.get(activeElement);
+    if (!state) return;
+    state.locked = !state.locked;
+    state.touched = true;
+    applyState(activeElement, state);
+    syncHoverActions();
+    toast(state.locked ? 'Item locked.' : 'Item unlocked.');
+  }
+
+  let lastDeletedKey = null;
+
+  function deleteActiveItem() {
+    if (!activeElement) return;
+    const el = activeElement;
+    const state = states.get(el);
+    if (!state || state.locked || state.deleted) return;
+    state.deleted = true;
+    state.touched = true;
+    lastDeletedKey = state.key;
+    applyState(el, state);
+    setActive(null);
+    toast('Item hidden. Use UNDO DELETE or RESTORE DELETED if needed.');
+  }
+
+  function restoreDeletedItem(key) {
+    for (const [el, state] of states.entries()) {
+      if (state.key !== key || !state.deleted) continue;
+      state.deleted = false;
+      state.touched = true;
+      applyState(el, state);
+      lastDeletedKey = null;
+      toast('Deleted item restored.');
+      return true;
+    }
+    return false;
   }
 
   function syncFrame() {
@@ -241,7 +367,7 @@
 
   function startMove(event, el) {
     const state = states.get(el);
-    if (!state) return;
+    if (!state || state.locked || state.deleted) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
@@ -265,7 +391,7 @@
 
   function startResize(event, el, dir) {
     const state = states.get(el);
-    if (!state) return;
+    if (!state || state.locked || state.deleted) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
@@ -314,6 +440,10 @@
       setActive(null);
       return;
     }
+    if (event.target.closest?.('#manualLayoutHoverActions')) {
+      syncFrame();
+      return;
+    }
     if (event.target.closest?.('#manualLayoutHoverFrame')) {
       syncFrame();
       return;
@@ -324,6 +454,7 @@
 
   document.addEventListener('pointerdown', (event) => {
     if (event.target.closest?.('#manualLayoutToolbar')) return;
+    if (event.target.closest?.('#manualLayoutHoverActions')) return;
 
     const handle = event.target.closest?.('.manual-layout-hover-handle');
     if (handle && activeElement) {
@@ -347,6 +478,7 @@
   // only interactive exception.
   function blockNormalEditorAction(event) {
     if (event.target.closest?.('#manualLayoutToolbar')) return;
+    if (event.target.closest?.('#manualLayoutHoverActions')) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
@@ -387,10 +519,13 @@
         y: Math.round(state.y),
         width: Math.round(state.width),
         height: Math.round(state.height),
+        locked: Boolean(state.locked),
+        deleted: Boolean(state.deleted),
+        ...(state.text != null ? { text: state.text } : {}),
       };
     }
     return {
-      version: 2,
+      version: 4,
       page: 'manual-replay',
       viewport: { width: window.innerWidth, height: window.innerHeight },
       savedAt: new Date().toISOString(),
@@ -416,9 +551,11 @@
   toolbar.id = 'manualLayoutToolbar';
   toolbar.innerHTML = [
     '<strong>MANUAL REPLAY LAYOUT EDITOR</strong>',
-    '<span class="manual-layout-help">Hover an item → handles appear. Drag from the middle to move it.</span>',
+    '<span class="manual-layout-help">Hover anything → edit tools appear. Drag middle to move. Pull any handle to stretch/scale.</span>',
+    '<button id="manualLayoutUndoDelete" type="button">UNDO DELETE</button>',
+    '<button id="manualLayoutRestoreDeleted" type="button">RESTORE DELETED</button>',
     '<button id="manualLayoutSave" type="button">SAVE LAYOUT</button>',
-    '<button id="manualLayoutReset" type="button">RESET</button>',
+    '<button id="manualLayoutReset" type="button">RESET ALL</button>',
     '<button id="manualLayoutExit" type="button">EXIT EDITOR</button>',
   ].join('');
   document.body.appendChild(toolbar);
@@ -426,6 +563,47 @@
   const toastNode = document.createElement('div');
   toastNode.id = 'manualLayoutToast';
   document.body.appendChild(toastNode);
+
+  frame.querySelector('[data-layout-action="text"]')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    editActiveText();
+  });
+
+  frame.querySelector('[data-layout-action="lock"]')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleActiveLock();
+  });
+
+  frame.querySelector('[data-layout-action="delete"]')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    deleteActiveItem();
+  });
+
+  document.getElementById('manualLayoutUndoDelete')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!lastDeletedKey || !restoreDeletedItem(lastDeletedKey)) {
+      toast('Nothing to undo.');
+    }
+  });
+
+  document.getElementById('manualLayoutRestoreDeleted')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    let restoredCount = 0;
+    for (const [el, state] of states.entries()) {
+      if (!state.deleted) continue;
+      state.deleted = false;
+      state.touched = true;
+      applyState(el, state);
+      restoredCount += 1;
+    }
+    lastDeletedKey = null;
+    toast(restoredCount ? `Restored ${restoredCount} hidden item(s).` : 'No deleted items.');
+  });
 
   document.getElementById('manualLayoutSave')?.addEventListener('click', async (event) => {
     event.preventDefault();
@@ -446,6 +624,7 @@
     event.preventDefault();
     event.stopPropagation();
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
     window.location.reload();
   });
 
@@ -455,7 +634,7 @@
     exitEditor();
   });
 
-  document.documentElement.classList.add('manual-replay-layout-editing');
+  document.documentElement.classList.add('manual-replay-layout-editing', 'manual-replay-layout-editing-v4');
   ensureTargets();
   window.addEventListener('load', ensureTargets, { once: true });
 })();
