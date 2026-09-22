@@ -606,8 +606,7 @@
       onChartClick(value) {
         if (
           !state.candles.length ||
-          !state.positionDraft ||
-          state.openTrade ||
+          !editablePosition() ||
           !Number.isFinite(Number(value))
         ) return;
         const target = $(state.activePriceField || 'slPrice');
@@ -617,7 +616,7 @@
         const label = state.activePriceField === 'tpPrice'
           ? 'Take Profit'
           : 'Stop Loss';
-        notice(`${label} set to ${price(value)} from the chart.`, 'success');
+        notice(`${label} ${state.openTrade ? 'modified' : 'set'} to ${price(value)} from the chart.`, 'success');
       },
       onDraftLevel(field, value) {
         if (!editablePosition()) return;
