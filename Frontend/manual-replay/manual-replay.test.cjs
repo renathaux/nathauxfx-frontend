@@ -263,3 +263,20 @@ test('saved full editor changes persist after exiting edit mode', () => {
   assert.match(savedLayout, /translate3d/);
   assert.match(savedLayout, /layoutEdit.*=== '1'/);
 });
+
+
+test('layout editor selection is click-sticky with undo and stable lock', () => {
+  assert.match(layoutEditor, /Selection is click-driven, not hover-driven/);
+  assert.match(layoutEditor, /Once the user clicks an/);
+  assert.match(layoutEditor, /setActive\(el\)/);
+  assert.match(layoutEditor, /const undoShortcut = \(event\.ctrlKey \|\| event\.metaKey\)/);
+  assert.match(layoutEditor, /function undoLastEdit/);
+  assert.match(layoutEditor, /MAX_UNDO_STEPS = 100/);
+  assert.match(layoutEditor, /id="manualLayoutUndo"/);
+  assert.match(layoutEditor, /Item locked in its current place/);
+  assert.doesNotMatch(layoutEditor, /state\.locked = !state\.locked;[\s\S]{0,120}applyState\(activeElement, state\)/);
+  assert.match(layoutEditor, /geometryTouched/);
+  assert.match(layoutEditor, /baseStyle: el\.getAttribute\('style'\)/);
+  assert.match(layoutEditor, /if \(!state\.geometryTouched\)/);
+  assert.match(layoutEditor, /deleteButton\.disabled = !activeElement \|\| Boolean\(state\?\.locked\)/);
+});

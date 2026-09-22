@@ -8,6 +8,8 @@
   const LEGACY_STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v3';
   const dirs = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
   const states = new Map();
+  const undoStack = [];
+  const MAX_UNDO_STEPS = 100;
   let activeElement = null;
   let dragging = false;
 
@@ -152,11 +154,16 @@
       width: numeric(restored?.width, rect.width || spec.minW || 20),
       height: numeric(restored?.height, rect.height || spec.minH || 14),
       touched: Boolean(restored),
+      geometryTouched: Boolean(
+        restored &&
+        [restored.x, restored.y, restored.width, restored.height].every((value) => Number.isFinite(Number(value)))
+      ),
       label: spec.prefix,
       locked: Boolean(restored?.locked),
       deleted: Boolean(restored?.deleted),
       text: restored?.text != null ? String(restored.text) : null,
       originalText,
+      baseStyle: el.getAttribute('style'),
     };
 
     states.set(el, state);
@@ -201,13 +208,15 @@
       el.style.removeProperty('display');
     }
 
-    setImportant(el, 'box-sizing', 'border-box');
-    setImportant(el, 'width', `${Math.round(state.width)}px`);
-    setImportant(el, 'height', `${Math.round(state.height)}px`);
-    setImportant(el, 'max-width', 'none');
-    setImportant(el, 'min-width', '0');
-    setImportant(el, 'min-height', '0');
-    setImportant(el, 'transform', `translate3d(${Math.round(state.x)}px, ${Math.round(state.y)}px, 0)`);
+    if (state.geometryTouched) {
+      setImportant(el, 'box-sizing', 'border-box');
+      setImportant(el, 'width', `${Math.round(state.width)}px`);
+      setImportant(el, 'height', `${Math.round(state.height)}px`);
+      setImportant(el, 'max-width', 'none');
+      setImportant(el, 'min-width', '0');
+      setImportant(el, 'min-height', '0');
+      setImportant(el, 'transform', `translate3d(${Math.round(state.x)}px, ${Math.round(state.y)}px, 0)`);
+    }
     state.touched = true;
     syncFrame();
   }
@@ -226,6 +235,81 @@
     if (!state) return 'EDIT';
     const id = el.id ? ` #${el.id}` : '';
     return `${state.label}${id}`;
+  }
+
+  function captureEditorSnapshot() {
+    const items = {};
+    for (const [el, state] of states.entries()) {
+      items[state.key] = {
+        x: state.x,
+        y: state.y,
+        width: state.width,
+        height: state.height,
+        touched: state.touched,
+        geometryTouched: state.geometryTouched,
+        locked: state.locked,
+        deleted: state.deleted,
+        text: state.text,
+        currentText: elementTextValue(el),
+      };
+    }
+    return {
+      activeKey: activeElement ? states.get(activeElement)?.key || null : null,
+      items,
+    };
+  }
+
+  function pushUndoSnapshot() {
+    undoStack.push(captureEditorSnapshot());
+    if (undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
+  }
+
+  function restoreSnapshot(snapshot) {
+    if (!snapshot?.items) return false;
+    let nextActive = null;
+    for (const [el, state] of states.entries()) {
+      const previous = snapshot.items[state.key];
+      if (!previous) continue;
+      Object.assign(state, {
+        x: previous.x,
+        y: previous.y,
+        width: previous.width,
+        height: previous.height,
+        touched: previous.touched,
+        geometryTouched: previous.geometryTouched,
+        locked: previous.locked,
+        deleted: previous.deleted,
+        text: previous.text,
+      });
+      if (!state.geometryTouched) {
+        if (state.baseStyle == null) el.removeAttribute('style');
+        else el.setAttribute('style', state.baseStyle);
+      }
+      if (previous.currentText != null && elementTextValue(el) != null) {
+        setElementText(el, previous.currentText);
+      }
+      applyState(el, state);
+      if (state.key === snapshot.activeKey && !state.deleted) nextActive = el;
+    }
+    activeElement = nextActive;
+    if (activeElement) {
+      frame.classList.add('show');
+      document.getElementById('manualLayoutHoverLabel').textContent = frameLabel(activeElement);
+      syncHoverActions();
+      syncFrame();
+    } else {
+      frame.classList.remove('show', 'active', 'locked');
+    }
+    return true;
+  }
+
+  function undoLastEdit() {
+    if (!undoStack.length) {
+      toast('Nothing to undo.');
+      return;
+    }
+    const snapshot = undoStack.pop();
+    if (restoreSnapshot(snapshot)) toast('Undo.');
   }
 
   const frame = document.createElement('div');
@@ -268,7 +352,7 @@
       lockButton.textContent = state?.locked ? '🔓 UNLOCK' : '🔒 LOCK';
       lockButton.classList.toggle('is-locked', Boolean(state?.locked));
     }
-    if (deleteButton) deleteButton.disabled = !activeElement;
+    if (deleteButton) deleteButton.disabled = !activeElement || Boolean(state?.locked);
     frame.classList.toggle('locked', Boolean(state?.locked));
     frame.querySelectorAll('.manual-layout-hover-handle').forEach((handle) => {
       handle.classList.toggle('disabled', Boolean(state?.locked));
@@ -282,7 +366,8 @@
     const current = elementTextValue(activeElement);
     if (current == null) return toast('This block has no direct text. Hover its text child instead.');
     const next = window.prompt('Edit text:', current);
-    if (next == null) return;
+    if (next == null || String(next) === current) return;
+    pushUndoSnapshot();
     state.text = String(next);
     state.touched = true;
     setElementText(activeElement, state.text);
@@ -294,11 +379,13 @@
     if (!activeElement) return;
     const state = states.get(activeElement);
     if (!state) return;
+    pushUndoSnapshot();
     state.locked = !state.locked;
     state.touched = true;
-    applyState(activeElement, state);
+    activeElement.classList.toggle('manual-layout-locked', Boolean(state.locked));
     syncHoverActions();
-    toast(state.locked ? 'Item locked.' : 'Item unlocked.');
+    syncFrame();
+    toast(state.locked ? 'Item locked in its current place.' : 'Item unlocked.');
   }
 
   let lastDeletedKey = null;
@@ -308,6 +395,7 @@
     const el = activeElement;
     const state = states.get(el);
     if (!state || state.locked || state.deleted) return;
+    pushUndoSnapshot();
     state.deleted = true;
     state.touched = true;
     lastDeletedKey = state.key;
@@ -316,9 +404,10 @@
     toast('Item hidden. Use UNDO DELETE or RESTORE DELETED if needed.');
   }
 
-  function restoreDeletedItem(key) {
+  function restoreDeletedItem(key, { recordUndo = true } = {}) {
     for (const [el, state] of states.entries()) {
       if (state.key !== key || !state.deleted) continue;
+      if (recordUndo) pushUndoSnapshot();
       state.deleted = false;
       state.touched = true;
       applyState(el, state);
@@ -381,8 +470,14 @@
     const startX = event.clientX;
     const startY = event.clientY;
     const start = { ...state };
+    let undoRecorded = false;
 
     beginSession((moveEvent) => {
+      if (!undoRecorded) {
+        pushUndoSnapshot();
+        undoRecorded = true;
+      }
+      state.geometryTouched = true;
       state.x = start.x + moveEvent.clientX - startX;
       state.y = start.y + moveEvent.clientY - startY;
       applyState(el, state);
@@ -405,8 +500,14 @@
     const startX = event.clientX;
     const startY = event.clientY;
     const start = { ...state };
+    let undoRecorded = false;
 
     beginSession((moveEvent) => {
+      if (!undoRecorded) {
+        pushUndoSnapshot();
+        undoRecorded = true;
+      }
+      state.geometryTouched = true;
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
       let x = start.x;
@@ -434,22 +535,11 @@
     }, el);
   }
 
-  document.addEventListener('pointermove', (event) => {
+  document.addEventListener('pointermove', () => {
     if (dragging) return;
-    if (event.target.closest?.('#manualLayoutToolbar')) {
-      setActive(null);
-      return;
-    }
-    if (event.target.closest?.('#manualLayoutHoverActions')) {
-      syncFrame();
-      return;
-    }
-    if (event.target.closest?.('#manualLayoutHoverFrame')) {
-      syncFrame();
-      return;
-    }
-    ensureTargets();
-    setActive(findEditableFromNode(event.target));
+    // Selection is click-driven, not hover-driven. Once the user clicks an
+    // item its editor stays attached until another item is clicked.
+    if (activeElement) syncFrame();
   }, true);
 
   document.addEventListener('pointerdown', (event) => {
@@ -463,9 +553,13 @@
 
     ensureTargets();
     const el = findEditableFromNode(event.target);
-    if (!el) return;
+    if (!el) {
+      setActive(null);
+      return;
+    }
 
-    // In layout-edit mode the middle of every editable item is a drag surface.
+    // Click selects the item and keeps its editor active. If unlocked, dragging
+    // from the same click moves it; locked items remain selected but fixed.
     // This intentionally overrides button/input/chart interaction until the
     // user exits the editor.
     setActive(el);
@@ -491,6 +585,14 @@
   document.addEventListener('submit', blockNormalEditorAction, true);
 
   document.addEventListener('keydown', (event) => {
+    const undoShortcut = (event.ctrlKey || event.metaKey) && !event.shiftKey && String(event.key).toLowerCase() === 'z';
+    if (undoShortcut) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      undoLastEdit();
+      return;
+    }
     if (event.target.closest?.('#manualLayoutToolbar')) return;
     if (
       event.key === 'Enter' ||
@@ -515,10 +617,12 @@
     for (const [el, state] of states.entries()) {
       if (!state.touched) continue;
       items[state.key] = {
-        x: Math.round(state.x),
-        y: Math.round(state.y),
-        width: Math.round(state.width),
-        height: Math.round(state.height),
+        ...(state.geometryTouched ? {
+          x: Math.round(state.x),
+          y: Math.round(state.y),
+          width: Math.round(state.width),
+          height: Math.round(state.height),
+        } : {}),
         locked: Boolean(state.locked),
         deleted: Boolean(state.deleted),
         ...(state.text != null ? { text: state.text } : {}),
@@ -551,7 +655,8 @@
   toolbar.id = 'manualLayoutToolbar';
   toolbar.innerHTML = [
     '<strong>MANUAL REPLAY LAYOUT EDITOR</strong>',
-    '<span class="manual-layout-help">Hover anything → edit tools appear. Drag middle to move. Pull any handle to stretch/scale.</span>',
+    '<span class="manual-layout-help">Click an item to select it. Selection stays until you click another item. Drag middle to move, use handles to resize. Ctrl/Cmd+Z = undo.</span>',
+    '<button id="manualLayoutUndo" type="button">UNDO</button>',
     '<button id="manualLayoutUndoDelete" type="button">UNDO DELETE</button>',
     '<button id="manualLayoutRestoreDeleted" type="button">RESTORE DELETED</button>',
     '<button id="manualLayoutSave" type="button">SAVE LAYOUT</button>',
@@ -582,6 +687,12 @@
     deleteActiveItem();
   });
 
+  document.getElementById('manualLayoutUndo')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    undoLastEdit();
+  });
+
   document.getElementById('manualLayoutUndoDelete')?.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -593,6 +704,8 @@
   document.getElementById('manualLayoutRestoreDeleted')?.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
+    const deletedStates = [...states.values()].filter((state) => state.deleted);
+    if (deletedStates.length) pushUndoSnapshot();
     let restoredCount = 0;
     for (const [el, state] of states.entries()) {
       if (!state.deleted) continue;
