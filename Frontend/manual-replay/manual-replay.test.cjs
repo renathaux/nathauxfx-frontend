@@ -293,3 +293,28 @@ test('submitted v4 layout is the production default', () => {
   assert.match(savedLayout, /editorSaved = raw \? JSON\.parse\(raw\) : \(window\.ManualReplayDefaultLayoutV4 \|\| null\)/);
   assert.match(layoutEditor, /saved = raw \? JSON\.parse\(raw\) : \(window\.ManualReplayDefaultLayoutV4 \|\| null\)/);
 });
+
+
+test('position box clicks route green to TP and red to SL with lock controls', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(liveChart, /function positionRegionAtPoint/);
+  assert.match(liveChart, /return 'tp'/);
+  assert.match(liveChart, /return 'sl'/);
+  assert.match(liveChart, /state\.callbacks\.onChartClick\?\.\(price, region\)/);
+  assert.match(app, /const fieldId = region === 'tp' \? 'tpPrice' : 'slPrice'/);
+  assert.match(app, /green target/);
+  assert.match(app, /red risk/);
+  assert.match(liveChart, /positionLocked/);
+  assert.match(liveChart, /event\.code !== 'Space'/);
+  assert.match(liveChart, /togglePositionLocked\('double-click'\)/);
+  assert.match(liveChart, /setPositionLocked\(true, 'space'\)/);
+  assert.match(app, /Double-click the position box to edit it again/);
+  assert.match(css, /manual-replay-position-tool\.position-locked/);
+});
+
+test('double click cancels pending single-click edit before locking', () => {
+  assert.match(liveChart, /state\.clickTimer = window\.setTimeout/);
+  assert.match(liveChart, /220/);
+  assert.match(liveChart, /if \(state\.clickTimer\)[\s\S]*window\.clearTimeout\(state\.clickTimer\)/);
+  assert.match(liveChart, /interactionHost\.addEventListener\('dblclick'/);
+});
