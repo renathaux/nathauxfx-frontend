@@ -176,6 +176,8 @@
       tool.innerHTML = `
         <div class="manual-replay-position-zone profit"></div>
         <div class="manual-replay-position-zone risk"></div>
+        <div class="manual-replay-position-caption target"></div>
+        <div class="manual-replay-position-caption stop"></div>
         <div class="manual-replay-position-info"></div>
       `;
       state.layer.prepend(tool);
@@ -188,19 +190,34 @@
     const scale = state.chart.timeScale();
     let x = null;
 
-    if (state.openTrade?.entryTime && typeof scale.timeToCoordinate === 'function') {
+    // TradingView-style tools start at the candle where the position is
+    // created/opened. For a draft that is the latest revealed candle.
+    const anchorTime = state.openTrade?.entryTime
+      ? normalizeTime(state.openTrade.entryTime)
+      : state.lastCandles.at(-1)?.time;
+
+    if (Number.isFinite(anchorTime) && typeof scale.timeToCoordinate === 'function') {
       try {
-        x = scale.timeToCoordinate(normalizeTime(state.openTrade.entryTime));
+        x = scale.timeToCoordinate(anchorTime);
       } catch (_error) {}
     }
 
-    if (!Number.isFinite(Number(x)) && state.lastCandles.length && typeof scale.logicalToCoordinate === 'function') {
+    // Important: null must not be coerced to 0 here. That old coercion made
+    // the position box begin at the far-left edge of the chart.
+    if (!Number.isFinite(x) && state.lastCandles.length && typeof scale.logicalToCoordinate === 'function') {
       try {
-        x = scale.logicalToCoordinate(state.lastCandles.length - 1);
+        const logicalIndex = state.openTrade && Number.isFinite(Number(state.openTrade.entryIndex))
+          ? Number(state.openTrade.entryIndex)
+          : state.lastCandles.length - 1;
+        x = scale.logicalToCoordinate(logicalIndex);
       } catch (_error) {}
     }
 
-    return Number.isFinite(Number(x)) ? Number(x) : null;
+    if (Number.isFinite(x)) return Number(x);
+
+    // Last-resort visual fallback keeps the tool close to the current candle
+    // area instead of stretching across all historical bars.
+    return Math.max(80, (state.container.clientWidth || 800) * 0.66);
   }
 
   function positionSummary(position) {
@@ -282,8 +299,15 @@
 
     const containerWidth = state.container.clientWidth || 800;
     const containerHeight = state.container.clientHeight || 460;
-    const endX = Math.max(180, containerWidth - 72);
-    const startX = Math.max(10, Math.min(Number(anchorX), endX - 150));
+    const priceAxisRoom = 72;
+    const chartRight = Math.max(180, containerWidth - priceAxisRoom);
+    const barSpacing = Number(state.chart?.timeScale?.().options?.()?.barSpacing) || 14;
+    const desiredWidth = Math.max(190, Math.min(340, barSpacing * 18));
+    let startX = Math.max(10, Math.min(Number(anchorX), chartRight - 150));
+    let endX = Math.min(chartRight, startX + desiredWidth);
+    if (endX - startX < 150) {
+      startX = Math.max(10, endX - 150);
+    }
     const width = Math.max(150, endX - startX);
 
     const tool = ensurePositionTool();
@@ -292,6 +316,8 @@
 
     const profit = tool.querySelector('.manual-replay-position-zone.profit');
     const risk = tool.querySelector('.manual-replay-position-zone.risk');
+    const targetCaption = tool.querySelector('.manual-replay-position-caption.target');
+    const stopCaption = tool.querySelector('.manual-replay-position-caption.stop');
     const info = tool.querySelector('.manual-replay-position-info');
 
     const placeZone = (node, y1, y2) => {
@@ -306,14 +332,29 @@
     placeZone(risk, entryY, slY);
 
     const summary = positionSummary(position);
-    info.textContent = `${position.side === 'BUY' ? 'LONG' : 'SHORT'} ${state.openTrade ? 'ACTIVE' : 'POSITION'} • Risk ${summary.risk} • Reward ${summary.reward} • R:R ${summary.rr}`;
-    info.style.left = `${Math.round(startX + 10)}px`;
-    const infoTop = Math.max(8, Math.min(containerHeight - 34, entryY - 29));
+    const profitTop = Math.min(entryY, tpY);
+    const profitBottom = Math.max(entryY, tpY);
+    const riskTop = Math.min(entryY, slY);
+    const riskBottom = Math.max(entryY, slY);
+
+    targetCaption.textContent = `Target: +${summary.reward} • ${summary.rr}R`;
+    targetCaption.style.left = `${Math.round(startX + width / 2)}px`;
+    targetCaption.style.top = `${Math.round(Math.max(8, Math.min(containerHeight - 28, (profitTop + profitBottom) / 2 - 10)))}px`;
+    targetCaption.classList.toggle('compact', profitBottom - profitTop < 38);
+
+    stopCaption.textContent = `Stop: -${summary.risk} • 1.00R`;
+    stopCaption.style.left = `${Math.round(startX + width / 2)}px`;
+    stopCaption.style.top = `${Math.round(Math.max(8, Math.min(containerHeight - 28, (riskTop + riskBottom) / 2 - 10)))}px`;
+    stopCaption.classList.toggle('compact', riskBottom - riskTop < 38);
+
+    info.textContent = `${position.side === 'BUY' ? 'LONG POSITION' : 'SHORT POSITION'} • Risk/Reward Ratio: ${summary.rr}`;
+    info.style.left = `${Math.round(startX + width / 2)}px`;
+    const infoTop = Math.max(8, Math.min(containerHeight - 34, entryY - 14));
     info.style.top = `${Math.round(infoTop)}px`;
 
     const entry = ensureDragLine('entry', 'ENTRY', 'entry');
-    const sl = ensureDragLine('sl', 'SL', 'sl');
-    const tp = ensureDragLine('tp', 'TP', 'tp');
+    const sl = ensureDragLine('sl', 'STOP', 'sl');
+    const tp = ensureDragLine('tp', 'TARGET', 'tp');
 
     const lineStates = [
       [entry, position.entry, entryY, true],
