@@ -181,17 +181,14 @@
     refreshVerticalViewport();
   }
 
-  function applyUnifiedZoom(factor) {
+  function applyManagedZoom(factor) {
     if (!state.chart || !Number.isFinite(Number(factor)) || Number(factor) <= 0) return;
     const zoomFactor = Number(factor);
 
-    // factor > 1 = zoom OUT: more price space + more candles visible.
-    // factor < 1 = zoom IN: candles/price action become larger and closer.
-    state.verticalViewport.scale = Math.min(
-      30,
-      Math.max(0.15, state.verticalViewport.scale * zoomFactor),
-    );
-
+    // TradingView-style zoom changes how many candles are visible horizontally.
+    // The vertical axis then AUTO-FITS the visible candles instead of blindly
+    // multiplying the price range. That keeps candles readable even at deep
+    // zoom-out and prevents absurd ranges like 0.90 -> 1.45 on EURUSD.
     try {
       const timeScale = state.chart.timeScale();
       const options = timeScale.options();
@@ -200,6 +197,8 @@
       timeScale.applyOptions({ barSpacing: nextSpacing });
     } catch (_error) {}
 
+    state.verticalViewport.scale = 1;
+    state.verticalViewport.offsetRatio = 0;
     refreshVerticalViewport();
   }
 
@@ -699,7 +698,7 @@
       if (!deltaY || Math.abs(deltaX) > Math.abs(deltaY)) return;
 
       const factor = Math.exp(deltaY / 650);
-      applyUnifiedZoom(factor);
+      applyManagedZoom(factor);
       event.preventDefault();
       event.stopPropagation();
     };
@@ -882,7 +881,7 @@
     if (!state.chart) return;
     // Existing buttons use -1 for Zoom In and +1 for Zoom Out.
     // Make them control BOTH axes so Zoom Out creates real top/bottom space.
-    applyUnifiedZoom(direction < 0 ? (1 / 1.2) : 1.2);
+    applyManagedZoom(direction < 0 ? (1 / 1.2) : 1.2);
   }
 
   function resetView() {
