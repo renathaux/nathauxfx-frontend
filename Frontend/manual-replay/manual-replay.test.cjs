@@ -179,3 +179,16 @@ test('manual replay can switch off auto risk and use fixed lot sizing', () => {
   assert.match(app, /\$\('lotSize'\)\.disabled = Boolean\(trade\)/);
   assert.match(html, /<th>Lot<\/th>/);
 });
+
+
+test('modern sizing ticket is protected from the legacy saved layout', () => {
+  const savedLayout = fs.readFileSync(path.join(__dirname, 'manual-replay-saved-layout.js'), 'utf8');
+  assert.match(savedLayout, /modernTicketLayoutEnabled/);
+  assert.match(savedLayout, /document\.getElementById\('positionSizingMode'\)/);
+  assert.match(savedLayout, /modernTicketPrefixes/);
+  assert.match(savedLayout, /'ticketFieldControl'/);
+  assert.match(savedLayout, /'draftMetrics'/);
+  assert.match(savedLayout, /if \(modernTicket && modernTicketPrefixes\.has\(prefix\)\) continue/);
+  assert.match(savedLayout, /sizing\.style\.setProperty\('display', 'block', 'important'\)/);
+  assert.match(savedLayout, /tradePanel\.style\.setProperty\('height', 'auto', 'important'\)/);
+});
