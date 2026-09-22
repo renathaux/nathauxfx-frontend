@@ -218,11 +218,11 @@
     const scale = state.chart.timeScale();
     let x = null;
 
-    // TradingView-style tools start at the candle where the position is
-    // created/opened. For a draft that is the latest revealed candle.
-    const anchorTime = state.openTrade?.entryTime
-      ? normalizeTime(state.openTrade.entryTime)
-      : state.lastCandles.at(-1)?.time;
+    // TradingView-style tools stay anchored to the candle where they were
+    // created/opened. Advancing replay candles must not move the drawing.
+    const anchorTime = position?.entryTime
+      ? normalizeTime(position.entryTime)
+      : null;
 
     if (Number.isFinite(anchorTime) && typeof scale.timeToCoordinate === 'function') {
       try {
@@ -234,8 +234,8 @@
     // the position box begin at the far-left edge of the chart.
     if (!Number.isFinite(x) && state.lastCandles.length && typeof scale.logicalToCoordinate === 'function') {
       try {
-        const logicalIndex = state.openTrade && Number.isFinite(Number(state.openTrade.entryIndex))
-          ? Number(state.openTrade.entryIndex)
+        const logicalIndex = Number.isFinite(Number(position?.entryIndex))
+          ? Number(position.entryIndex)
           : state.lastCandles.length - 1;
         x = scale.logicalToCoordinate(logicalIndex);
       } catch (_error) {}
