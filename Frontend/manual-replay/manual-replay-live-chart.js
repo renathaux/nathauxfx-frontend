@@ -627,6 +627,7 @@
         startScale: state.verticalViewport.scale,
         startOffsetRatio: state.verticalViewport.offsetRatio,
         height: Math.max(1, rect.height),
+        active: false,
       };
 
       if (isPriceAxis) {
@@ -639,6 +640,8 @@
       const gesture = state.verticalViewport.gesture;
       if (!gesture || gesture.pointerId !== event.pointerId) return;
       const dy = event.clientY - gesture.startY;
+      if (!gesture.active && Math.abs(dy) < 3) return;
+      gesture.active = true;
 
       if (gesture.type === 'scale') {
         state.verticalViewport.scale = Math.min(
