@@ -15,6 +15,7 @@
     priceLines: new Map(),
     resizeObserver: null,
     drag: null,
+    hoverPoint: null,
     userMovedRange: false,
     initialized: false,
   };
@@ -96,6 +97,32 @@
     };
   }
 
+  function positionAwareAutoscale(originalProvider) {
+    const original = typeof originalProvider === 'function' ? originalProvider() : null;
+    if (!original?.priceRange) return original;
+
+    const position = currentPosition();
+    if (!position) return original;
+
+    const levels = [position.entry, position.sl, position.tp].map(Number).filter(Number.isFinite);
+    const baseMin = Number(original.priceRange.minValue);
+    const baseMax = Number(original.priceRange.maxValue);
+    if (!levels.length || !Number.isFinite(baseMin) || !Number.isFinite(baseMax)) return original;
+
+    const minValue = Math.min(baseMin, ...levels);
+    const maxValue = Math.max(baseMax, ...levels);
+    const span = Math.max(maxValue - minValue, Math.abs(maxValue || 1) * 0.0005);
+    const padding = span * 0.12;
+
+    return {
+      ...original,
+      priceRange: {
+        minValue: minValue - padding,
+        maxValue: maxValue + padding,
+      },
+    };
+  }
+
   function seriesOptions(symbol) {
     const price = precisionFor(symbol);
     return {
@@ -107,6 +134,7 @@
       wickDownColor: '#ef5350',
       priceLineVisible: false,
       lastValueVisible: true,
+      autoscaleInfoProvider: (originalProvider) => positionAwareAutoscale(originalProvider),
       priceFormat: {
         type: 'price',
         precision: price.precision,
@@ -221,22 +249,35 @@
   }
 
   function positionSummary(position) {
-    const riskDistance = Math.abs(Number(position.entry) - Number(position.sl));
-    const rewardDistance = Math.abs(Number(position.tp) - Number(position.entry));
-    const rr = riskDistance > 0 ? rewardDistance / riskDistance : null;
+    const sideSign = position.side === 'SELL' ? -1 : 1;
+    const initialRiskDistance = Number(position.initialRiskDistance) > 0
+      ? Number(position.initialRiskDistance)
+      : Math.abs(Number(position.entry) - Number(position.initialSl ?? position.sl));
     const riskDollars = Number(state.metrics?.riskDollars ?? position.riskDollars);
-    const rewardDollars = Number(
-      state.metrics?.rewardDollars ??
-      (Number.isFinite(riskDollars) && Number.isFinite(rr) ? riskDollars * rr : NaN)
-    );
-    const money = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)}` : '—';
-    const rrText = Number.isFinite(Number(state.metrics?.rr))
-      ? Number(state.metrics.rr).toFixed(2)
-      : Number.isFinite(rr) ? rr.toFixed(2) : '—';
+    const targetR = initialRiskDistance > 0
+      ? sideSign * (Number(position.tp) - Number(position.entry)) / initialRiskDistance
+      : null;
+    const stopR = initialRiskDistance > 0
+      ? sideSign * (Number(position.sl) - Number(position.entry)) / initialRiskDistance
+      : null;
+    const money = (value) => Number.isFinite(Number(value))
+      ? `$${Math.abs(Number(value)).toFixed(2)}`
+      : '—';
+    const signedMoney = (value) => {
+      if (!Number.isFinite(Number(value))) return '—';
+      const n = Number(value);
+      return `${n >= 0 ? '+' : '-'}$${Math.abs(n).toFixed(2)}`;
+    };
+    const signedR = (value) => Number.isFinite(Number(value))
+      ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(2)}R`
+      : '—';
+
     return {
       risk: money(riskDollars),
-      reward: money(rewardDollars),
-      rr: rrText,
+      targetMoneyText: signedMoney(Number.isFinite(targetR) ? targetR * riskDollars : NaN),
+      stopMoneyText: signedMoney(Number.isFinite(stopR) ? stopR * riskDollars : NaN),
+      targetRText: signedR(targetR),
+      stopRText: signedR(stopR),
     };
   }
 
@@ -251,7 +292,7 @@
       state.layer.appendChild(node);
 
       node.addEventListener('pointerdown', (event) => {
-        if (state.openTrade || !state.draft) return;
+        if (!currentPosition() || field === 'entry') return;
         event.preventDefault();
         event.stopPropagation();
         state.drag = { field, pointerId: event.pointerId };
@@ -337,20 +378,32 @@
     const riskTop = Math.min(entryY, slY);
     const riskBottom = Math.max(entryY, slY);
 
-    targetCaption.textContent = `Target: +${summary.reward} • ${summary.rr}R`;
+    targetCaption.textContent = `Target: ${summary.targetMoneyText} • ${summary.targetRText}`;
     targetCaption.style.left = `${Math.round(startX + width / 2)}px`;
     targetCaption.style.top = `${Math.round(Math.max(8, Math.min(containerHeight - 28, (profitTop + profitBottom) / 2 - 10)))}px`;
     targetCaption.classList.toggle('compact', profitBottom - profitTop < 38);
 
-    stopCaption.textContent = `Stop: -${summary.risk} • 1.00R`;
+    stopCaption.textContent = `Stop: ${summary.stopMoneyText} • ${summary.stopRText}`;
     stopCaption.style.left = `${Math.round(startX + width / 2)}px`;
     stopCaption.style.top = `${Math.round(Math.max(8, Math.min(containerHeight - 28, (riskTop + riskBottom) / 2 - 10)))}px`;
     stopCaption.classList.toggle('compact', riskBottom - riskTop < 38);
 
-    info.textContent = `${position.side === 'BUY' ? 'LONG POSITION' : 'SHORT POSITION'} • Risk/Reward Ratio: ${summary.rr}`;
+    info.textContent = `${position.side === 'BUY' ? 'LONG POSITION' : 'SHORT POSITION'} • Initial Risk ${summary.risk}`;
     info.style.left = `${Math.round(startX + width / 2)}px`;
     const infoTop = Math.max(8, Math.min(containerHeight - 34, entryY - 14));
     info.style.top = `${Math.round(infoTop)}px`;
+
+    const hover = state.hoverPoint;
+    const minY = Math.min(slY, tpY);
+    const maxY = Math.max(slY, tpY);
+    const isHoveringTool = Boolean(
+      hover &&
+      Number(hover.x) >= startX - 8 &&
+      Number(hover.x) <= endX + 8 &&
+      Number(hover.y) >= minY - 8 &&
+      Number(hover.y) <= maxY + 8
+    );
+    tool.classList.toggle('show-details', isHoveringTool || Boolean(state.drag));
 
     const entry = ensureDragLine('entry', 'ENTRY', 'entry');
     const sl = ensureDragLine('sl', 'STOP', 'sl');
@@ -358,8 +411,8 @@
 
     const lineStates = [
       [entry, position.entry, entryY, true],
-      [sl, position.sl, slY, Boolean(state.openTrade)],
-      [tp, position.tp, tpY, Boolean(state.openTrade)],
+      [sl, position.sl, slY, false],
+      [tp, position.tp, tpY, false],
     ];
 
     for (const [node, value, y, locked] of lineStates) {
@@ -415,10 +468,14 @@
 
     state.chart.subscribeCrosshairMove((param) => {
       if (!param?.point) {
+        state.hoverPoint = null;
         state.callbacks.onHoverPrice?.(null);
+        requestAnimationFrame(positionDragLayer);
         return;
       }
+      state.hoverPoint = { x: Number(param.point.x), y: Number(param.point.y) };
       state.callbacks.onHoverPrice?.(yToPrice(param.point.y));
+      requestAnimationFrame(positionDragLayer);
     });
 
     state.chart.subscribeClick((param) => {
@@ -452,6 +509,7 @@
     state.metrics = null;
     state.priceLines.clear();
     state.drag = null;
+    state.hoverPoint = null;
     state.initialized = false;
     state.userMovedRange = false;
   }
@@ -509,6 +567,9 @@
     state.draft = draft;
     state.openTrade = openTrade;
     state.metrics = metrics;
+    try {
+      state.chart?.priceScale('right')?.applyOptions?.({ autoScale: true });
+    } catch (_error) {}
     rebuildPriceLines();
   }
 
