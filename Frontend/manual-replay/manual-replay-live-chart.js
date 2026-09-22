@@ -140,22 +140,70 @@
 
   // Long/Short is a drawing overlay, like TradingView. It must never expand
   // the price scale by itself; candle prices remain the authority for autoscale.
+  function visibleCandlePriceRange() {
+    if (!state.chart || !state.lastCandles.length) return null;
+
+    let logicalRange = null;
+    try {
+      logicalRange = state.chart.timeScale().getVisibleLogicalRange();
+    } catch (_error) {}
+    if (!logicalRange) return null;
+
+    const first = Math.max(0, Math.floor(Number(logicalRange.from)));
+    const last = Math.min(
+      state.lastCandles.length - 1,
+      Math.ceil(Number(logicalRange.to)),
+    );
+    if (!Number.isFinite(first) || !Number.isFinite(last) || first > last) return null;
+
+    let low = Infinity;
+    let high = -Infinity;
+    for (let index = first; index <= last; index += 1) {
+      const candle = state.lastCandles[index];
+      if (!candle) continue;
+      const candleLow = Number(candle.low);
+      const candleHigh = Number(candle.high);
+      if (Number.isFinite(candleLow)) low = Math.min(low, candleLow);
+      if (Number.isFinite(candleHigh)) high = Math.max(high, candleHigh);
+    }
+
+    if (!Number.isFinite(low) || !Number.isFinite(high) || high <= low) return null;
+    return { low, high };
+  }
+
   function transformedCandleAutoscale(originalProvider) {
     const original = typeof originalProvider === 'function' ? originalProvider() : null;
-    if (!original?.priceRange) return original;
+    const visible = visibleCandlePriceRange();
 
-    const baseMin = Number(original.priceRange.minValue);
-    const baseMax = Number(original.priceRange.maxValue);
-    if (!Number.isFinite(baseMin) || !Number.isFinite(baseMax) || baseMax <= baseMin) return original;
+    // TradingView-like behavior: price scale follows ONLY candles currently
+    // visible in the viewport. Hidden/off-screen candles must not flatten the
+    // current structure.
+    let baseMin = Number(visible?.low);
+    let baseMax = Number(visible?.high);
 
-    const baseSpan = baseMax - baseMin;
+    if (!Number.isFinite(baseMin) || !Number.isFinite(baseMax) || baseMax <= baseMin) {
+      baseMin = Number(original?.priceRange?.minValue);
+      baseMax = Number(original?.priceRange?.maxValue);
+    }
+    if (!Number.isFinite(baseMin) || !Number.isFinite(baseMax) || baseMax <= baseMin) {
+      return original;
+    }
+
+    const rawSpan = baseMax - baseMin;
+    const minimumSpan = Math.abs((baseMax + baseMin) / 2 || 1) * 0.00015;
+    const baseSpan = Math.max(rawSpan, minimumSpan);
+    const padding = baseSpan * 0.08;
+    const paddedMin = baseMin - padding;
+    const paddedMax = baseMax + padding;
+    const paddedSpan = paddedMax - paddedMin;
+
     const scale = Math.min(30, Math.max(0.15, Number(state.verticalViewport.scale) || 1));
     const offsetRatio = Number(state.verticalViewport.offsetRatio) || 0;
-    const span = baseSpan * scale;
-    const center = (baseMin + baseMax) / 2 + offsetRatio * baseSpan;
+    const span = paddedSpan * scale;
+    const center = (paddedMin + paddedMax) / 2 + offsetRatio * paddedSpan;
 
     return {
-      ...original,
+      ...(original || {}),
       priceRange: {
         minValue: center - span / 2,
         maxValue: center + span / 2,
@@ -595,7 +643,9 @@
     try {
       state.chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
         state.userMovedRange = true;
-        requestAnimationFrame(positionDragLayer);
+        // Recompute price scale from the candles in the NEW visible window.
+        // This is what keeps a 15-18 Sep view readable like TradingView.
+        refreshVerticalViewport();
       });
     } catch (_error) {}
 
