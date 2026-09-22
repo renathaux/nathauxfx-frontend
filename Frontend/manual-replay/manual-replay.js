@@ -702,20 +702,34 @@
       onHoverPrice(value) {
         state.hoverPrice = Number.isFinite(Number(value)) ? Number(value) : null;
       },
-      onChartClick(value) {
+      onChartClick(value, region) {
         if (
           !state.candles.length ||
           !editablePosition() ||
-          !Number.isFinite(Number(value))
+          !Number.isFinite(Number(value)) ||
+          !['sl', 'tp'].includes(region)
         ) return;
-        const target = $(state.activePriceField || 'slPrice');
+
+        const fieldId = region === 'tp' ? 'tpPrice' : 'slPrice';
+        setActivePriceField(fieldId);
+        const target = $(fieldId);
         if (!target) return;
         target.value = price(value);
         target.dispatchEvent(new Event('input', { bubbles: true }));
-        const label = state.activePriceField === 'tpPrice'
-          ? 'Take Profit'
-          : 'Stop Loss';
-        notice(`${label} ${state.openTrade ? 'modified' : 'set'} to ${price(value)} from the chart.`, 'success');
+        const label = region === 'tp' ? 'Take Profit' : 'Stop Loss';
+        notice(`${label} ${state.openTrade ? 'modified' : 'set'} to ${price(value)} from the ${region === 'tp' ? 'green target' : 'red risk'} zone.`, 'success');
+      },
+      onPositionLockChange(locked, reason) {
+        if (locked) {
+          notice(
+            reason === 'space'
+              ? 'Position tool locked. Double-click the position box to edit it again.'
+              : 'Position tool locked. Double-click it again to unlock.',
+            'success'
+          );
+        } else {
+          notice('Position tool unlocked. Green edits TP; red edits SL.', 'success');
+        }
       },
       onDraftLevel(field, value) {
         if (!editablePosition()) return;
