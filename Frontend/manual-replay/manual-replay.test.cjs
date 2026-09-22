@@ -149,3 +149,14 @@ test('active manual positions stay editable and labels are hover-only', () => {
   assert.match(css, /manual-replay-position-tool\.show-details/);
   assert.match(css, /opacity:0/);
 });
+
+
+test('replay candles never push a pending position draft', () => {
+  assert.doesNotMatch(app, /function refreshDraftEntry/);
+  assert.doesNotMatch(app, /refreshDraftEntry\(\)/);
+  assert.match(app, /entryIndex: state\.index/);
+  assert.match(app, /entryTime: currentCandle\(\)\?\.timestamp/);
+  assert.match(app, /Future replay candles must never push Entry, SL, or TP/);
+  assert.match(liveChart, /const anchorTime = position\?\.entryTime/);
+  assert.match(liveChart, /const logicalIndex = Number\.isFinite\(Number\(position\?\.entryIndex\)\)/);
+});
