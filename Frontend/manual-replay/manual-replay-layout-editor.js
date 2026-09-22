@@ -99,7 +99,7 @@
   let saved = null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
-    saved = JSON.parse(raw || 'null');
+    saved = raw ? JSON.parse(raw) : (window.ManualReplayDefaultLayoutV4 || null);
   } catch (_error) {}
 
   function setImportant(el, prop, value) {
