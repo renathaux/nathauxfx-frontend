@@ -211,7 +211,12 @@
   }
 
   function applySavedLayout() {
-    if (window.innerWidth < DESKTOP_MIN_WIDTH) {
+    const fullscreenActive = Boolean(
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.body.classList.contains('manual-replay-fullscreen-fallback')
+    );
+    if (fullscreenActive || window.innerWidth < DESKTOP_MIN_WIDTH) {
       restoreAll();
       return;
     }
@@ -290,4 +295,6 @@
   applySavedLayout();
   window.addEventListener('load', applySavedLayout, { once: true });
   window.addEventListener('resize', applySavedLayout);
+  document.addEventListener('fullscreenchange', applySavedLayout);
+  document.addEventListener('webkitfullscreenchange', applySavedLayout);
 })();
