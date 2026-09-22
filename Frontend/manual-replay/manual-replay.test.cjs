@@ -128,3 +128,22 @@ test('TradingView-style position box starts at the active candle and uses compac
   assert.match(css, /#089981/);
   assert.match(css, /#f23645/);
 });
+
+
+test('active manual positions stay editable and labels are hover-only', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(app, /function editablePosition/);
+  assert.match(app, /validateActivePositionLevel/);
+  assert.match(app, /PROTECTED_SL/);
+  assert.match(app, /initialRiskDistance/);
+  assert.match(app, /\$\('slPrice'\)\.disabled = !editor/);
+  assert.match(app, /\$\('tpPrice'\)\.disabled = !editor/);
+  assert.match(liveChart, /hoverPoint/);
+  assert.match(liveChart, /show-details/);
+  assert.match(liveChart, /autoscaleInfoProvider/);
+  assert.match(liveChart, /positionAwareAutoscale/);
+  assert.match(liveChart, /\[sl, position\.sl, slY, false\]/);
+  assert.match(liveChart, /\[tp, position\.tp, tpY, false\]/);
+  assert.match(css, /manual-replay-position-tool\.show-details/);
+  assert.match(css, /opacity:0/);
+});
