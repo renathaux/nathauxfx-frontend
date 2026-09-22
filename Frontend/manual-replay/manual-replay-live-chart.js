@@ -181,6 +181,28 @@
     refreshVerticalViewport();
   }
 
+  function applyUnifiedZoom(factor) {
+    if (!state.chart || !Number.isFinite(Number(factor)) || Number(factor) <= 0) return;
+    const zoomFactor = Number(factor);
+
+    // factor > 1 = zoom OUT: more price space + more candles visible.
+    // factor < 1 = zoom IN: candles/price action become larger and closer.
+    state.verticalViewport.scale = Math.min(
+      30,
+      Math.max(0.15, state.verticalViewport.scale * zoomFactor),
+    );
+
+    try {
+      const timeScale = state.chart.timeScale();
+      const options = timeScale.options();
+      const currentSpacing = Number(options?.barSpacing) || 14;
+      const nextSpacing = Math.min(60, Math.max(0.5, currentSpacing / zoomFactor));
+      timeScale.applyOptions({ barSpacing: nextSpacing });
+    } catch (_error) {}
+
+    refreshVerticalViewport();
+  }
+
   function priceAxisStartX() {
     if (!state.container) return Infinity;
     let width = 72;
@@ -667,17 +689,19 @@
     };
 
     const onVerticalWheel = (event) => {
-      const rect = state.container.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      if (x < priceAxisStartX()) return;
-      const factor = Math.exp(Number(event.deltaY || 0) / 500);
-      state.verticalViewport.scale = Math.min(
-        30,
-        Math.max(0.15, state.verticalViewport.scale * factor),
-      );
+      const deltaY = Number(event.deltaY || 0);
+      const deltaX = Number(event.deltaX || 0);
+
+      // A vertical two-finger trackpad gesture behaves like TradingView zoom:
+      // swipe up -> zoom out / create free space,
+      // swipe down -> zoom in / bring everything closer.
+      // Horizontal two-finger movement is left alone for chart panning.
+      if (!deltaY || Math.abs(deltaX) > Math.abs(deltaY)) return;
+
+      const factor = Math.exp(deltaY / 650);
+      applyUnifiedZoom(factor);
       event.preventDefault();
       event.stopPropagation();
-      refreshVerticalViewport();
     };
 
     const onDoubleClick = (event) => {
@@ -856,15 +880,9 @@
 
   function zoomBy(direction) {
     if (!state.chart) return;
-    try {
-      const scale = state.chart.timeScale();
-      const options = scale.options();
-      const current = Number(options?.barSpacing) || 14;
-      const next = direction < 0
-        ? Math.min(60, current * 1.2)
-        : Math.max(2, current / 1.2);
-      scale.applyOptions({ barSpacing: next });
-    } catch (_error) {}
+    // Existing buttons use -1 for Zoom In and +1 for Zoom Out.
+    // Make them control BOTH axes so Zoom Out creates real top/bottom space.
+    applyUnifiedZoom(direction < 0 ? (1 / 1.2) : 1.2);
   }
 
   function resetView() {
