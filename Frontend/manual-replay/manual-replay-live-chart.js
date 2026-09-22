@@ -185,13 +185,10 @@
     if (!state.chart || !Number.isFinite(Number(factor)) || Number(factor) <= 0) return;
     const zoomFactor = Number(factor);
 
-    // factor > 1 = zoom OUT: more price space + more candles visible.
-    // factor < 1 = zoom IN: candles/price action become larger and closer.
-    state.verticalViewport.scale = Math.min(
-      30,
-      Math.max(0.15, state.verticalViewport.scale * zoomFactor),
-    );
-
+    // TradingView-style behavior:
+    // horizontal zoom decides HOW MANY candles are visible.
+    // vertical autoscale then fits ONLY those visible candles.
+    // Do not multiply the price span by the zoom factor or candles become flat.
     try {
       const timeScale = state.chart.timeScale();
       const options = timeScale.options();
@@ -200,6 +197,8 @@
       timeScale.applyOptions({ barSpacing: nextSpacing });
     } catch (_error) {}
 
+    // Re-run candle-only autoscale after the visible time range changes.
+    // Manual vertical pan/price-axis scale remains independent.
     refreshVerticalViewport();
   }
 
