@@ -7,6 +7,7 @@ const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'manual-replay.html'), 'utf8');
 const api = fs.readFileSync(path.join(__dirname, 'manual-replay-api.js'), 'utf8');
 const app = fs.readFileSync(path.join(__dirname, 'manual-replay.js'), 'utf8');
+const liveChart = fs.readFileSync(path.join(__dirname, 'manual-replay-live-chart.js'), 'utf8');
 
 test('manual replay is standalone and does not require a strategy', () => {
   assert.match(html, /Manual Trading Replay/);
@@ -96,4 +97,19 @@ test('manual replay exposes visible year jump controls', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(css, /grid-template-columns:86px minmax\(0,1fr\)/);
   assert.match(css, /position:static!important/);
+});
+
+
+test('manual replay uses a real risk reward position box instead of full-width price lines', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(liveChart, /manual-replay-position-tool/);
+  assert.match(liveChart, /manual-replay-position-zone profit/);
+  assert.match(liveChart, /manual-replay-position-zone risk/);
+  assert.match(liveChart, /LONG.*POSITION/);
+  assert.match(liveChart, /SHORT.*POSITION/);
+  assert.match(liveChart, /clearPriceLines\(\);[\s\S]*positionDragLayer\(\);/);
+  assert.doesNotMatch(liveChart, /createPriceLine\('entry',[\s\S]*createPriceLine\('sl',[\s\S]*createPriceLine\('tp'/);
+  assert.match(css, /manual-replay-position-zone\.profit/);
+  assert.match(css, /manual-replay-position-zone\.risk/);
+  assert.match(app, /metrics: state\.openTrade \? overlayMetrics\(state\.openTrade\) : positionMetrics\(\)/);
 });
