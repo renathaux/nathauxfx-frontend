@@ -582,6 +582,7 @@
         LiveChart.setPosition({
           draft: state.positionDraft,
           openTrade: state.openTrade,
+          metrics: positionMetrics(),
         });
         renderPosition();
       },
@@ -603,6 +604,7 @@
     LiveChart.setPosition({
       draft: state.positionDraft,
       openTrade: state.openTrade,
+      metrics: state.openTrade ? overlayMetrics(state.openTrade) : positionMetrics(),
     });
   }
 
