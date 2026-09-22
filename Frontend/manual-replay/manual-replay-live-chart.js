@@ -185,13 +185,11 @@
     if (!state.chart || !Number.isFinite(Number(factor)) || Number(factor) <= 0) return;
     const zoomFactor = Number(factor);
 
-    // factor > 1 = zoom OUT: more price space + more candles visible.
-    // factor < 1 = zoom IN: candles/price action become larger and closer.
-    state.verticalViewport.scale = Math.min(
-      30,
-      Math.max(0.15, state.verticalViewport.scale * zoomFactor),
-    );
-
+    // TradingView-style zoom:
+    // 1) change how many candles are visible horizontally;
+    // 2) let the visible candles define the vertical price range automatically.
+    // Do NOT multiply the price range on every zoom step — that is what made
+    // NathauxFX candles become flat while TradingView stayed readable.
     try {
       const timeScale = state.chart.timeScale();
       const options = timeScale.options();
@@ -200,6 +198,8 @@
       timeScale.applyOptions({ barSpacing: nextSpacing });
     } catch (_error) {}
 
+    state.verticalViewport.scale = 1;
+    state.verticalViewport.offsetRatio = 0;
     refreshVerticalViewport();
   }
 
