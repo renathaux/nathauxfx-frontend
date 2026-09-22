@@ -119,7 +119,7 @@ test('manual replay uses a real risk reward position box instead of full-width p
 
 test('TradingView-style position box starts at the active candle and uses compact risk reward labels', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
-  assert.match(liveChart, /state\.lastCandles\.at\(-1\)\?\.time/);
+  assert.match(liveChart, /const anchorTime = position\?\.entryTime/);
   assert.match(liveChart, /if \(!Number\.isFinite\(x\)/);
   assert.match(liveChart, /barSpacing \* 18/);
   assert.match(liveChart, /Target: \$\{summary\.targetMoneyText\}/);
