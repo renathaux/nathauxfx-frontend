@@ -992,9 +992,13 @@
         workspace.webkitRequestFullscreen();
       } else {
         document.body.classList.toggle('manual-replay-fullscreen-fallback');
+        window.dispatchEvent(new Event('resize'));
+        syncFullscreenUi();
       }
     } catch (_error) {
       document.body.classList.toggle('manual-replay-fullscreen-fallback');
+      window.dispatchEvent(new Event('resize'));
+      syncFullscreenUi();
     }
   }
 
