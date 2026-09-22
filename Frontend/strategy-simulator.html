@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101f">
   <title>NathauxFX — Strategy Simulator</title>
-  <link rel="stylesheet" href="/strategy-simulator/strategy-simulator.css?v=3">
+  <link rel="stylesheet" href="/strategy-simulator/strategy-simulator.css?v=4">
 </head>
 <body>
   <div class="sim-shell">
@@ -22,8 +22,8 @@
       <p id="strategyMeta" class="muted">Simulator only. Running a test does not enable LIVE trading or modify V3B.</p>
       <div class="control-grid">
         <label><span>Symbol</span><select id="symbolSelect"></select></label>
-        <label><span>Start</span><input id="startDate" type="datetime-local"></label>
-        <label><span>End</span><input id="endDate" type="datetime-local"></label>
+        <label class="date-field"><span>Start</span><div class="date-input-row"><select id="startYear" class="date-year-jump" aria-label="Start year" title="Jump directly to a year"></select><input id="startDate" type="datetime-local"></div></label>
+        <label class="date-field"><span>End</span><div class="date-input-row"><select id="endYear" class="date-year-jump" aria-label="End year" title="Jump directly to a year"></select><input id="endDate" type="datetime-local"></div></label>
         <label class="risk-toggle"><span>Temporary Risk Override</span><input id="riskOverrideEnabled" type="checkbox"></label>
         <label id="riskMethodField" class="hidden"><span>Override Method</span><select id="riskMethod"><option value="PERCENT_BALANCE">% Balance</option><option value="FIXED_DOLLARS">Fixed $</option></select></label>
         <label id="riskValueField" class="hidden"><span>Override Value</span><input id="riskValue" type="number" min="0.0001" step="0.01" value="1"></label>
@@ -87,6 +87,6 @@
 
   <script src="/strategy-simulator/strategy-simulator-model.js?v=3"></script>
   <script src="/strategy-simulator/strategy-simulator-api.js?v=4"></script>
-  <script src="/strategy-simulator/strategy-simulator.js?v=5"></script>
+  <script src="/strategy-simulator/strategy-simulator.js?v=6"></script>
 </body>
 </html>
