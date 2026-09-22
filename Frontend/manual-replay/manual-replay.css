@@ -115,3 +115,7 @@
   opacity:1;
   visibility:visible;
 }
+
+#lotSizeField small{color:var(--muted);font-size:10px;line-height:1.3}
+.manual-sizing-metrics strong{font-variant-numeric:tabular-nums}
+@media(max-width:420px){.manual-sizing-metrics{grid-template-columns:repeat(2,1fr)}}

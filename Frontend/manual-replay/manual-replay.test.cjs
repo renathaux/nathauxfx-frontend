@@ -160,3 +160,22 @@ test('replay candles never push a pending position draft', () => {
   assert.match(liveChart, /const anchorTime = position\?\.entryTime/);
   assert.match(liveChart, /const logicalIndex = Number\.isFinite\(Number\(position\?\.entryIndex\)\)/);
 });
+
+
+test('manual replay can switch off auto risk and use fixed lot sizing', () => {
+  for (const id of [
+    'positionSizingMode', 'lotSize', 'lotSizeField',
+    'draftLot', 'draftSlPips', 'draftTpPips',
+  ]) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(html, /Manual Lot Size/);
+  assert.match(app, /MANUAL_LOT/);
+  assert.match(app, /calculateMetricsFor/);
+  assert.match(app, /lotSize: \$\('lotSize'\)\?\.value/);
+  assert.match(app, /SL: \$\{Number\(metrics\.riskPips\)\.toFixed\(1\)\} pips/);
+  assert.match(app, /Continue with this virtual trade\?/);
+  assert.match(app, /lotSize: metrics\.lotSize/);
+  assert.match(app, /riskPips: metrics\.riskPips/);
+  assert.match(app, /rewardPips: metrics\.rewardPips/);
+  assert.match(app, /\$\('lotSize'\)\.disabled = Boolean\(trade\)/);
+  assert.match(html, /<th>Lot<\/th>/);
+});

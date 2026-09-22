@@ -69,29 +69,106 @@
     return null;
   }
 
-  function calculatePositionMetrics({ draft, riskMethod, riskValue, balance }) {
+  function symbolTradingSpec(symbolValue) {
+    const symbol = String(symbolValue || 'EURUSD').toUpperCase();
+    if (symbol === 'XAUUSD') {
+      return {
+        symbol,
+        pipSize: 0.01,
+        pipValuePerLot: 1,
+        defaultLotSize: 0.10,
+      };
+    }
+    return {
+      symbol: 'EURUSD',
+      pipSize: 0.0001,
+      pipValuePerLot: 10,
+      defaultLotSize: 0.10,
+    };
+  }
+
+  function calculatePositionMetrics({
+    draft,
+    riskMethod,
+    riskValue,
+    balance,
+    symbol = 'EURUSD',
+    sizingMode = 'AUTO_RISK',
+    lotSize = null,
+  }) {
     const entry = parseOptionalPrice(draft && draft.entry);
     const sl = parseOptionalPrice(draft && draft.sl);
     const tp = parseOptionalPrice(draft && draft.tp);
     const side = draft && draft.side === 'SELL' ? 'SELL' : 'BUY';
     const value = Number(riskValue);
     const currentBalance = Number(balance);
+    const spec = symbolTradingSpec(symbol);
+    const mode = String(sizingMode || 'AUTO_RISK').toUpperCase();
     const directionValid = entry != null && sl != null && tp != null && (
       side === 'BUY' ? sl < entry && tp > entry : tp < entry && sl > entry
     );
     const riskDistance = directionValid ? Math.abs(entry - sl) : null;
     const rewardDistance = directionValid ? Math.abs(tp - entry) : null;
-    const riskDollars = Number.isFinite(value) && value > 0 && Number.isFinite(currentBalance) && currentBalance > 0
-      ? (riskMethod === 'FIXED' ? value : currentBalance * value / 100)
-      : null;
+    const riskPips = riskDistance != null ? riskDistance / spec.pipSize : null;
+    const rewardPips = rewardDistance != null ? rewardDistance / spec.pipSize : null;
     const rr = riskDistance && rewardDistance != null ? rewardDistance / riskDistance : null;
+
+    let riskDollars = null;
+    let rewardDollars = null;
+    let resolvedLotSize = null;
+
+    if (mode === 'MANUAL_LOT') {
+      const manualLot = Number(lotSize);
+      if (Number.isFinite(manualLot) && manualLot > 0 && Number.isFinite(riskPips)) {
+        resolvedLotSize = manualLot;
+        riskDollars = riskPips * spec.pipValuePerLot * manualLot;
+        rewardDollars = Number.isFinite(rewardPips)
+          ? rewardPips * spec.pipValuePerLot * manualLot
+          : null;
+      }
+    } else {
+      riskDollars = Number.isFinite(value) && value > 0 && Number.isFinite(currentBalance) && currentBalance > 0
+        ? (riskMethod === 'FIXED' ? value : currentBalance * value / 100)
+        : null;
+      rewardDollars = Number.isFinite(rr) && Number.isFinite(riskDollars)
+        ? riskDollars * rr
+        : null;
+      if (
+        Number.isFinite(riskDollars) &&
+        Number.isFinite(riskPips) &&
+        riskPips > 0 &&
+        spec.pipValuePerLot > 0
+      ) {
+        resolvedLotSize = riskDollars / (riskPips * spec.pipValuePerLot);
+      }
+    }
+
+    const riskPercent = Number.isFinite(riskDollars) && Number.isFinite(currentBalance) && currentBalance > 0
+      ? (riskDollars / currentBalance) * 100
+      : null;
+
     return {
-      valid: Boolean(directionValid && riskDistance > 0 && Number.isFinite(riskDollars)),
+      valid: Boolean(
+        directionValid &&
+        riskDistance > 0 &&
+        Number.isFinite(riskDollars) &&
+        riskDollars > 0 &&
+        Number.isFinite(resolvedLotSize) &&
+        resolvedLotSize > 0
+      ),
+      sizingMode: mode,
+      symbol: spec.symbol,
+      pipSize: spec.pipSize,
+      pipValuePerLot: spec.pipValuePerLot,
+      lotSize: resolvedLotSize,
       riskDistance,
       rewardDistance,
+      riskPips,
+      rewardPips,
       rr,
       riskDollars,
-      rewardDollars: Number.isFinite(rr) && Number.isFinite(riskDollars) ? riskDollars * rr : null,
+      rewardDollars,
+      riskPercent,
     };
   }
 
@@ -126,6 +203,7 @@
 
   function createVirtualTrade({
     draft, requestedSide, currentClose, entryIndex, entryTime, riskDollars, tradeId,
+    lotSize = null, riskPips = null, rewardPips = null, sizingMode = 'AUTO_RISK',
   }) {
     if (!draft || !['BUY', 'SELL'].includes(draft.side)) throw new Error('Create a long or short position first.');
     if (requestedSide && requestedSide !== draft.side) throw new Error('Requested side does not match the position draft.');
@@ -151,6 +229,10 @@
       initialTp: tp,
       initialRiskDistance,
       riskDollars: risk,
+      ...(Number.isFinite(Number(lotSize)) && Number(lotSize) > 0 ? { lotSize: Number(lotSize) } : {}),
+      ...(riskPips != null && Number.isFinite(Number(riskPips)) ? { riskPips: Number(riskPips) } : {}),
+      ...(rewardPips != null && Number.isFinite(Number(rewardPips)) ? { rewardPips: Number(rewardPips) } : {}),
+      sizingMode: String(sizingMode || 'AUTO_RISK').toUpperCase(),
     };
   }
 
@@ -204,6 +286,7 @@
     createPositionDraft,
     validatePositionLevel,
     validateActivePositionLevel,
+    symbolTradingSpec,
     calculatePositionMetrics,
     visibleCandleScale,
     clampPriceToScale,
