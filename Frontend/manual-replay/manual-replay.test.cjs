@@ -151,8 +151,8 @@ test('active manual positions stay editable and labels are hover-only', () => {
   assert.match(app, /\$\('tpPrice'\)\.disabled = !editor/);
   assert.match(liveChart, /hoverPoint/);
   assert.match(liveChart, /show-details/);
-  assert.match(liveChart, /autoscaleInfoProvider/);
-  assert.match(liveChart, /positionAwareAutoscale/);
+  assert.doesNotMatch(liveChart, /autoscaleInfoProvider/);
+  assert.doesNotMatch(liveChart, /positionAwareAutoscale/);
   assert.match(liveChart, /\[sl, position\.sl, slY, state\.positionLocked\]/);
   assert.match(liveChart, /\[tp, position\.tp, tpY, state\.positionLocked\]/);
   assert.match(css, /manual-replay-position-tool\.show-details/);
@@ -320,11 +320,10 @@ test('double click cancels pending single-click edit before locking', () => {
 });
 
 
-test('position autoscale keeps TradingView-style vertical context', () => {
-  assert.match(liveChart, /POSITION_VERTICAL_CONTEXT_MULTIPLIER = 4/);
-  assert.match(liveChart, /CANDLE_VERTICAL_CONTEXT_MULTIPLIER = 1\.8/);
-  assert.match(liveChart, /positionSpan \* POSITION_VERTICAL_CONTEXT_MULTIPLIER/);
-  assert.match(liveChart, /baseSpan \* CANDLE_VERTICAL_CONTEXT_MULTIPLIER/);
-  assert.match(liveChart, /desiredSpan/);
-  assert.match(liveChart, /roughly <= 25% of the usable price range/);
+test('position drawings do not flatten candles by participating in autoscale', () => {
+  assert.doesNotMatch(liveChart, /POSITION_VERTICAL_CONTEXT_MULTIPLIER/);
+  assert.doesNotMatch(liveChart, /CANDLE_VERTICAL_CONTEXT_MULTIPLIER/);
+  assert.doesNotMatch(liveChart, /autoscaleInfoProvider/);
+  assert.match(liveChart, /Long\/Short is a drawing overlay, like TradingView/);
+  assert.match(liveChart, /Do not reset the price scale when SL\/TP changes/);
 });
