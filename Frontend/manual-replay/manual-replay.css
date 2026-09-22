@@ -99,3 +99,19 @@
   .setup-grid .date-input-row{grid-template-columns:82px minmax(0,1fr)}
   .setup-grid .date-year-jump{width:82px!important;min-width:82px!important}
 }
+
+/* Manual position usability: keep labels out of the way until the cursor is
+   actually over the TradingView-style position tool. */
+.manual-replay-position-caption,
+.manual-replay-position-info,
+.manual-replay-live-level>span{
+  opacity:0;
+  visibility:hidden;
+  transition:opacity .12s ease;
+}
+.manual-replay-position-tool.show-details .manual-replay-position-caption,
+.manual-replay-position-tool.show-details .manual-replay-position-info,
+.manual-replay-position-tool.show-details~.manual-replay-live-level>span{
+  opacity:1;
+  visibility:visible;
+}
