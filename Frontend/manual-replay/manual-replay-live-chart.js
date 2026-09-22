@@ -1311,6 +1311,7 @@
     state.positionKey = null;
     state.drawings = [];
     state.drawingMode = null;
+    state.drawingScope = 'default';
     state.selectedDrawingId = null;
     state.drawingGesture = null;
     state.drawingUndo = [];
