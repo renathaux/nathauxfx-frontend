@@ -367,11 +367,14 @@ test('manual replay supports true vertical world panning and custom price-axis z
 });
 
 
-test('zoom buttons and two-finger vertical gestures control both axes', () => {
+test('zoom buttons and two-finger gestures use TradingView-style visible-candle autoscale', () => {
   assert.match(liveChart, /function applyUnifiedZoom/);
-  assert.match(liveChart, /factor > 1 = zoom OUT/);
-  assert.match(liveChart, /state\.verticalViewport\.scale \* zoomFactor/);
+  assert.match(liveChart, /change how many candles are visible horizontally/);
+  assert.match(liveChart, /let the visible candles define the vertical price range automatically/);
+  assert.match(liveChart, /Do NOT multiply the price range on every zoom step/);
   assert.match(liveChart, /currentSpacing \/ zoomFactor/);
+  assert.match(liveChart, /state\.verticalViewport\.scale = 1/);
+  assert.match(liveChart, /state\.verticalViewport\.offsetRatio = 0/);
   assert.match(liveChart, /applyUnifiedZoom\(direction < 0 \? \(1 \/ 1\.2\) : 1\.2\)/);
   assert.match(liveChart, /swipe up -> zoom out \/ create free space/);
   assert.match(liveChart, /swipe down -> zoom in \/ bring everything closer/);
