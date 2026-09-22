@@ -217,14 +217,54 @@
     $('tpPrice').value = position && position.tp != null && Number.isFinite(Number(position.tp)) ? price(position.tp) : '';
   }
 
-  function positionMetrics() {
-    if (!state.positionDraft) return null;
+  function positionSizingMode() {
+    return String($('positionSizingMode')?.value || 'AUTO_RISK').toUpperCase();
+  }
+
+  function manualLotSizing() {
+    return positionSizingMode() === 'MANUAL_LOT';
+  }
+
+  function updateSizingControls() {
+    const manual = manualLotSizing();
+    $('riskMethodField')?.classList.toggle('hidden', manual);
+    $('riskValueField')?.classList.toggle('hidden', manual);
+    $('lotSizeField')?.classList.toggle('hidden', !manual);
+  }
+
+  function calculateMetricsFor(draft) {
+    if (!draft) return null;
     return Position.calculatePositionMetrics({
-      draft: state.positionDraft,
+      draft,
       riskMethod: $('riskMethod').value,
       riskValue: $('riskValue').value,
       balance: state.balance,
+      symbol: $('symbol').value,
+      sizingMode: positionSizingMode(),
+      lotSize: $('lotSize')?.value,
     });
+  }
+
+  function positionMetrics() {
+    return calculateMetricsFor(state.positionDraft);
+  }
+
+  function activeTradeMetrics(trade) {
+    if (!trade) return null;
+    const spec = Position.symbolTradingSpec($('symbol').value);
+    const riskPips = Math.abs(Number(trade.entry) - Number(trade.sl)) / spec.pipSize;
+    const rewardPips = Math.abs(Number(trade.tp) - Number(trade.entry)) / spec.pipSize;
+    const stopR = tradeR(trade, trade.sl);
+    const targetR = tradeR(trade, trade.tp);
+    return {
+      lotSize: Number(trade.lotSize),
+      riskPips,
+      rewardPips,
+      stopR,
+      targetR,
+      stopDollars: Number.isFinite(stopR) ? stopR * Number(trade.riskDollars) : null,
+      rewardDollars: Number.isFinite(targetR) ? targetR * Number(trade.riskDollars) : null,
+    };
   }
 
   function createPositionDraft(side) {
@@ -321,13 +361,6 @@
     LiveChart?.zoomBy?.(direction);
   }
 
-  function riskDollars() {
-    const value = Number($('riskValue').value);
-    if (!Number.isFinite(value) || value <= 0) throw new Error('Risk value must be greater than zero.');
-    if ($('riskMethod').value === 'FIXED') return value;
-    return state.balance * value / 100;
-  }
-
   function tradeR(trade, exitPrice) {
     const distance = Number(trade.initialRiskDistance) > 0
       ? Number(trade.initialRiskDistance)
@@ -408,24 +441,60 @@
     if (state.openTrade) return notice('Close the current virtual position first.', 'error');
     if (!state.positionDraft) return notice('Create a Long or Short Position draft first.', 'error');
     if (state.positionDraft.side !== side) return notice(`This draft can only open ${state.positionDraft.side}.`, 'error');
+
     const candle = currentCandle();
-    const metrics = positionMetrics();
-    if (!metrics || !metrics.valid) return notice('Enter valid Stop Loss, Take Profit, and risk values.', 'error');
+    // Execution happens at the current replay close. Keep the user's SL/TP
+    // fixed, but recalculate pips, lot/risk, and reward from the actual entry.
+    const executionDraft = {
+      ...state.positionDraft,
+      entry: Number(candle.close),
+    };
+    const metrics = calculateMetricsFor(executionDraft);
+    if (!metrics || !metrics.valid) {
+      return notice(
+        manualLotSizing()
+          ? 'Enter a valid lot size, Stop Loss, and Take Profit for the current price.'
+          : 'Enter valid Stop Loss, Take Profit, and risk values.',
+        'error',
+      );
+    }
+
+    if (manualLotSizing()) {
+      const confirmed = window.confirm(
+        `Open ${side} with ${Number(metrics.lotSize).toFixed(2)} lot?\n\n` +
+        `SL: ${Number(metrics.riskPips).toFixed(1)} pips = ${money(metrics.riskDollars)} risk\n` +
+        `TP: ${Number(metrics.rewardPips).toFixed(1)} pips = ${money(metrics.rewardDollars)} reward\n\n` +
+        'Continue with this virtual trade?'
+      );
+      if (!confirmed) {
+        notice('Virtual trade canceled. You can adjust lot, SL, or TP and try again.');
+        return;
+      }
+    }
+
     try {
       state.openTrade = Position.createVirtualTrade({
-        draft: state.positionDraft,
+        draft: executionDraft,
         requestedSide: side,
         currentClose: candle.close,
         entryIndex: state.index,
         entryTime: candle.timestamp,
         riskDollars: metrics.riskDollars,
+        lotSize: metrics.lotSize,
+        riskPips: metrics.riskPips,
+        rewardPips: metrics.rewardPips,
+        sizingMode: metrics.sizingMode,
       });
     } catch (error) {
       return notice(error.message, 'error');
     }
     state.positionDraft = null;
     syncDraftInputs();
-    notice(`${side} opened virtually at ${price(state.openTrade.entry)}.`, 'success');
+    notice(
+      `${side} opened virtually at ${price(state.openTrade.entry)} • ` +
+      `${Number(metrics.lotSize).toFixed(2)} lot • ${money(metrics.riskDollars)} initial risk.`,
+      'success'
+    );
     renderAll();
   }
 
@@ -468,17 +537,35 @@
     const draft = state.positionDraft;
     const editor = trade || draft;
     const draftMetrics = positionMetrics();
+    const tradeMetrics = activeTradeMetrics(trade);
     $('draftDirection').value = editor ? (editor.side === 'BUY' ? 'LONG / BUY' : 'SHORT / SELL') : '—';
     $('draftEntry').value = editor ? price(editor.entry) : '—';
 
+    const displayMetrics = trade ? tradeMetrics : draftMetrics;
+    $('draftLot').textContent = displayMetrics && Number.isFinite(Number(displayMetrics.lotSize))
+      ? Number(displayMetrics.lotSize).toFixed(2)
+      : '—';
+    $('draftSlPips').textContent = displayMetrics && Number.isFinite(Number(displayMetrics.riskPips))
+      ? Number(displayMetrics.riskPips).toFixed(1)
+      : '—';
+    $('draftTpPips').textContent = displayMetrics && Number.isFinite(Number(displayMetrics.rewardPips))
+      ? Number(displayMetrics.rewardPips).toFixed(1)
+      : '—';
+
     if (trade) {
-      const targetR = tradeR(trade, trade.tp);
-      $('draftRr').textContent = Number.isFinite(targetR) ? targetR.toFixed(2) : '—';
-      $('draftRisk').textContent = money(trade.riskDollars);
-      $('draftReward').textContent = Number.isFinite(targetR) ? money(targetR * trade.riskDollars) : '—';
+      const stopMoney = Number(tradeMetrics?.stopDollars);
+      $('draftRr').textContent = Number.isFinite(tradeMetrics?.targetR) ? Number(tradeMetrics.targetR).toFixed(2) : '—';
+      $('draftRisk').textContent = Number.isFinite(stopMoney)
+        ? (stopMoney > 0 ? `Secured ${money(stopMoney)}` : money(Math.abs(stopMoney)))
+        : '—';
+      $('draftReward').textContent = Number.isFinite(tradeMetrics?.rewardDollars)
+        ? money(tradeMetrics.rewardDollars)
+        : '—';
     } else {
       $('draftRr').textContent = draftMetrics && Number.isFinite(draftMetrics.rr) ? draftMetrics.rr.toFixed(2) : '—';
-      $('draftRisk').textContent = draftMetrics && Number.isFinite(draftMetrics.riskDollars) ? money(draftMetrics.riskDollars) : '—';
+      $('draftRisk').textContent = draftMetrics && Number.isFinite(draftMetrics.riskDollars)
+        ? `${money(draftMetrics.riskDollars)}${manualLotSizing() && Number.isFinite(draftMetrics.riskPercent) ? ` • ${draftMetrics.riskPercent.toFixed(2)}%` : ''}`
+        : '—';
       $('draftReward').textContent = draftMetrics && Number.isFinite(draftMetrics.rewardDollars) ? money(draftMetrics.rewardDollars) : '—';
     }
 
@@ -493,10 +580,14 @@
     $('shortPositionBtn').classList.toggle('is-active', Boolean(draft && draft.side === 'SELL'));
     $('cancelPositionBtn').disabled = !draft || Boolean(trade);
 
-    // SL and TP remain editable after entry so the user can secure profit or
-    // extend/reduce the target during manual replay.
+    // Sizing is locked once the trade is open, but SL/TP stay editable.
+    $('positionSizingMode').disabled = Boolean(trade);
+    $('riskMethod').disabled = Boolean(trade);
+    $('riskValue').disabled = Boolean(trade);
+    $('lotSize').disabled = Boolean(trade) || !manualLotSizing();
     $('slPrice').disabled = !editor;
     $('tpPrice').disabled = !editor;
+    updateSizingControls();
 
     if (!trade) return;
     const current = Number(currentCandle().close);
@@ -511,11 +602,12 @@
   function renderLog() {
     const body = $('tradeBody');
     if (!state.trades.length) {
-      body.innerHTML = '<tr><td colspan="11" class="empty">No manual trades yet.</td></tr>';
+      body.innerHTML = '<tr><td colspan="12" class="empty">No manual trades yet.</td></tr>';
       return;
     }
     body.innerHTML = state.trades.map((t, i) => `<tr>
       <td>${i + 1}</td><td class="${t.side === 'BUY' ? 'positive' : 'negative'}">${t.side}</td>
+      <td>${Number.isFinite(Number(t.lotSize)) ? Number(t.lotSize).toFixed(2) : '—'}</td>
       <td>${new Date(t.entryTime).toLocaleString()}</td><td>${t.exitTime ? new Date(t.exitTime).toLocaleString() : '—'}</td>
       <td>${price(t.entry)}</td><td>${price(t.exit)}</td><td>${price(t.sl)}</td><td>${t.tp == null ? '—' : price(t.tp)}</td>
       <td>${t.outcome}</td><td>${t.r == null ? '—' : `${Number(t.r).toFixed(2)}R`}</td>
@@ -525,11 +617,14 @@
 
   function overlayMetrics(position) {
     if (!position) return null;
+    if (position === state.positionDraft) return positionMetrics();
     return Position.calculatePositionMetrics({
       draft: position,
       riskMethod: 'FIXED',
-      riskValue: Number(position.riskDollars) || (position === state.positionDraft ? positionMetrics()?.riskDollars : 0),
+      riskValue: Number(position.riskDollars) || 0,
       balance: state.balance,
+      symbol: $('symbol').value,
+      sizingMode: 'AUTO_RISK',
     });
   }
 
@@ -893,8 +988,13 @@
   $('tpPrice').addEventListener('input', () => updateDraftFromInput('tp', 'tpPrice'));
   $('slPrice').addEventListener('change', commitDraftInputs);
   $('tpPrice').addEventListener('change', commitDraftInputs);
+  $('positionSizingMode').addEventListener('change', () => {
+    updateSizingControls();
+    renderAll();
+  });
   $('riskMethod').addEventListener('change', renderAll);
   $('riskValue').addEventListener('input', renderAll);
+  $('lotSize').addEventListener('input', renderAll);
   $('longPositionBtn').addEventListener('click', () => createPositionDraft('BUY'));
   $('shortPositionBtn').addEventListener('click', () => createPositionDraft('SELL'));
   $('cancelPositionBtn').addEventListener('click', cancelPositionDraft);
@@ -907,6 +1007,7 @@
 
   setDefaultDates();
   setActivePriceField('slPrice');
+  updateSizingControls();
   renderMetrics();
   renderAll();
 })();
