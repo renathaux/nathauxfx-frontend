@@ -26,6 +26,72 @@
     return local.toISOString().slice(0, 16);
   }
 
+  function availableYearRange() {
+    const earliest = state.coverage?.earliest ? new Date(state.coverage.earliest) : null;
+    const latest = state.coverage?.latest ? new Date(state.coverage.latest) : null;
+    const current = new Date().getFullYear();
+    const first = earliest && !Number.isNaN(earliest.getTime())
+      ? earliest.getFullYear()
+      : current - 5;
+    const last = latest && !Number.isNaN(latest.getTime())
+      ? latest.getFullYear()
+      : current;
+    const years = [];
+    for (let year = first; year <= last; year += 1) years.push(year);
+    return years;
+  }
+
+  function populateYearJump(id, selectedYear) {
+    const select = $(id);
+    if (!select) return;
+    const years = availableYearRange();
+    select.innerHTML = years
+      .map((year) => `<option value="${year}">${year}</option>`)
+      .join('');
+    const target = Number(selectedYear);
+    if (years.includes(target)) select.value = String(target);
+  }
+
+  function syncYearJump(inputId, selectId) {
+    const input = $(inputId);
+    const select = $(selectId);
+    if (!input || !select || !input.value) return;
+    const value = new Date(input.value);
+    if (!Number.isNaN(value.getTime())) {
+      const year = value.getFullYear();
+      if (![...select.options].some((option) => Number(option.value) === year)) {
+        populateYearJump(selectId, year);
+      }
+      select.value = String(year);
+    }
+  }
+
+  function syncAllYearJumps() {
+    populateYearJump('startYear', new Date($('startDate').value || Date.now()).getFullYear());
+    populateYearJump('endYear', new Date($('endDate').value || Date.now()).getFullYear());
+    syncYearJump('startDate', 'startYear');
+    syncYearJump('endDate', 'endYear');
+  }
+
+  function applyYearJump(inputId, selectId) {
+    const input = $(inputId);
+    const select = $(selectId);
+    if (!input || !select || !input.value) return;
+    const nextYear = Number(select.value);
+    const current = new Date(input.value);
+    if (!Number.isFinite(nextYear) || Number.isNaN(current.getTime())) return;
+
+    const month = current.getMonth();
+    const date = current.getDate();
+    current.setDate(1);
+    current.setFullYear(nextYear);
+    current.setMonth(month);
+    const lastDay = new Date(nextYear, month + 1, 0).getDate();
+    current.setDate(Math.min(date, lastDay));
+    input.value = toLocalInput(current);
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   function inputToIso(id) {
     const value = $(id).value;
     if (!value) throw new Error('Choose both a start and end date.');
@@ -49,6 +115,7 @@
     try {
       const coverage = await Api.historyCoverage(symbol);
       state.coverage = coverage;
+      syncAllYearJumps();
       if (!coverage.earliest || !coverage.latest) {
         $('historyCoverage').textContent = `No static history available for ${symbol}.`;
         return;
@@ -90,6 +157,7 @@
     const end = new Date(latest.getTime() + 5 * 60 * 1000);
     $('startDate').value = toLocalInput(start);
     $('endDate').value = toLocalInput(end);
+    syncAllYearJumps();
     notice('');
   }
 
@@ -98,6 +166,7 @@
     const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
     $('startDate').value = toLocalInput(start);
     $('endDate').value = toLocalInput(end);
+    syncAllYearJumps();
   }
 
   function setBusy(value, label = '') {
@@ -406,6 +475,10 @@
 
   $('symbolSelect').addEventListener('change', refreshHistoryCoverage);
   $('fiveYearRangeBtn').addEventListener('click', useFullFiveYearHistory);
+  $('startYear').addEventListener('change', () => applyYearJump('startDate', 'startYear'));
+  $('endYear').addEventListener('change', () => applyYearJump('endDate', 'endYear'));
+  $('startDate').addEventListener('change', () => syncYearJump('startDate', 'startYear'));
+  $('endDate').addEventListener('change', () => syncYearJump('endDate', 'endYear'));
   $('riskOverrideEnabled').addEventListener('change', () => {
     const enabled = $('riskOverrideEnabled').checked;
     $('riskMethodField').classList.toggle('hidden', !enabled);
