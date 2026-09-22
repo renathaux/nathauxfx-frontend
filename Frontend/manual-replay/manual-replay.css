@@ -242,3 +242,16 @@ body.manual-replay-fullscreen-fallback #replayWorkspace{
 }
 .manual-replay-layout-editing .manual-layout-locked{cursor:not-allowed!important}
 .manual-layout-deleted{display:none!important}
+
+.manual-replay-position-tool.position-locked .manual-replay-position-zone.profit,
+.manual-replay-position-tool.position-locked .manual-replay-position-zone.risk{
+  filter:saturate(.7) brightness(.85);
+}
+.manual-replay-position-tool.position-locked .manual-replay-position-info{
+  border-color:#f5bd48!important;
+  color:#ffe3a1!important;
+}
+.manual-replay-position-tool.position-locked~.manual-replay-live-level.sl,
+.manual-replay-position-tool.position-locked~.manual-replay-live-level.tp{
+  cursor:default!important;
+}

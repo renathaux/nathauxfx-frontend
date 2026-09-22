@@ -62,8 +62,8 @@ test('manual replay chart exposes draggable SL and TP handles through the live p
   assert.match(liveChart, /pointerdown/);
   assert.match(liveChart, /setPointerCapture/);
   assert.match(liveChart, /onDraftLevel/);
-  assert.match(liveChart, /\[sl, position\.sl, slY, false\]/);
-  assert.match(liveChart, /\[tp, position\.tp, tpY, false\]/);
+  assert.match(liveChart, /\[sl, position\.sl, slY, state\.positionLocked\]/);
+  assert.match(liveChart, /\[tp, position\.tp, tpY, state\.positionLocked\]/);
   assert.match(liveChart, /requestAnimationFrame\(positionDragLayer\)/);
 });
 
@@ -153,8 +153,8 @@ test('active manual positions stay editable and labels are hover-only', () => {
   assert.match(liveChart, /show-details/);
   assert.match(liveChart, /autoscaleInfoProvider/);
   assert.match(liveChart, /positionAwareAutoscale/);
-  assert.match(liveChart, /\[sl, position\.sl, slY, false\]/);
-  assert.match(liveChart, /\[tp, position\.tp, tpY, false\]/);
+  assert.match(liveChart, /\[sl, position\.sl, slY, state\.positionLocked\]/);
+  assert.match(liveChart, /\[tp, position\.tp, tpY, state\.positionLocked\]/);
   assert.match(css, /manual-replay-position-tool\.show-details/);
   assert.match(css, /opacity:0/);
 });
@@ -292,4 +292,29 @@ test('submitted v4 layout is the production default', () => {
   assert.match(savedLayout, /"setupFieldText\[4\]":\{"x":-38,"y":-5,"width":91,"height":23,"locked":false,"deleted":false,"text":"Balance"\}/);
   assert.match(savedLayout, /editorSaved = raw \? JSON\.parse\(raw\) : \(window\.ManualReplayDefaultLayoutV4 \|\| null\)/);
   assert.match(layoutEditor, /saved = raw \? JSON\.parse\(raw\) : \(window\.ManualReplayDefaultLayoutV4 \|\| null\)/);
+});
+
+
+test('position box clicks route green to TP and red to SL with lock controls', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(liveChart, /function positionRegionAtPoint/);
+  assert.match(liveChart, /return 'tp'/);
+  assert.match(liveChart, /return 'sl'/);
+  assert.match(liveChart, /state\.callbacks\.onChartClick\?\.\(price, region\)/);
+  assert.match(app, /const fieldId = region === 'tp' \? 'tpPrice' : 'slPrice'/);
+  assert.match(app, /green target/);
+  assert.match(app, /red risk/);
+  assert.match(liveChart, /positionLocked/);
+  assert.match(liveChart, /event\.code !== 'Space'/);
+  assert.match(liveChart, /togglePositionLocked\('double-click'\)/);
+  assert.match(liveChart, /setPositionLocked\(true, 'space'\)/);
+  assert.match(app, /Double-click the position box to edit it again/);
+  assert.match(css, /manual-replay-position-tool\.position-locked/);
+});
+
+test('double click cancels pending single-click edit before locking', () => {
+  assert.match(liveChart, /state\.clickTimer = window\.setTimeout/);
+  assert.match(liveChart, /220/);
+  assert.match(liveChart, /if \(state\.clickTimer\)[\s\S]*window\.clearTimeout\(state\.clickTimer\)/);
+  assert.match(liveChart, /interactionHost\.addEventListener\('dblclick'/);
 });
