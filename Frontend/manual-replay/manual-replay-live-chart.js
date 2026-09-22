@@ -347,7 +347,7 @@
     stopCaption.style.top = `${Math.round(Math.max(8, Math.min(containerHeight - 28, (riskTop + riskBottom) / 2 - 10)))}px`;
     stopCaption.classList.toggle('compact', riskBottom - riskTop < 38);
 
-    info.textContent = `${position.side === 'BUY' ? 'LONG' : 'SHORT'} • Risk/Reward Ratio: ${summary.rr}`;
+    info.textContent = `${position.side === 'BUY' ? 'LONG POSITION' : 'SHORT POSITION'} • Risk/Reward Ratio: ${summary.rr}`;
     info.style.left = `${Math.round(startX + width / 2)}px`;
     const infoTop = Math.max(8, Math.min(containerHeight - 34, entryY - 14));
     info.style.top = `${Math.round(infoTop)}px`;
