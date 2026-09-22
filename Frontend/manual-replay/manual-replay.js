@@ -57,9 +57,41 @@
     return Math.abs(Number(value)) >= 100 ? Number(value).toFixed(2) : Number(value).toFixed(5);
   }
 
-  function localInput(date) {
-    const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return d.toISOString().slice(0, 16);
+  function pad2(value) {
+    return String(value).padStart(2, '0');
+  }
+
+  function datePartWithoutYear(date) {
+    return `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+  }
+
+  function parseDatePartWithoutYear(value, year) {
+    const text = String(value || '').trim();
+    const match = text.match(/^(\d{1,2})[-\/]?(\d{1,2})[ ,T]+(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+
+    const month = Number(match[1]);
+    const day = Number(match[2]);
+    const hour = Number(match[3]);
+    const minute = Number(match[4]);
+    const fullYear = Number(year);
+    if (
+      !Number.isInteger(fullYear) ||
+      month < 1 || month > 12 ||
+      day < 1 || day > 31 ||
+      hour < 0 || hour > 23 ||
+      minute < 0 || minute > 59
+    ) return null;
+
+    const date = new Date(fullYear, month - 1, day, hour, minute, 0, 0);
+    if (
+      date.getFullYear() !== fullYear ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day ||
+      date.getHours() !== hour ||
+      date.getMinutes() !== minute
+    ) return null;
+    return date;
   }
 
   function yearOptions() {
@@ -80,49 +112,29 @@
     if (years.includes(target)) select.value = String(target);
   }
 
-  function syncYearJump(inputId, selectId) {
-    const input = $(inputId);
+  function applyYearJump(_inputId, selectId) {
     const select = $(selectId);
-    if (!input || !select) return;
-    const value = new Date(input.value);
-    if (!Number.isNaN(value.getTime())) {
-      select.value = String(value.getFullYear());
-    }
-  }
-
-  function applyYearJump(inputId, selectId) {
-    const input = $(inputId);
-    const select = $(selectId);
-    if (!input || !select) return;
-    const nextYear = Number(select.value);
-    const current = new Date(input.value);
-    if (!Number.isFinite(nextYear) || Number.isNaN(current.getTime())) return;
-
-    // Preserve month/day/time. Feb 29 is safely clamped when jumping to
-    // a non-leap year.
-    const month = current.getMonth();
-    const date = current.getDate();
-    current.setDate(1);
-    current.setFullYear(nextYear);
-    current.setMonth(month);
-    const lastDay = new Date(nextYear, month + 1, 0).getDate();
-    current.setDate(Math.min(date, lastDay));
-    input.value = localInput(current);
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    if (!select) return;
+    const year = Number(select.value);
+    if (!Number.isFinite(year)) return;
+    // The year selector is now the only year control. Month/day/time stay
+    // untouched in the neighboring field.
   }
 
   function setDefaultDates() {
     const end = new Date();
     const start = new Date(end.getTime() - 7 * 86400000);
-    $('startDate').value = localInput(start);
-    $('endDate').value = localInput(end);
+    $('startDate').value = datePartWithoutYear(start);
+    $('endDate').value = datePartWithoutYear(end);
     populateYearJump('startYear', start.getFullYear());
     populateYearJump('endYear', end.getFullYear());
   }
 
   function inputIso(id) {
-    const d = new Date($(id).value);
-    if (Number.isNaN(d.getTime())) throw new Error('Choose a valid start and end.');
+    const yearId = id === 'startDate' ? 'startYear' : 'endYear';
+    const year = Number($(yearId)?.value);
+    const d = parseDatePartWithoutYear($(id)?.value, year);
+    if (!d) throw new Error('Use MM-DD HH:MM for the replay date and time.');
     return d.toISOString();
   }
 
@@ -965,10 +977,36 @@
     return true;
   }
 
+  async function toggleFullscreenWorkspace() {
+    const workspace = $('replayWorkspace');
+    if (!workspace) return;
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen?.();
+        return;
+      }
+      if (workspace.requestFullscreen) {
+        await workspace.requestFullscreen();
+      } else if (workspace.webkitRequestFullscreen) {
+        workspace.webkitRequestFullscreen();
+      } else {
+        document.body.classList.toggle('manual-replay-fullscreen-fallback');
+      }
+    } catch (_error) {
+      document.body.classList.toggle('manual-replay-fullscreen-fallback');
+    }
+  }
+
+  function syncFullscreenUi() {
+    const active = Boolean(document.fullscreenElement || document.body.classList.contains('manual-replay-fullscreen-fallback'));
+    const button = $('fullscreenBtn');
+    if (button) button.textContent = active ? '⤢ Exit Full Screen' : '⛶ Full Screen';
+    requestAnimationFrame(() => LiveChart?.resize?.());
+  }
+
   $('startYear')?.addEventListener('change', () => applyYearJump('startDate', 'startYear'));
   $('endYear')?.addEventListener('change', () => applyYearJump('endDate', 'endYear'));
-  $('startDate')?.addEventListener('change', () => syncYearJump('startDate', 'startYear'));
-  $('endDate')?.addEventListener('change', () => syncYearJump('endDate', 'endYear'));
 
   $('loadBtn').addEventListener('click', loadReplay);
   $('nextBtn').addEventListener('click', () => { stopTimer(); advanceOne(); });
@@ -981,6 +1019,9 @@
   $('speed').addEventListener('change', () => { if (state.timer) setPlaying(); });
   $('zoomInBtn').addEventListener('click', () => zoomChart(-1, null));
   $('zoomOutBtn').addEventListener('click', () => zoomChart(1, null));
+  $('fullscreenBtn').addEventListener('click', toggleFullscreenWorkspace);
+  document.addEventListener('fullscreenchange', syncFullscreenUi);
+  document.addEventListener('webkitfullscreenchange', syncFullscreenUi);
 
   $('slPrice').addEventListener('focus', () => setActivePriceField('slPrice'));
   $('tpPrice').addEventListener('focus', () => setActivePriceField('tpPrice'));
@@ -1004,6 +1045,13 @@
   $('sellBtn').addEventListener('click', () => openManualTrade('SELL'));
   $('closeBtn').addEventListener('click', closeManually);
   $('resetBtn').addEventListener('click', resetSession);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.body.classList.contains('manual-replay-fullscreen-fallback')) {
+      document.body.classList.remove('manual-replay-fullscreen-fallback');
+      syncFullscreenUi();
+    }
+  });
 
   setDefaultDates();
   setActivePriceField('slPrice');
