@@ -327,3 +327,20 @@ test('position drawings do not flatten candles by participating in autoscale', (
   assert.match(liveChart, /Long\/Short is a drawing overlay, like TradingView/);
   assert.match(liveChart, /Do not reset the price scale when SL\/TP changes/);
 });
+
+
+test('manual replay chart behaves like a free TradingView-style world', () => {
+  assert.match(liveChart, /handleScroll:[\s\S]*mouseWheel: true/);
+  assert.match(liveChart, /pressedMouseMove: true/);
+  assert.match(liveChart, /horzTouchDrag: true/);
+  assert.match(liveChart, /vertTouchDrag: true/);
+  assert.match(liveChart, /handleScale:[\s\S]*axisPressedMouseMove/);
+  assert.match(liveChart, /time: true,[\s\S]*price: true/);
+  assert.match(liveChart, /axisDoubleClickReset/);
+  assert.match(liveChart, /kineticScroll:[\s\S]*mouse: true[\s\S]*touch: true/);
+  assert.match(liveChart, /minBarSpacing: 0\.5/);
+  assert.match(liveChart, /fixLeftEdge: false/);
+  assert.match(liveChart, /fixRightEdge: false/);
+  assert.match(liveChart, /rightBarStaysOnScroll: false/);
+  assert.match(liveChart, /lockVisibleTimeRangeOnResize: false/);
+});
