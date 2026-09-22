@@ -59,6 +59,32 @@
 .manual-replay-live-level.hidden{display:none}
 
 
+.manual-replay-drawing-layer{position:absolute;inset:0;z-index:2;overflow:visible;pointer-events:none}
+.manual-drawing-line{stroke:#6bb6ff;stroke-width:2;vector-effect:non-scaling-stroke;pointer-events:none;filter:drop-shadow(0 0 3px rgba(107,182,255,.24))}
+.manual-drawing-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:move}
+.manual-drawing-rect{fill:rgba(245,189,72,.12);stroke:#f5bd48;stroke-width:1.5;vector-effect:non-scaling-stroke;pointer-events:all;cursor:move}
+.manual-drawing.selected .manual-drawing-line{stroke:#f5bd48;stroke-width:2.5;filter:drop-shadow(0 0 5px rgba(245,189,72,.45))}
+.manual-drawing.selected .manual-drawing-rect{fill:rgba(245,189,72,.16);stroke:#ffe09a;stroke-width:2}
+.manual-drawing-handle{fill:#f5bd48;stroke:#fff;stroke-width:2;vector-effect:non-scaling-stroke;pointer-events:all;touch-action:none}
+.manual-drawing-handle[data-drawing-handle="n"],.manual-drawing-handle[data-drawing-handle="s"]{cursor:ns-resize}
+.manual-drawing-handle[data-drawing-handle="e"],.manual-drawing-handle[data-drawing-handle="w"]{cursor:ew-resize}
+.manual-drawing-handle[data-drawing-handle="nw"],.manual-drawing-handle[data-drawing-handle="se"]{cursor:nwse-resize}
+.manual-drawing-handle[data-drawing-handle="ne"],.manual-drawing-handle[data-drawing-handle="sw"]{cursor:nesw-resize}
+.manual-drawing-handle[data-drawing-handle="a"],.manual-drawing-handle[data-drawing-handle="b"]{cursor:crosshair}
+.drawing-tool.is-active{border-color:#f5bd48!important;color:#ffe09a!important;background:rgba(245,189,72,.12)!important;box-shadow:0 0 0 2px rgba(245,189,72,.18)!important}
+
+.manual-replay-position-tool{z-index:4}
+.manual-replay-live-level{z-index:5}
+.manual-replay-trade-hologram{position:absolute;z-index:7;min-width:150px;padding:8px 11px;border:1px solid rgba(126,150,190,.55);border-radius:10px;background:rgba(5,16,30,.68);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);pointer-events:none;box-shadow:0 0 18px rgba(79,142,255,.15),inset 0 0 18px rgba(79,142,255,.05);font-variant-numeric:tabular-nums;transition:top .12s linear,left .12s linear,filter .12s linear}
+.manual-replay-trade-hologram strong{display:block;font-size:24px;line-height:1;font-weight:950;letter-spacing:.015em;text-shadow:0 0 12px currentColor}
+.manual-replay-trade-hologram span{display:inline-block;margin-top:6px;margin-right:9px;font-size:10px;font-weight:850;letter-spacing:.04em;opacity:.92}
+.manual-replay-trade-hologram.positive{color:#73f0c8;border-color:rgba(53,213,162,.75);box-shadow:0 0 22px rgba(53,213,162,.25),inset 0 0 20px rgba(53,213,162,.08)}
+.manual-replay-trade-hologram.negative{color:#ff91a0;border-color:rgba(255,104,122,.78);box-shadow:0 0 22px rgba(255,104,122,.24),inset 0 0 20px rgba(255,104,122,.07)}
+.manual-replay-trade-hologram.flat{color:#d8e6f8}
+.manual-replay-trade-hologram.hidden{display:none}
+@media(pointer:coarse){.manual-drawing-handle{r:8px}.manual-drawing-hit{stroke-width:22}.manual-replay-trade-hologram strong{font-size:21px}}
+
+
 /* Keep only interactive Setup controls above the upward-shifted chart.
    The Setup card itself stays in normal paint order, preserving the saved
    visual layout while its controls remain clickable. */
