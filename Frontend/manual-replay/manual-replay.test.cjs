@@ -62,8 +62,8 @@ test('manual replay chart exposes draggable SL and TP handles through the live p
   assert.match(liveChart, /pointerdown/);
   assert.match(liveChart, /setPointerCapture/);
   assert.match(liveChart, /onDraftLevel/);
-  assert.match(liveChart, /\[sl, position\.sl, slY, false\]/);
-  assert.match(liveChart, /\[tp, position\.tp, tpY, false\]/);
+  assert.match(liveChart, /\[sl, position\.sl, slY, state\.positionLocked\]/);
+  assert.match(liveChart, /\[tp, position\.tp, tpY, state\.positionLocked\]/);
   assert.match(liveChart, /requestAnimationFrame\(positionDragLayer\)/);
 });
 
@@ -153,8 +153,8 @@ test('active manual positions stay editable and labels are hover-only', () => {
   assert.match(liveChart, /show-details/);
   assert.match(liveChart, /autoscaleInfoProvider/);
   assert.match(liveChart, /positionAwareAutoscale/);
-  assert.match(liveChart, /\[sl, position\.sl, slY, false\]/);
-  assert.match(liveChart, /\[tp, position\.tp, tpY, false\]/);
+  assert.match(liveChart, /\[sl, position\.sl, slY, state\.positionLocked\]/);
+  assert.match(liveChart, /\[tp, position\.tp, tpY, state\.positionLocked\]/);
   assert.match(css, /manual-replay-position-tool\.show-details/);
   assert.match(css, /opacity:0/);
 });
