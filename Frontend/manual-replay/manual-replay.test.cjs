@@ -151,8 +151,9 @@ test('active manual positions stay editable and labels are hover-only', () => {
   assert.match(app, /\$\('tpPrice'\)\.disabled = !editor/);
   assert.match(liveChart, /hoverPoint/);
   assert.match(liveChart, /show-details/);
-  assert.doesNotMatch(liveChart, /autoscaleInfoProvider/);
+  assert.match(liveChart, /autoscaleInfoProvider/);
   assert.doesNotMatch(liveChart, /positionAwareAutoscale/);
+  assert.match(liveChart, /transformedCandleAutoscale/);
   assert.match(liveChart, /\[sl, position\.sl, slY, state\.positionLocked\]/);
   assert.match(liveChart, /\[tp, position\.tp, tpY, state\.positionLocked\]/);
   assert.match(css, /manual-replay-position-tool\.show-details/);
@@ -320,10 +321,13 @@ test('double click cancels pending single-click edit before locking', () => {
 });
 
 
-test('position drawings do not flatten candles by participating in autoscale', () => {
+test('position drawings do not flatten candles while vertical world transforms candle autoscale only', () => {
   assert.doesNotMatch(liveChart, /POSITION_VERTICAL_CONTEXT_MULTIPLIER/);
   assert.doesNotMatch(liveChart, /CANDLE_VERTICAL_CONTEXT_MULTIPLIER/);
-  assert.doesNotMatch(liveChart, /autoscaleInfoProvider/);
+  assert.match(liveChart, /function transformedCandleAutoscale/);
+  assert.match(liveChart, /autoscaleInfoProvider/);
+  assert.match(liveChart, /baseMin = Number\(original\.priceRange\.minValue\)/);
+  assert.doesNotMatch(liveChart, /transformedCandleAutoscale[\s\S]{0,800}currentPosition\(\)/);
   assert.match(liveChart, /Long\/Short is a drawing overlay, like TradingView/);
   assert.match(liveChart, /Do not reset the price scale when SL\/TP changes/);
 });
@@ -335,7 +339,7 @@ test('manual replay chart behaves like a free TradingView-style world', () => {
   assert.match(liveChart, /horzTouchDrag: true/);
   assert.match(liveChart, /vertTouchDrag: true/);
   assert.match(liveChart, /handleScale:[\s\S]*axisPressedMouseMove/);
-  assert.match(liveChart, /time: true,[\s\S]*price: true/);
+  assert.match(liveChart, /axisPressedMouseMove:[\s\S]*time: true,[\s\S]*price: false/);
   assert.match(liveChart, /axisDoubleClickReset/);
   assert.match(liveChart, /kineticScroll:[\s\S]*mouse: true[\s\S]*touch: true/);
   assert.match(liveChart, /minBarSpacing: 0\.5/);
@@ -343,4 +347,21 @@ test('manual replay chart behaves like a free TradingView-style world', () => {
   assert.match(liveChart, /fixRightEdge: false/);
   assert.match(liveChart, /rightBarStaysOnScroll: false/);
   assert.match(liveChart, /lockVisibleTimeRangeOnResize: false/);
+});
+
+
+test('manual replay supports true vertical world panning and custom price-axis zoom', () => {
+  assert.match(liveChart, /verticalViewport:/);
+  assert.match(liveChart, /offsetRatio: 0/);
+  assert.match(liveChart, /function transformedCandleAutoscale/);
+  assert.match(liveChart, /function refreshVerticalViewport/);
+  assert.match(liveChart, /function resetVerticalViewport/);
+  assert.match(liveChart, /function priceAxisStartX/);
+  assert.match(liveChart, /type: isPriceAxis \? 'scale' : 'pan'/);
+  assert.match(liveChart, /gesture\.startOffsetRatio \+ \(dy \/ gesture\.height\) \* gesture\.startScale/);
+  assert.match(liveChart, /gesture\.startScale \* Math\.exp\(dy \/ 180\)/);
+  assert.match(liveChart, /interactionHost\.addEventListener\('pointerdown', onVerticalPointerDown/);
+  assert.match(liveChart, /interactionHost\.addEventListener\('wheel', onVerticalWheel/);
+  assert.match(liveChart, /if \(x >= priceAxisStartX\(\)\)[\s\S]*resetVerticalViewport\(\)/);
+  assert.match(liveChart, /verticalOffsetRatio: state\.verticalViewport\.offsetRatio/);
 });
