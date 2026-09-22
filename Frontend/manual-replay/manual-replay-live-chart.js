@@ -22,6 +22,11 @@
     clickTimer: null,
     interactionHost: null,
     interactionHandlers: null,
+    verticalViewport: {
+      scale: 1,
+      offsetRatio: 0,
+      gesture: null,
+    },
     userMovedRange: false,
     initialized: false,
   };
@@ -105,11 +110,11 @@
       handleScale: {
         axisPressedMouseMove: {
           time: true,
-          price: true,
+          price: false,
         },
         axisDoubleClickReset: {
           time: true,
-          price: true,
+          price: false,
         },
         mouseWheel: true,
         pinch: true,
@@ -135,6 +140,55 @@
 
   // Long/Short is a drawing overlay, like TradingView. It must never expand
   // the price scale by itself; candle prices remain the authority for autoscale.
+  function transformedCandleAutoscale(originalProvider) {
+    const original = typeof originalProvider === 'function' ? originalProvider() : null;
+    if (!original?.priceRange) return original;
+
+    const baseMin = Number(original.priceRange.minValue);
+    const baseMax = Number(original.priceRange.maxValue);
+    if (!Number.isFinite(baseMin) || !Number.isFinite(baseMax) || baseMax <= baseMin) return original;
+
+    const baseSpan = baseMax - baseMin;
+    const scale = Math.min(30, Math.max(0.15, Number(state.verticalViewport.scale) || 1));
+    const offsetRatio = Number(state.verticalViewport.offsetRatio) || 0;
+    const span = baseSpan * scale;
+    const center = (baseMin + baseMax) / 2 + offsetRatio * baseSpan;
+
+    return {
+      ...original,
+      priceRange: {
+        minValue: center - span / 2,
+        maxValue: center + span / 2,
+      },
+    };
+  }
+
+  function refreshVerticalViewport() {
+    if (!state.series || !state.chart) return;
+    try {
+      state.series.applyOptions({
+        autoscaleInfoProvider: (originalProvider) => transformedCandleAutoscale(originalProvider),
+      });
+      state.chart.priceScale('right').applyOptions({ autoScale: true });
+    } catch (_error) {}
+    requestAnimationFrame(positionDragLayer);
+  }
+
+  function resetVerticalViewport() {
+    state.verticalViewport.scale = 1;
+    state.verticalViewport.offsetRatio = 0;
+    state.verticalViewport.gesture = null;
+    refreshVerticalViewport();
+  }
+
+  function priceAxisStartX() {
+    if (!state.container) return Infinity;
+    let width = 72;
+    try {
+      width = Number(state.chart?.priceScale('right')?.width?.()) || width;
+    } catch (_error) {}
+    return Math.max(0, state.container.clientWidth - width);
+  }
 
   function seriesOptions(symbol) {
     const price = precisionFor(symbol);
@@ -147,6 +201,7 @@
       wickDownColor: '#ef5350',
       priceLineVisible: false,
       lastValueVisible: true,
+      autoscaleInfoProvider: (originalProvider) => transformedCandleAutoscale(originalProvider),
       priceFormat: {
         type: 'price',
         precision: price.precision,
@@ -554,12 +609,87 @@
     });
 
     const interactionHost = state.container.parentElement || state.container;
-    const onDoubleClick = (event) => {
-      if (!currentPosition()) return;
+
+    const onVerticalPointerDown = (event) => {
+      if (event.button !== 0) return;
+      if (event.target.closest?.('[data-replay-price-field]')) return;
       const rect = state.container.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
-      if (!positionRegionAtPoint(x, y)) return;
+      if (y < 0 || y > rect.height) return;
+
+      const axisStart = priceAxisStartX();
+      const isPriceAxis = x >= axisStart;
+      state.verticalViewport.gesture = {
+        pointerId: event.pointerId,
+        type: isPriceAxis ? 'scale' : 'pan',
+        startY: event.clientY,
+        startScale: state.verticalViewport.scale,
+        startOffsetRatio: state.verticalViewport.offsetRatio,
+        height: Math.max(1, rect.height),
+      };
+
+      if (isPriceAxis) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    const onVerticalPointerMove = (event) => {
+      const gesture = state.verticalViewport.gesture;
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      const dy = event.clientY - gesture.startY;
+
+      if (gesture.type === 'scale') {
+        state.verticalViewport.scale = Math.min(
+          30,
+          Math.max(0.15, gesture.startScale * Math.exp(dy / 180)),
+        );
+        event.preventDefault();
+        event.stopPropagation();
+      } else {
+        // Dragging down moves the candle world down, exposing higher prices
+        // above; dragging up exposes lower prices below.
+        state.verticalViewport.offsetRatio =
+          gesture.startOffsetRatio + (dy / gesture.height) * gesture.startScale;
+      }
+
+      refreshVerticalViewport();
+    };
+
+    const onVerticalPointerEnd = (event) => {
+      const gesture = state.verticalViewport.gesture;
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      state.verticalViewport.gesture = null;
+    };
+
+    const onVerticalWheel = (event) => {
+      const rect = state.container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      if (x < priceAxisStartX()) return;
+      const factor = Math.exp(Number(event.deltaY || 0) / 500);
+      state.verticalViewport.scale = Math.min(
+        30,
+        Math.max(0.15, state.verticalViewport.scale * factor),
+      );
+      event.preventDefault();
+      event.stopPropagation();
+      refreshVerticalViewport();
+    };
+
+    const onDoubleClick = (event) => {
+      const rect = state.container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      if (x >= priceAxisStartX()) {
+        event.preventDefault();
+        event.stopPropagation();
+        resetVerticalViewport();
+        return;
+      }
+
+      if (!currentPosition() || !positionRegionAtPoint(x, y)) return;
       if (state.clickTimer) {
         window.clearTimeout(state.clickTimer);
         state.clickTimer = null;
@@ -575,10 +705,22 @@
       event.preventDefault();
       setPositionLocked(true, 'space');
     };
+    interactionHost.addEventListener('pointerdown', onVerticalPointerDown, true);
+    window.addEventListener('pointermove', onVerticalPointerMove, true);
+    window.addEventListener('pointerup', onVerticalPointerEnd, true);
+    window.addEventListener('pointercancel', onVerticalPointerEnd, true);
+    interactionHost.addEventListener('wheel', onVerticalWheel, { capture: true, passive: false });
     interactionHost.addEventListener('dblclick', onDoubleClick, true);
     document.addEventListener('keydown', onKeyDown, true);
     state.interactionHost = interactionHost;
-    state.interactionHandlers = { onDoubleClick, onKeyDown };
+    state.interactionHandlers = {
+      onVerticalPointerDown,
+      onVerticalPointerMove,
+      onVerticalPointerEnd,
+      onVerticalWheel,
+      onDoubleClick,
+      onKeyDown,
+    };
 
     if (window.ResizeObserver) {
       state.resizeObserver = new ResizeObserver(resizeChart);
@@ -598,10 +740,15 @@
       window.clearTimeout(state.clickTimer);
       state.clickTimer = null;
     }
-    if (state.interactionHost && state.interactionHandlers?.onDoubleClick) {
+    if (state.interactionHost && state.interactionHandlers) {
+      state.interactionHost.removeEventListener('pointerdown', state.interactionHandlers.onVerticalPointerDown, true);
+      state.interactionHost.removeEventListener('wheel', state.interactionHandlers.onVerticalWheel, true);
       state.interactionHost.removeEventListener('dblclick', state.interactionHandlers.onDoubleClick, true);
     }
-    if (state.interactionHandlers?.onKeyDown) {
+    if (state.interactionHandlers) {
+      window.removeEventListener('pointermove', state.interactionHandlers.onVerticalPointerMove, true);
+      window.removeEventListener('pointerup', state.interactionHandlers.onVerticalPointerEnd, true);
+      window.removeEventListener('pointercancel', state.interactionHandlers.onVerticalPointerEnd, true);
       document.removeEventListener('keydown', state.interactionHandlers.onKeyDown, true);
     }
     state.interactionHost = null;
@@ -621,6 +768,9 @@
     state.positionHitbox = null;
     state.positionLocked = false;
     state.positionKey = null;
+    state.verticalViewport.scale = 1;
+    state.verticalViewport.offsetRatio = 0;
+    state.verticalViewport.gesture = null;
     state.initialized = false;
     state.userMovedRange = false;
   }
@@ -663,6 +813,8 @@
 
     if (fit || (!previous.length && candles.length)) {
       state.userMovedRange = false;
+      state.verticalViewport.scale = 1;
+      state.verticalViewport.offsetRatio = 0;
       try {
         state.chart.timeScale().fitContent();
         state.chart.timeScale().applyOptions({ rightOffset: 22 });
@@ -715,6 +867,8 @@
   function resetView() {
     if (!state.chart) return;
     state.userMovedRange = false;
+    state.verticalViewport.scale = 1;
+    state.verticalViewport.offsetRatio = 0;
     try {
       state.chart.priceScale('right').applyOptions({ autoScale: true });
       state.chart.timeScale().fitContent();
@@ -740,6 +894,8 @@
       candles: state.lastCandles.length,
       userMovedRange: state.userMovedRange,
       positionLocked: state.positionLocked,
+      verticalScale: state.verticalViewport.scale,
+      verticalOffsetRatio: state.verticalViewport.offsetRatio,
     }),
   };
 })();
