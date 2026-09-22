@@ -172,7 +172,7 @@
     // Do not draw infinite Lightweight Charts price lines for manual positions.
     // The manual replay uses a TradingView-style position box instead.
     clearPriceLines();
-    positionDragLayer();
+    requestAnimationFrame(positionDragLayer);
   }
 
   function priceToY(price) {
