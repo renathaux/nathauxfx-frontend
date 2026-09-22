@@ -373,6 +373,29 @@
     LiveChart?.zoomBy?.(direction);
   }
 
+
+  function syncDrawingToolButtons(mode = null) {
+    const line = $('drawLineBtn');
+    const rect = $('drawRectBtn');
+    line?.setAttribute('aria-pressed', String(mode === 'line'));
+    rect?.setAttribute('aria-pressed', String(mode === 'rect'));
+    line?.classList.toggle('is-active', mode === 'line');
+    rect?.classList.toggle('is-active', mode === 'rect');
+  }
+
+  function toggleDrawingMode(mode) {
+    if (!LiveChart || !['line', 'rect'].includes(mode)) return;
+    const current = LiveChart.getState?.().drawingMode || null;
+    const next = current === mode ? null : mode;
+    LiveChart.setDrawingMode?.(next);
+    syncDrawingToolButtons(next);
+    if (next === 'line') {
+      notice('Line tool active • drag across the chart to draw. Esc cancels.', 'success');
+    } else if (next === 'rect') {
+      notice('S/R rectangle active • drag a zone, then resize it from all 8 handles.', 'success');
+    }
+  }
+
   function tradeR(trade, exitPrice) {
     const distance = Number(trade.initialRiskDistance) > 0
       ? Number(trade.initialRiskDistance)
@@ -719,6 +742,9 @@
         const label = region === 'tp' ? 'Take Profit' : 'Stop Loss';
         notice(`${label} ${state.openTrade ? 'modified' : 'set'} to ${price(value)} from the ${region === 'tp' ? 'green target' : 'red risk'} zone.`, 'success');
       },
+      onDrawingModeChange(mode) {
+        syncDrawingToolButtons(mode);
+      },
       onPositionLockChange(locked, reason) {
         if (locked) {
           notice(
@@ -745,6 +771,8 @@
     });
 
     LiveChart.setSymbol(symbol);
+    LiveChart.setDrawingScope?.(symbol + '|' + $('timeframe').value);
+    syncDrawingToolButtons(LiveChart.getState?.().drawingMode || null);
 
     if (!state.candles.length) {
       LiveChart.setCandles([], { fit: true });
@@ -1057,6 +1085,8 @@
   $('longPositionBtn').addEventListener('click', () => createPositionDraft('BUY'));
   $('shortPositionBtn').addEventListener('click', () => createPositionDraft('SELL'));
   $('cancelPositionBtn').addEventListener('click', cancelPositionDraft);
+  $('drawLineBtn').addEventListener('click', () => toggleDrawingMode('line'));
+  $('drawRectBtn').addEventListener('click', () => toggleDrawingMode('rect'));
 
 
   $('buyBtn').addEventListener('click', () => openManualTrade('BUY'));
@@ -1074,6 +1104,7 @@
   setDefaultDates();
   setActivePriceField('slPrice');
   updateSizingControls();
+  syncDrawingToolButtons(null);
   renderMetrics();
   renderAll();
 })();
