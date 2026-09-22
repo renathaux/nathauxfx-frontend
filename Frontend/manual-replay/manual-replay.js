@@ -227,31 +227,24 @@
     });
   }
 
-  function refreshDraftEntry() {
-    if (!state.positionDraft || state.openTrade || !currentCandle()) return;
-    const entry = Number(currentCandle().close);
-    const draft = { ...state.positionDraft, entry };
-    const gap = minimumPriceDistance(entry);
-    state.positionDraft = {
-      ...draft,
-      sl: Position.validatePositionLevel(draft, 'sl', draft.sl, gap),
-      tp: Position.validatePositionLevel(draft, 'tp', draft.tp, gap),
-    };
-    syncDraftInputs();
-  }
-
   function createPositionDraft(side) {
     if (!state.candles.length) return notice('Load a replay first.', 'error');
     if (state.openTrade) return notice('Close the active virtual position before creating another.', 'error');
     const scale = Position.visibleCandleScale(visibleRows());
     const entry = Number(currentCandle().close);
-    state.positionDraft = Position.createPositionDraft({
-      side,
-      entry,
-      visibleLow: scale.rawLow,
-      visibleHigh: scale.rawHigh,
-      minimumDisplayDistance: minimumPriceDistance(entry),
-    });
+    state.positionDraft = {
+      ...Position.createPositionDraft({
+        side,
+        entry,
+        visibleLow: scale.rawLow,
+        visibleHigh: scale.rawHigh,
+        minimumDisplayDistance: minimumPriceDistance(entry),
+      }),
+      // Freeze the TradingView-style drawing to the candle/price where it was
+      // created. Future replay candles must never push Entry, SL, or TP.
+      entryIndex: state.index,
+      entryTime: currentCandle()?.timestamp || null,
+    };
     syncDraftInputs();
     setActivePriceField('slPrice');
     notice(`${side === 'BUY' ? 'Long' : 'Short'} position draft created at ${price(entry)}.`, 'success');
@@ -415,7 +408,6 @@
     if (state.openTrade) return notice('Close the current virtual position first.', 'error');
     if (!state.positionDraft) return notice('Create a Long or Short Position draft first.', 'error');
     if (state.positionDraft.side !== side) return notice(`This draft can only open ${state.positionDraft.side}.`, 'error');
-    refreshDraftEntry();
     const candle = currentCandle();
     const metrics = positionMetrics();
     if (!metrics || !metrics.valid) return notice('Enter valid Stop Loss, Take Profit, and risk values.', 'error');
@@ -665,7 +657,6 @@
   }
 
   function renderAll() {
-    refreshDraftEntry();
     renderChart();
     renderCandleMeta();
     renderPosition();
