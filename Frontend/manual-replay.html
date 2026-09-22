@@ -58,10 +58,12 @@
             <span id="progress" class="muted">0 / 0</span>
           </div>
         </div>
-        <div class="position-tools" role="toolbar" aria-label="Position drawing tools">
+        <div class="position-tools" role="toolbar" aria-label="Position and chart drawing tools">
           <button id="longPositionBtn" class="button position-tool long" type="button" aria-pressed="false">↗ Long Position</button>
           <button id="shortPositionBtn" class="button position-tool short" type="button" aria-pressed="false">↘ Short Position</button>
           <button id="cancelPositionBtn" class="button ghost position-tool" type="button" disabled>✕ Cancel Draft</button>
+          <button id="drawLineBtn" class="button ghost position-tool drawing-tool" type="button" aria-pressed="false" title="Draw a line on the chart">╱ Line</button>
+          <button id="drawRectBtn" class="button ghost position-tool drawing-tool" type="button" aria-pressed="false" title="Draw a support / resistance rectangle">▭ S/R Zone</button>
         </div>
         <div class="chart-wrap">
           <div id="manualReplayChart" class="manual-replay-live-chart" role="img" aria-label="Manual replay candlestick chart"></div>
@@ -146,8 +148,8 @@
   <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
   <script src="/manual-replay/manual-replay-position.js?v=4"></script>
-  <script src="/manual-replay/manual-replay-live-chart.js?v=13"></script>
-  <script src="/manual-replay/manual-replay.js?v=17"></script>
+  <script src="/manual-replay/manual-replay-live-chart.js?v=15"></script>
+  <script src="/manual-replay/manual-replay.js?v=18"></script>
   <script src="/manual-replay/manual-replay-saved-layout.js?v=8"></script>
   <script src="/manual-replay/manual-replay-layout-editor.js?v=9"></script>
 </body>
