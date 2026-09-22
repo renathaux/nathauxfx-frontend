@@ -90,15 +90,22 @@ test('manual replay static history does not require backend auth', () => {
 });
 
 
-test('manual replay exposes visible year jump controls', () => {
+test('manual replay uses one visible year control plus month-day-time text', () => {
   assert.match(html, /id="startYear"/);
   assert.match(html, /id="endYear"/);
   assert.match(html, /date-input-row/);
+  assert.match(html, /id="startDate"[^>]+type="text"[^>]+placeholder="MM-DD HH:MM"/);
+  assert.match(html, /id="endDate"[^>]+type="text"[^>]+placeholder="MM-DD HH:MM"/);
+  assert.doesNotMatch(html, /id="startDate"[^>]+type="datetime-local"/);
+  assert.doesNotMatch(html, /id="endDate"[^>]+type="datetime-local"/);
+  assert.match(app, /function datePartWithoutYear/);
+  assert.match(app, /function parseDatePartWithoutYear/);
   assert.match(app, /function applyYearJump/);
   assert.match(app, /populateYearJump\('startYear'/);
+  assert.match(app, /Use MM-DD HH:MM for the replay date and time/);
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(css, /grid-template-columns:86px minmax\(0,1fr\)/);
-  assert.match(css, /position:static!important/);
+  assert.match(css, /date-without-year/);
 });
 
 
@@ -191,4 +198,21 @@ test('modern sizing ticket is protected from the legacy saved layout', () => {
   assert.match(savedLayout, /if \(modernTicket && modernTicketPrefixes\.has\(prefix\)\) continue/);
   assert.match(savedLayout, /sizing\.style\.setProperty\('display', 'block', 'important'\)/);
   assert.match(savedLayout, /tradePanel\.style\.setProperty\('height', 'auto', 'important'\)/);
+});
+
+
+test('manual replay exposes a fullscreen chart workspace with the ticket visible', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  const savedLayout = fs.readFileSync(path.join(__dirname, 'manual-replay-saved-layout.js'), 'utf8');
+  assert.match(html, /id="replayWorkspace"/);
+  assert.match(html, /id="fullscreenBtn"/);
+  assert.match(html, /⛶ Full Screen/);
+  assert.match(app, /function toggleFullscreenWorkspace/);
+  assert.match(app, /workspace\.requestFullscreen/);
+  assert.match(app, /document\.exitFullscreen/);
+  assert.match(app, /function syncFullscreenUi/);
+  assert.match(css, /#replayWorkspace:fullscreen/);
+  assert.match(css, /grid-template-columns:minmax\(0,1fr\) 330px/);
+  assert.match(savedLayout, /fullscreenActive/);
+  assert.match(savedLayout, /document\.addEventListener\('fullscreenchange', applySavedLayout\)/);
 });

@@ -119,3 +119,88 @@
 #lotSizeField small{color:var(--muted);font-size:10px;line-height:1.3}
 .manual-sizing-metrics strong{font-variant-numeric:tabular-nums}
 @media(max-width:420px){.manual-sizing-metrics{grid-template-columns:repeat(2,1fr)}}
+
+/* One year control only: the year dropdown is authoritative; the adjacent
+   field contains only month/day + time. */
+.date-without-year{
+  font-variant-numeric:tabular-nums;
+  letter-spacing:.02em;
+}
+
+/* Full-screen manual trading workspace. The chart stays large while the order
+   ticket remains visible so trades can still be entered and managed. */
+#replayWorkspace:fullscreen,
+#replayWorkspace:-webkit-full-screen,
+body.manual-replay-fullscreen-fallback #replayWorkspace{
+  width:100vw!important;
+  height:100vh!important;
+  max-width:none!important;
+  margin:0!important;
+  padding:10px!important;
+  background:#06101d!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 330px!important;
+  gap:10px!important;
+  overflow:hidden!important;
+  transform:none!important;
+}
+#replayWorkspace:fullscreen .chart-panel,
+#replayWorkspace:-webkit-full-screen .chart-panel,
+body.manual-replay-fullscreen-fallback #replayWorkspace .chart-panel{
+  min-width:0!important;
+  width:auto!important;
+  height:calc(100vh - 20px)!important;
+  max-height:none!important;
+  transform:none!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+}
+#replayWorkspace:fullscreen .trade-panel,
+#replayWorkspace:-webkit-full-screen .trade-panel,
+body.manual-replay-fullscreen-fallback #replayWorkspace .trade-panel{
+  width:330px!important;
+  height:calc(100vh - 20px)!important;
+  max-height:none!important;
+  transform:none!important;
+  overflow:auto!important;
+}
+#replayWorkspace:fullscreen .chart-wrap,
+#replayWorkspace:-webkit-full-screen .chart-wrap,
+body.manual-replay-fullscreen-fallback #replayWorkspace .chart-wrap{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  transform:none!important;
+}
+#replayWorkspace:fullscreen .manual-replay-live-chart,
+#replayWorkspace:-webkit-full-screen .manual-replay-live-chart,
+body.manual-replay-fullscreen-fallback #replayWorkspace .manual-replay-live-chart{
+  height:100%!important;
+  min-height:0!important;
+}
+body.manual-replay-fullscreen-fallback{
+  overflow:hidden!important;
+}
+body.manual-replay-fullscreen-fallback #replayWorkspace{
+  position:fixed!important;
+  inset:0!important;
+  z-index:2147483600!important;
+}
+.fullscreen-button{white-space:nowrap}
+@media(max-width:900px){
+  #replayWorkspace:fullscreen,
+  #replayWorkspace:-webkit-full-screen,
+  body.manual-replay-fullscreen-fallback #replayWorkspace{
+    grid-template-columns:1fr!important;
+    grid-template-rows:minmax(0,1fr) auto!important;
+    overflow:auto!important;
+  }
+  #replayWorkspace:fullscreen .trade-panel,
+  #replayWorkspace:-webkit-full-screen .trade-panel,
+  body.manual-replay-fullscreen-fallback #replayWorkspace .trade-panel{
+    width:auto!important;
+    height:auto!important;
+    max-height:42vh!important;
+  }
+}
