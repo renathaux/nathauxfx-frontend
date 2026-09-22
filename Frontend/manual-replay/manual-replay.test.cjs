@@ -280,3 +280,16 @@ test('layout editor selection is click-sticky with undo and stable lock', () => 
   assert.match(layoutEditor, /if \(!state\.geometryTouched\)/);
   assert.match(layoutEditor, /deleteButton\.disabled = !activeElement \|\| Boolean\(state\?\.locked\)/);
 });
+
+
+test('submitted v4 layout is the production default', () => {
+  assert.match(savedLayout, /window\.ManualReplayDefaultLayoutV4/);
+  assert.match(savedLayout, /"width":1440/);
+  assert.match(savedLayout, /"height":810/);
+  assert.match(savedLayout, /"headingEyebrow\[0\]":\{"locked":false,"deleted":true\}/);
+  assert.match(savedLayout, /"chartMeta#chartMeta":\{"locked":false,"deleted":true\}/);
+  assert.match(savedLayout, /"priceHint#pricePickHint":\{"locked":false,"deleted":true\}/);
+  assert.match(savedLayout, /"setupFieldText\[4\]":\{"x":-38,"y":-5,"width":91,"height":23,"locked":false,"deleted":false,"text":"Balance"\}/);
+  assert.match(savedLayout, /editorSaved = raw \? JSON\.parse\(raw\) : \(window\.ManualReplayDefaultLayoutV4 \|\| null\)/);
+  assert.match(layoutEditor, /saved = raw \? JSON\.parse\(raw\) : \(window\.ManualReplayDefaultLayoutV4 \|\| null\)/);
+});
