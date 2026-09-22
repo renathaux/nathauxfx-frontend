@@ -103,6 +103,9 @@
     };
   }
 
+  const POSITION_VERTICAL_CONTEXT_MULTIPLIER = 4;
+  const CANDLE_VERTICAL_CONTEXT_MULTIPLIER = 1.8;
+
   function positionAwareAutoscale(originalProvider) {
     const original = typeof originalProvider === 'function' ? originalProvider() : null;
     if (!original?.priceRange) return original;
@@ -115,16 +118,30 @@
     const baseMax = Number(original.priceRange.maxValue);
     if (!levels.length || !Number.isFinite(baseMin) || !Number.isFinite(baseMax)) return original;
 
-    const minValue = Math.min(baseMin, ...levels);
-    const maxValue = Math.max(baseMax, ...levels);
-    const span = Math.max(maxValue - minValue, Math.abs(maxValue || 1) * 0.0005);
-    const padding = span * 0.12;
+    const levelMin = Math.min(...levels);
+    const levelMax = Math.max(...levels);
+    const minValue = Math.min(baseMin, levelMin);
+    const maxValue = Math.max(baseMax, levelMax);
+
+    const baseSpan = Math.max(baseMax - baseMin, 0);
+    const positionSpan = Math.max(levelMax - levelMin, 0);
+    const combinedSpan = Math.max(maxValue - minValue, Math.abs(maxValue || 1) * 0.0005);
+
+    // TradingView keeps much more vertical context around a Long/Short tool.
+    // Keep the full position to roughly <= 25% of the usable price range and
+    // also expand tightly clustered candles so a 2-pip stop does not look huge.
+    const desiredSpan = Math.max(
+      combinedSpan,
+      positionSpan * POSITION_VERTICAL_CONTEXT_MULTIPLIER,
+      baseSpan * CANDLE_VERTICAL_CONTEXT_MULTIPLIER,
+    );
+    const extra = Math.max(0, desiredSpan - combinedSpan) / 2;
 
     return {
       ...original,
       priceRange: {
-        minValue: minValue - padding,
-        maxValue: maxValue + padding,
+        minValue: minValue - extra,
+        maxValue: maxValue + extra,
       },
     };
   }
