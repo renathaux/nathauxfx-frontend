@@ -318,3 +318,13 @@ test('double click cancels pending single-click edit before locking', () => {
   assert.match(liveChart, /if \(state\.clickTimer\)[\s\S]*window\.clearTimeout\(state\.clickTimer\)/);
   assert.match(liveChart, /interactionHost\.addEventListener\('dblclick'/);
 });
+
+
+test('position autoscale keeps TradingView-style vertical context', () => {
+  assert.match(liveChart, /POSITION_VERTICAL_CONTEXT_MULTIPLIER = 4/);
+  assert.match(liveChart, /CANDLE_VERTICAL_CONTEXT_MULTIPLIER = 1\.8/);
+  assert.match(liveChart, /positionSpan \* POSITION_VERTICAL_CONTEXT_MULTIPLIER/);
+  assert.match(liveChart, /baseSpan \* CANDLE_VERTICAL_CONTEXT_MULTIPLIER/);
+  assert.match(liveChart, /desiredSpan/);
+  assert.match(liveChart, /roughly <= 25% of the usable price range/);
+});
