@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f2f6fb">
   <title>NathauxFX — Manual Replay</title>
-  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=34">
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=35">
 </head>
 <body>
   <header class="topbar">
@@ -146,6 +146,11 @@
           <button id="sellBtn" class="button sell" type="button" disabled>Open Sell</button>
         </div>
 
+        <section id="openTradesCard" class="open-trades-card hidden" aria-label="Open trades">
+          <div class="position-head"><strong>Open Trades (<span id="openTradesCount">0</span>)</strong></div>
+          <p>Select a trade to edit its SL/TP. Buy or Sell adds a new trade.</p>
+          <div id="openTradesList"></div>
+        </section>
         <div id="positionCard" class="position-card hidden">
           <div class="position-head"><span>OPEN POSITION</span><strong id="positionSide">—</strong></div>
           <div class="position-row"><span>Entry</span><strong id="positionEntry">—</strong></div>
@@ -185,9 +190,9 @@
   ></script>
   <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
-  <script src="/manual-replay/manual-replay-position.js?v=4"></script>
-  <script src="/manual-replay/manual-replay-live-chart.js?v=25"></script>
-  <script src="/manual-replay/manual-replay.js?v=28"></script>
+  <script src="/manual-replay/manual-replay-position.js?v=5"></script>
+  <script src="/manual-replay/manual-replay-live-chart.js?v=26"></script>
+  <script src="/manual-replay/manual-replay.js?v=29"></script>
   <script src="/manual-replay/manual-replay-calendar.js?v=1"></script>
   <script src="/manual-replay/manual-replay-layout-editor.js?v=10"></script>
 </body>

@@ -10,6 +10,7 @@
     lastCandles: [],
     draft: null,
     openTrade: null,
+    openTrades: [],
     metrics: null,
     callbacks: {},
     priceLines: new Map(),
@@ -453,19 +454,7 @@
   }
 
   function liveTradeSnapshot() {
-    const trade = state.openTrade;
-    const market = currentReplayPrice();
-    if (!trade || !Number.isFinite(market)) return null;
-    const riskDistance = Number(trade.initialRiskDistance) > 0
-      ? Number(trade.initialRiskDistance)
-      : Math.abs(Number(trade.entry) - Number(trade.initialSl ?? trade.sl));
-    if (!Number.isFinite(riskDistance) || riskDistance <= 0) return null;
-    const sign = trade.side === 'SELL' ? -1 : 1;
-    const move = sign * (market - Number(trade.entry));
-    const r = move / riskDistance;
-    const pnl = r * Number(trade.riskDollars || 0);
-    const pips = move / pipSizeForSymbol();
-    return { market, r, pnl, pips };
+    return window.ManualReplayPosition.openTradeSnapshot(state.openTrades, currentReplayPrice(), pipSizeForSymbol());
   }
 
   function ensureTradeHologram() {
@@ -504,13 +493,14 @@
     node.classList.remove('hidden', 'positive', 'negative', 'flat');
     node.classList.add(snapshot.pnl > 0.005 ? 'positive' : snapshot.pnl < -0.005 ? 'negative' : 'flat');
     node.querySelector('strong').textContent = signedMoney(snapshot.pnl);
-    node.querySelector('.pips').textContent = signedNumber(snapshot.pips, 1, ' pips');
-    node.querySelector('.r').textContent = signedNumber(snapshot.r, 2, 'R');
+    node.querySelector('.pips').textContent = snapshot.count > 1 ? `${snapshot.count} open trades` : signedNumber(snapshot.pips, 1, ' pips');
+    node.querySelector('.r').textContent = signedNumber(snapshot.r, 2, 'R') + (snapshot.count > 1 ? ' combined' : '');
 
     const y = priceToY(snapshot.market);
     const width = state.container.clientWidth || 800;
     const height = state.container.clientHeight || 460;
-    const left = Math.max(16, Math.min(width - 190, priceAxisStartX() - 185));
+    const hologramWidth = node.offsetWidth;
+    const left = Math.max(8, Math.min(width - hologramWidth - 8, priceAxisStartX() - hologramWidth - 8));
     const top = Number.isFinite(y)
       ? Math.max(18, Math.min(height - 74, y - 32))
       : 18;
@@ -1414,6 +1404,9 @@
     state.container = null;
     state.layer = null;
     state.lastCandles = [];
+    state.draft = null;
+    state.openTrade = null;
+    state.openTrades = [];
     state.metrics = null;
     state.priceLines.clear();
     state.drag = null;
@@ -1502,7 +1495,7 @@
     requestAnimationFrame(positionDragLayer);
   }
 
-  function setPosition({ draft = null, openTrade = null, metrics = null } = {}) {
+  function setPosition({ draft = null, openTrade = null, openTrades = openTrade ? [openTrade] : [], metrics = null } = {}) {
     const nextPosition = openTrade || draft || null;
     const nextKey = positionIdentity(nextPosition);
     if (nextKey !== state.positionKey) {
@@ -1511,6 +1504,7 @@
     }
     state.draft = draft;
     state.openTrade = openTrade;
+    state.openTrades = openTrades;
     state.metrics = metrics;
     // Do not reset the price scale when SL/TP changes. TradingView drawing
     // tools move independently from the candle scale and preserve manual zoom.
@@ -1520,6 +1514,7 @@
   function clearPosition() {
     state.draft = null;
     state.openTrade = null;
+    state.openTrades = [];
     state.metrics = null;
     state.positionHitbox = null;
     state.positionLocked = false;

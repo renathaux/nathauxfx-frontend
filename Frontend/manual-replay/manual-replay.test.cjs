@@ -198,7 +198,7 @@ test('manual replay uses a real risk reward position box instead of full-width p
   assert.doesNotMatch(liveChart, /createPriceLine\('entry',[\s\S]*createPriceLine\('sl',[\s\S]*createPriceLine\('tp'/);
   assert.match(css, /manual-replay-position-zone\.profit/);
   assert.match(css, /manual-replay-position-zone\.risk/);
-  assert.match(app, /metrics: state\.openTrade \? overlayMetrics\(state\.openTrade\) : positionMetrics\(\)/);
+  assert.match(app, /metrics: selectedOpenTrade\(\) \? overlayMetrics\(selectedOpenTrade\(\)\) : positionMetrics\(\)/);
 });
 
 
@@ -224,7 +224,7 @@ test('active manual positions stay editable and labels are hover-only', () => {
   assert.match(app, /function editablePosition/);
   assert.match(app, /validateActivePositionLevel/);
   assert.match(app, /PROTECTED_SL/);
-  assert.match(app, /initialRiskDistance/);
+  assert.match(app, /Position.tradeR/);
   assert.match(app, /\$\('slPrice'\)\.disabled = !editor/);
   assert.match(app, /\$\('tpPrice'\)\.disabled = !editor/);
   assert.match(liveChart, /hoverPoint/);
@@ -474,8 +474,8 @@ test('active manual trade shows a live hologram with money pips and R', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(liveChart, /function liveTradeSnapshot/);
   assert.match(liveChart, /initialRiskDistance/);
-  assert.match(liveChart, /const pnl = r \* Number\(trade\.riskDollars/);
-  assert.match(liveChart, /const pips = move \/ pipSizeForSymbol\(\)/);
+  assert.match(liveChart, /ManualReplayPosition.openTradeSnapshot/);
+  assert.match(liveChart, /state.openTrades, currentReplayPrice\(\), pipSizeForSymbol\(\)/);
   assert.match(liveChart, /manual-replay-trade-hologram/);
   assert.match(liveChart, /signedMoney\(snapshot\.pnl\)/);
   assert.match(liveChart, /signedNumber\(snapshot\.pips, 1, ' pips'\)/);

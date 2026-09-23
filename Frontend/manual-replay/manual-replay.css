@@ -320,3 +320,12 @@ body.manual-replay-fullscreen-fallback .chart-wrap { position: fixed; inset: 0; 
 .calendar-time { margin-top: 16px; }
 .calendar-time input { min-height: 40px; }
 .calendar-actions { justify-content: flex-end; margin-top: 16px; }
+
+.open-trades-card { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+.open-trades-card > p { color: var(--muted); font-size: 11px; margin: 5px 0 9px; }
+#openTradesList { max-height: 240px; overflow-y: auto; }
+.open-trade-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.open-trade-row button { padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; text-align: left; }
+.open-trade-row button[aria-pressed="true"] { border-color: #2f6bff; background: var(--surface-soft); }
+.open-trade-row small { display: block; margin-top: 3px; font-size: 10px; }
+.open-trade-row strong { font-size: 12px; font-variant-numeric: tabular-nums; }

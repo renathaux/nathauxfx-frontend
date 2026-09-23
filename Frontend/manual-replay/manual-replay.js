@@ -22,7 +22,9 @@
     index: 0,
     initialIndex: 0,
     timer: null,
-    openTrade: null,
+    openTrades: [],
+    selectedTradeId: null,
+    nextTradeId: 1,
     positionDraft: null,
     trades: [],
     startingBalance: 10000,
@@ -304,12 +306,24 @@
     return Math.abs(Number(entry)) >= 100 ? 0.01 : 0.00001;
   }
 
+  function selectedOpenTrade() {
+    if (state.positionDraft) return null;
+    return state.openTrades.find(trade => trade.tradeId === state.selectedTradeId) || state.openTrades[0] || null;
+  }
+
   function editablePosition() {
-    return state.openTrade || state.positionDraft || null;
+    return state.positionDraft || selectedOpenTrade();
   }
 
   function syncDraftInputs() {
     const position = editablePosition();
+    const trade = selectedOpenTrade();
+    if (trade) {
+      $('positionSizingMode').value = trade.sizingMode;
+      $('lotSize').value = Number(trade.lotSize).toFixed(2);
+      $('riskMethod').value = trade.riskMethod;
+      $('riskValue').value = trade.riskValue;
+    }
     $('slPrice').value = position && position.sl != null && Number.isFinite(Number(position.sl)) ? price(position.sl) : '';
     $('tpPrice').value = position && position.tp != null && Number.isFinite(Number(position.tp)) ? price(position.tp) : '';
   }
@@ -366,7 +380,6 @@
 
   function createPositionDraft(side) {
     if (!state.candles.length) return notice('Load a replay first.', 'error');
-    if (state.openTrade) return notice('Close the active virtual position before creating another.', 'error');
     const scale = Position.visibleCandleScale(visibleRows());
     const entry = Number(currentCandle().close);
     state.positionDraft = {
@@ -389,7 +402,6 @@
   }
 
   function cancelPositionDraft() {
-    if (state.openTrade) return notice('Use Close at Current Price for an active position.', 'error');
     if (!state.positionDraft) return;
     state.positionDraft = null;
     syncDraftInputs();
@@ -400,8 +412,8 @@
   function updateDraftLevel(field, rawValue) {
     if (!['sl', 'tp'].includes(field)) return;
 
-    if (state.openTrade) {
-      const trade = state.openTrade;
+    const trade = selectedOpenTrade();
+    if (trade) {
       const current = Number(currentCandle()?.close);
       const gap = minimumPriceDistance(trade.entry);
       const value = Position.validateActivePositionLevel(
@@ -412,10 +424,7 @@
         gap,
       );
       if (value == null) return;
-      state.openTrade = {
-        ...trade,
-        [field]: value,
-      };
+      state.openTrades = state.openTrades.map(item => item.tradeId === trade.tradeId ? { ...trade, [field]: value } : item);
       return;
     }
 
@@ -492,12 +501,7 @@
   }
 
   function tradeR(trade, exitPrice) {
-    const distance = Number(trade.initialRiskDistance) > 0
-      ? Number(trade.initialRiskDistance)
-      : Math.abs(Number(trade.entry) - Number(trade.initialSl ?? trade.sl));
-    if (!distance) return 0;
-    const sign = trade.side === 'BUY' ? 1 : -1;
-    return sign * (Number(exitPrice) - trade.entry) / distance;
+    return Position.tradeR(trade, exitPrice);
   }
 
   function stopTimer() {
@@ -516,13 +520,10 @@
     }, Math.max(80, 1000 / speed));
   }
 
-  function closeTrade(outcome, exitPrice, r, resolved = true) {
-    const trade = state.openTrade;
-    if (!trade) return;
+  function closeTrade(trade, outcome, exitPrice, r, resolved = true) {
+    if (!trade || !state.openTrades.some(item => item.tradeId === trade.tradeId)) return;
     const pnl = resolved && Number.isFinite(Number(r)) ? Number(r) * trade.riskDollars : 0;
     if (resolved) state.balance += pnl;
-    state.peak = Math.max(state.peak, state.balance);
-    state.maxDrawdown = Math.max(state.maxDrawdown, state.peak - state.balance);
     state.trades.push({
       ...trade,
       exitIndex: state.index,
@@ -533,35 +534,40 @@
       pnl,
       resolved,
     });
-    state.openTrade = null;
+    state.openTrades = state.openTrades.filter(item => item.tradeId !== trade.tradeId);
+    if (state.selectedTradeId === trade.tradeId) state.selectedTradeId = state.openTrades[0]?.tradeId || null;
     syncDraftInputs();
-    renderAll();
   }
 
-  function resolveOpenTrade(candle) {
-    const trade = state.openTrade;
+  function recordBalance() {
+    state.peak = Math.max(state.peak, state.balance);
+    state.maxDrawdown = Math.max(state.maxDrawdown, state.peak - state.balance);
+  }
+
+  function resolveOpenTrade(trade, candle) {
     if (!trade || state.index <= trade.entryIndex) return;
     const slHit = trade.side === 'BUY' ? Number(candle.low) <= trade.sl : Number(candle.high) >= trade.sl;
     const tpHit = trade.tp == null ? false : (trade.side === 'BUY' ? Number(candle.high) >= trade.tp : Number(candle.low) <= trade.tp);
     if (slHit && tpHit) {
-      closeTrade('AMBIGUOUS', trade.entry, null, false);
+      closeTrade(trade, 'AMBIGUOUS', trade.entry, null, false);
       return;
     }
     if (slHit) {
       const securedR = tradeR(trade, trade.sl);
       const outcome = securedR > 0 ? 'PROTECTED_SL' : Math.abs(securedR) < 0.0001 ? 'BREAKEVEN' : 'SL';
-      closeTrade(outcome, trade.sl, securedR, true);
+      closeTrade(trade, outcome, trade.sl, securedR, true);
       return;
     }
     if (tpHit) {
-      closeTrade('TP', trade.tp, tradeR(trade, trade.tp), true);
+      closeTrade(trade, 'TP', trade.tp, tradeR(trade, trade.tp), true);
     }
   }
 
   function advanceOne() {
     if (!state.candles.length || state.index >= state.candles.length - 1) return false;
     state.index += 1;
-    resolveOpenTrade(currentCandle());
+    for (const trade of [...state.openTrades]) resolveOpenTrade(trade, currentCandle());
+    recordBalance();
     renderAll();
     return state.index < state.candles.length - 1;
   }
@@ -571,7 +577,7 @@
       !state.candles.length ||
       state.index <= state.initialIndex ||
       state.trades.length > 0 ||
-      state.openTrade
+      state.openTrades.length
     ) return false;
     state.index -= 1;
     renderAll();
@@ -580,7 +586,6 @@
 
   function openManualTrade(side) {
     if (!state.candles.length) return notice('Load a replay first.', 'error');
-    if (state.openTrade) return notice('Close the current virtual position first.', 'error');
     if (!state.positionDraft) return notice('Create a Long or Short Position draft first.', 'error');
     if (state.positionDraft.side !== side) return notice(`This draft can only open ${state.positionDraft.side}.`, 'error');
 
@@ -614,8 +619,10 @@
       }
     }
 
+    let trade;
     try {
-      state.openTrade = Position.createVirtualTrade({
+      trade = Position.createVirtualTrade({
+        tradeId: `manual_${state.nextTradeId++}`,
         draft: executionDraft,
         requestedSide: side,
         currentClose: candle.close,
@@ -630,20 +637,27 @@
     } catch (error) {
       return notice(error.message, 'error');
     }
+    trade.riskMethod = $('riskMethod').value;
+    trade.riskValue = $('riskValue').value;
+    state.openTrades.push(trade);
+    state.selectedTradeId = trade.tradeId;
     state.positionDraft = null;
     syncDraftInputs();
     notice(
-      `${side} opened virtually at ${price(state.openTrade.entry)} • ` +
+      `${side} opened virtually at ${price(trade.entry)} • ` +
       `${Number(metrics.lotSize).toFixed(2)} lot • ${money(metrics.riskDollars)} initial risk.`,
       'success'
     );
     renderAll();
   }
 
-  function closeManually() {
-    if (!state.openTrade) return;
+  function closeManually(tradeId = selectedOpenTrade()?.tradeId) {
+    const trade = state.openTrades.find(item => item.tradeId === tradeId);
+    if (!trade) return;
     const exit = Number(currentCandle().close);
-    closeTrade('MANUAL', exit, tradeR(state.openTrade, exit), true);
+    closeTrade(trade, 'MANUAL', exit, tradeR(trade, exit), true);
+    recordBalance();
+    renderAll();
   }
 
   function metrics() {
@@ -666,8 +680,7 @@
     const m = metrics();
     $('metricBalance').textContent = money(state.balance);
     $('metricPnl').textContent = money(m.pnl);
-    const openPnl = state.openTrade && currentCandle()
-      ? tradeR(state.openTrade, currentCandle().close) * state.openTrade.riskDollars : 0;
+    const openPnl = Position.openTradeSnapshot(state.openTrades, Number(currentCandle()?.close), Position.symbolTradingSpec($('symbol').value).pipSize)?.pnl || 0;
     if ($('metricOpenPnl')) $('metricOpenPnl').textContent = money(openPnl);
     if ($('metricEquity')) $('metricEquity').textContent = money(state.balance + openPnl);
     $('metricWinRate').textContent = m.winRate == null ? '—' : `${m.winRate.toFixed(1)}%`;
@@ -685,7 +698,7 @@
   }
 
   function renderPosition() {
-    const trade = state.openTrade;
+    const trade = selectedOpenTrade();
     $('positionCard').classList.toggle('hidden', !trade);
     const draft = state.positionDraft;
     const editor = trade || draft;
@@ -725,8 +738,8 @@
     const ready = Boolean(draft && draftMetrics && draftMetrics.valid && !trade);
     $('buyBtn').disabled = !ready || draft?.side !== 'BUY';
     $('sellBtn').disabled = !ready || draft?.side !== 'SELL';
-    $('longPositionBtn').disabled = !state.candles.length || Boolean(trade);
-    $('shortPositionBtn').disabled = !state.candles.length || Boolean(trade);
+    $('longPositionBtn').disabled = !state.candles.length;
+    $('shortPositionBtn').disabled = !state.candles.length;
     $('longPositionBtn').setAttribute('aria-pressed', String(Boolean(draft && draft.side === 'BUY')));
     $('shortPositionBtn').setAttribute('aria-pressed', String(Boolean(draft && draft.side === 'SELL')));
     $('longPositionBtn').classList.toggle('is-active', Boolean(draft && draft.side === 'BUY'));
@@ -742,14 +755,43 @@
     $('tpPrice').disabled = !editor;
     updateSizingControls();
 
+    renderOpenTrades();
     if (!trade) return;
     const current = Number(currentCandle().close);
-    $('positionSide').textContent = trade.side;
+    $('positionSide').textContent = `#${trade.tradeId.replace('manual_', '')} ${trade.side}`;
     $('positionEntry').textContent = price(trade.entry);
     $('positionSl').textContent = price(trade.sl);
     $('positionTp').textContent = trade.tp == null ? '—' : price(trade.tp);
     $('positionRisk').textContent = money(trade.riskDollars);
     $('positionR').textContent = `${tradeR(trade, current).toFixed(2)}R`;
+  }
+
+  function renderOpenTrades() {
+    $('openTradesCard').classList.toggle('hidden', !state.openTrades.length);
+    $('openTradesCount').textContent = String(state.openTrades.length);
+    const market = Number(currentCandle()?.close);
+    const selected = selectedOpenTrade()?.tradeId;
+    const list = $('openTradesList');
+    const ids = state.openTrades.map(trade => trade.tradeId).join('|');
+    if (list.dataset.trades !== ids) {
+      list.dataset.trades = ids;
+      list.innerHTML = state.openTrades.map(trade => {
+        const number = trade.tradeId.replace('manual_', '');
+        return `<div class="open-trade-row">
+          <button type="button" data-select-trade="${trade.tradeId}"><span>#${number} ${trade.side}</span><small>${Number(trade.lotSize).toFixed(2)} lot · ${price(trade.entry)}</small></button>
+          <strong></strong>
+          <button type="button" data-close-trade="${trade.tradeId}" aria-label="Close trade ${number}">Close</button>
+        </div>`;
+      }).join('');
+    }
+    state.openTrades.forEach((trade, index) => {
+      const pnl = tradeR(trade, market) * trade.riskDollars;
+      const row = list.children[index];
+      row.querySelector('[data-select-trade]').setAttribute('aria-pressed', String(selected === trade.tradeId));
+      const amount = row.querySelector('strong');
+      amount.textContent = money(pnl);
+      amount.className = pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : '';
+    });
   }
 
   function renderLog() {
@@ -858,7 +900,7 @@
         target.value = price(value);
         target.dispatchEvent(new Event('input', { bubbles: true }));
         const label = region === 'tp' ? 'Take Profit' : 'Stop Loss';
-        notice(`${label} ${state.openTrade ? 'modified' : 'set'} to ${price(value)} from the ${region === 'tp' ? 'green target' : 'red risk'} zone.`, 'success');
+        notice(`${label} ${selectedOpenTrade() ? 'modified' : 'set'} to ${price(value)} from the ${region === 'tp' ? 'green target' : 'red risk'} zone.`, 'success');
       },
       onDrawingModeChange(mode) {
         syncDrawingToolButtons(mode);
@@ -881,8 +923,9 @@
         syncDraftInputs();
         LiveChart.setPosition({
           draft: state.positionDraft,
-          openTrade: state.openTrade,
-          metrics: state.openTrade ? overlayMetrics(state.openTrade) : positionMetrics(),
+          openTrade: selectedOpenTrade(),
+          openTrades: state.openTrades,
+          metrics: selectedOpenTrade() ? overlayMetrics(selectedOpenTrade()) : positionMetrics(),
         });
         renderPosition();
       },
@@ -908,8 +951,9 @@
     state.chartNeedsFit = false;
     LiveChart.setPosition({
       draft: state.positionDraft,
-      openTrade: state.openTrade,
-      metrics: state.openTrade ? overlayMetrics(state.openTrade) : positionMetrics(),
+      openTrade: selectedOpenTrade(),
+      openTrades: state.openTrades,
+      metrics: selectedOpenTrade() ? overlayMetrics(selectedOpenTrade()) : positionMetrics(),
     });
   }
 
@@ -930,7 +974,7 @@
     const replayTotal = Math.max(0, state.candles.length - state.initialIndex);
     const replayCurrent = Math.max(0, state.index - state.initialIndex + 1);
     $('progress').textContent = `${replayCurrent} / ${replayTotal}`;
-    $('prevBtn').disabled = state.index <= state.initialIndex || state.trades.length > 0 || Boolean(state.openTrade);
+    $('prevBtn').disabled = state.index <= state.initialIndex || state.trades.length > 0 || Boolean(state.openTrades.length);
     $('nextBtn').disabled = state.index >= state.candles.length - 1;
   }
 
@@ -990,7 +1034,9 @@
       state.candles = result.candles;
       state.initialIndex = replayStartIndex;
       state.index = replayStartIndex;
-      state.openTrade = null;
+      state.openTrades = [];
+      state.selectedTradeId = null;
+      state.nextTradeId = 1;
       state.positionDraft = null;
       state.trades = [];
       state.startingBalance = starting;
@@ -1032,7 +1078,9 @@
     const starting = Number($('startingBalance').value);
     if (!Number.isFinite(starting) || starting <= 0) return notice('Starting balance must be positive.', 'error');
     state.index = state.initialIndex;
-    state.openTrade = null;
+    state.openTrades = [];
+    state.selectedTradeId = null;
+    state.nextTradeId = 1;
     state.positionDraft = null;
     state.trades = [];
     state.startingBalance = starting;
@@ -1071,7 +1119,7 @@
 
   function beginHandleDrag(event) {
     const handle = event.target.closest?.('[data-position-handle]');
-    if (!handle || !state.positionDraft || state.openTrade) return false;
+    if (!handle || !state.positionDraft) return false;
     const field = handle.getAttribute('data-position-handle');
     if (!['sl', 'tp'].includes(field)) return false;
     state.draggingHandle = field;
@@ -1342,6 +1390,16 @@
   $('startYear')?.addEventListener('change', () => applyYearJump('startDate', 'startYear'));
   $('endYear')?.addEventListener('change', () => applyYearJump('endDate', 'endYear'));
 
+  $('openTradesList').addEventListener('click', event => {
+    const close = event.target.closest('[data-close-trade]');
+    if (close) return closeManually(close.dataset.closeTrade);
+    const select = event.target.closest('[data-select-trade]');
+    if (!select) return;
+    state.selectedTradeId = select.dataset.selectTrade;
+    state.positionDraft = null;
+    syncDraftInputs();
+    renderAll();
+  });
   $('loadBtn').addEventListener('click', loadReplay);
   $('symbol').addEventListener('change', () => { void loadReplay(); });
   $('timeframe').addEventListener('change', () => { void loadReplay(); });
@@ -1396,7 +1454,7 @@
 
   $('buyBtn').addEventListener('click', () => openManualTrade('BUY'));
   $('sellBtn').addEventListener('click', () => openManualTrade('SELL'));
-  $('closeBtn').addEventListener('click', closeManually);
+  $('closeBtn').addEventListener('click', () => closeManually());
   $('resetBtn').addEventListener('click', resetSession);
 
   document.addEventListener('keydown', handleReplayKeyboard, true);

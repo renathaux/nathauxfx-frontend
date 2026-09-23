@@ -258,3 +258,31 @@ test('manual lot trade stores lot and pip snapshot for the trade log', () => {
   assert.equal(trade.rewardPips, 100);
   assert.equal(trade.sizingMode, 'MANUAL_LOT');
 });
+
+test('open portfolio combines unequal-size long and short P&L using initial risk', () => {
+  const trades = [
+    { side: 'BUY', entry: 1.1, sl: 1.101, initialRiskDistance: .002, riskDollars: 100 },
+    { side: 'SELL', entry: 1.102, sl: 1.104, initialRiskDistance: .002, riskDollars: 200 },
+  ];
+  const total = Position.openTradeSnapshot(trades, 1.104, .0001);
+  assert.equal(total.count, 2);
+  assert.ok(Math.abs(total.pnl) < 1e-8, 'long +200 offsets short -200');
+  assert.ok(Math.abs(total.r) < 1e-8);
+  assert.ok(Math.abs(Position.tradeR(trades[0], 1.104) - 2) < 1e-8, 'moving SL never changes initial risk');
+  const remaining = Position.openTradeSnapshot([trades[1]], 1.104, .0001);
+  assert.ok(Math.abs(remaining.pnl + 200) < 1e-8);
+  assert.ok(Math.abs(remaining.pips + 20) < 1e-8);
+  assert.equal(Position.openTradeSnapshot([], 1.104, .0001), null);
+});
+
+test('combined R is weighted by risk and gold uses its own pip size', () => {
+  const trades = [
+    {side:'BUY',entry:2000,initialRiskDistance:10,riskDollars:100},
+    {side:'BUY',entry:2005,initialRiskDistance:10,riskDollars:300},
+  ];
+  const total = Position.openTradeSnapshot(trades, 2010, .01);
+  assert.equal(total.pnl, 250);
+  assert.equal(total.r, .625);
+  assert.equal(total.count, 2);
+  assert.equal(Position.openTradeSnapshot([trades[0]], 2010, .01).pips, 1000);
+});

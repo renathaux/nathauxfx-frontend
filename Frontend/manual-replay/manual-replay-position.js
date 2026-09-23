@@ -236,6 +236,26 @@
     };
   }
 
+  function tradeR(trade, exitPrice) {
+    const distance = Number(trade.initialRiskDistance) > 0
+      ? Number(trade.initialRiskDistance)
+      : Math.abs(Number(trade.entry) - Number(trade.initialSl ?? trade.sl));
+    if (!distance) return 0;
+    const sign = trade.side === 'BUY' ? 1 : -1;
+    return sign * (Number(exitPrice) - Number(trade.entry)) / distance;
+  }
+
+  function openTradeSnapshot(trades, market, pipSize) {
+    if (!trades.length || !Number.isFinite(market)) return null;
+    const pnl = trades.reduce((sum, trade) => sum + tradeR(trade, market) * Number(trade.riskDollars), 0);
+    const risk = trades.reduce((sum, trade) => sum + Number(trade.riskDollars), 0);
+    const trade = trades[0];
+    return {
+      market, pnl, count: trades.length, r: risk > 0 ? pnl / risk : 0,
+      pips: trades.length === 1 ? (trade.side === 'BUY' ? 1 : -1) * (market - Number(trade.entry)) / pipSize : null,
+    };
+  }
+
   function priceToChartY(value, scale, top, plotH) {
     const clamped = clampPriceToScale(value, scale);
     if (clamped == null) return null;
@@ -282,6 +302,8 @@
   }
 
   return {
+    tradeR,
+    openTradeSnapshot,
     parseOptionalPrice,
     createPositionDraft,
     validatePositionLevel,
