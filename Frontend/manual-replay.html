@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101f">
   <title>NathauxFX — Manual Replay</title>
-  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=21">
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=22">
   <style>
     .nav-actions .button.is-active {
       border-color: #f5bd48;
@@ -58,14 +58,12 @@
             <span id="progress" class="muted">0 / 0</span>
           </div>
         </div>
-        <div class="position-tools" role="toolbar" aria-label="Position and chart drawing tools">
+        <div class="position-tools" role="toolbar" aria-label="Position tools">
           <button id="longPositionBtn" class="button position-tool long" type="button" aria-pressed="false">↗ Long Position</button>
           <button id="shortPositionBtn" class="button position-tool short" type="button" aria-pressed="false">↘ Short Position</button>
           <button id="cancelPositionBtn" class="button ghost position-tool" type="button" disabled>✕ Cancel Draft</button>
-          <button id="drawLineBtn" class="button ghost position-tool drawing-tool" type="button" aria-pressed="false" title="Draw a line on the chart">╱ Line</button>
-          <button id="drawRectBtn" class="button ghost position-tool drawing-tool" type="button" aria-pressed="false" title="Draw a support / resistance rectangle">▭ S/R Zone</button>
         </div>
-        <div id="manualReplayChartFrame" class="chart-wrap">
+        <div class="chart-wrap">
           <div id="chartDrawingBar" class="chart-drawing-bar" data-replay-chart-toolbar role="toolbar" aria-label="Chart drawing tools">
             <span class="chart-drawing-label">DRAW</span>
             <button id="chartLineBtn" class="chart-drawing-button drawing-tool" type="button" aria-pressed="false" title="Draw a line">╱ Line</button>
@@ -154,7 +152,7 @@
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
   <script src="/manual-replay/manual-replay-position.js?v=4"></script>
   <script src="/manual-replay/manual-replay-live-chart.js?v=17"></script>
-  <script src="/manual-replay/manual-replay.js?v=20"></script>
+  <script src="/manual-replay/manual-replay.js?v=21"></script>
   <script src="/manual-replay/manual-replay-saved-layout.js?v=8"></script>
   <script src="/manual-replay/manual-replay-layout-editor.js?v=9"></script>
 </body>

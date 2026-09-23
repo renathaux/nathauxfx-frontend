@@ -157,9 +157,9 @@
    the order ticket, replay toolbar, setup controls, metrics, and log stay out.
    The trade overlay remains inside the frame, which keeps the live P/L hologram
    and the user's chart drawings visible. */
-#manualReplayChartFrame:fullscreen,
-#manualReplayChartFrame:-webkit-full-screen,
-body.manual-replay-fullscreen-fallback #manualReplayChartFrame{
+.chart-wrap:fullscreen,
+.chart-wrap:-webkit-full-screen,
+body.manual-replay-fullscreen-fallback .chart-wrap{
   width:100vw!important;
   height:100vh!important;
   max-width:none!important;
@@ -172,22 +172,22 @@ body.manual-replay-fullscreen-fallback #manualReplayChartFrame{
   overflow:hidden!important;
   transform:none!important;
 }
-#manualReplayChartFrame:fullscreen .manual-replay-live-chart,
-#manualReplayChartFrame:-webkit-full-screen .manual-replay-live-chart,
-body.manual-replay-fullscreen-fallback #manualReplayChartFrame .manual-replay-live-chart{
+.chart-wrap:fullscreen .manual-replay-live-chart,
+.chart-wrap:-webkit-full-screen .manual-replay-live-chart,
+body.manual-replay-fullscreen-fallback .chart-wrap .manual-replay-live-chart{
   width:100%!important;
   height:100%!important;
   min-height:0!important;
 }
-#manualReplayChartFrame:fullscreen .manual-replay-trade-layer,
-#manualReplayChartFrame:-webkit-full-screen .manual-replay-trade-layer,
-body.manual-replay-fullscreen-fallback #manualReplayChartFrame .manual-replay-trade-layer{
+.chart-wrap:fullscreen .manual-replay-trade-layer,
+.chart-wrap:-webkit-full-screen .manual-replay-trade-layer,
+body.manual-replay-fullscreen-fallback .chart-wrap .manual-replay-trade-layer{
   inset:0!important;
 }
 body.manual-replay-fullscreen-fallback{
   overflow:hidden!important;
 }
-body.manual-replay-fullscreen-fallback #manualReplayChartFrame{
+body.manual-replay-fullscreen-fallback .chart-wrap{
   position:fixed!important;
   inset:0!important;
   z-index:2147483600!important;
@@ -240,9 +240,9 @@ body.manual-replay-fullscreen-fallback #manualReplayChartFrame{
   color:#ffe09a!important;
   box-shadow:0 0 0 2px rgba(245,189,72,.14)!important;
 }
-#manualReplayChartFrame:fullscreen .chart-drawing-bar,
-#manualReplayChartFrame:-webkit-full-screen .chart-drawing-bar,
-body.manual-replay-fullscreen-fallback #manualReplayChartFrame .chart-drawing-bar{
+.chart-wrap:fullscreen .chart-drawing-bar,
+.chart-wrap:-webkit-full-screen .chart-drawing-bar,
+body.manual-replay-fullscreen-fallback .chart-wrap .chart-drawing-bar{
   top:14px;
   left:14px;
 }

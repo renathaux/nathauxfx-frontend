@@ -1037,7 +1037,7 @@
   }
 
   function fullscreenChartFrame() {
-    return $('manualReplayChartFrame');
+    return document.querySelector('.chart-wrap');
   }
 
   async function toggleFullscreenWorkspace() {
@@ -1212,8 +1212,8 @@
   $('longPositionBtn').addEventListener('click', () => createPositionDraft('BUY'));
   $('shortPositionBtn').addEventListener('click', () => createPositionDraft('SELL'));
   $('cancelPositionBtn').addEventListener('click', cancelPositionDraft);
-  $('drawLineBtn').addEventListener('click', () => toggleDrawingMode('line'));
-  $('drawRectBtn').addEventListener('click', () => toggleDrawingMode('rect'));
+  $('drawLineBtn')?.addEventListener('click', () => toggleDrawingMode('line'));
+  $('drawRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
   $('chartLineBtn')?.addEventListener('click', () => toggleDrawingMode('line'));
   $('chartRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
 

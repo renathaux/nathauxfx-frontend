@@ -204,17 +204,28 @@ test('modern sizing ticket is protected from the legacy saved layout', () => {
 });
 
 
+
+test('chart frame keeps the legacy chartWrap layout key so it does not fall down', () => {
+  const savedLayout = fs.readFileSync(path.join(__dirname, 'manual-replay-saved-layout.js'), 'utf8');
+  assert.match(html, /<div class="chart-wrap">/);
+  assert.doesNotMatch(html, /id="manualReplayChartFrame"/);
+  assert.match(savedLayout, /"chartWrap\[0\]"/);
+  assert.match(savedLayout, /\['chartWrap', '\.chart-wrap'\]/);
+});
+
 test('manual replay fullscreen is chart-only and preserves the trade hologram layer', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   const savedLayout = fs.readFileSync(path.join(__dirname, 'manual-replay-saved-layout.js'), 'utf8');
-  assert.match(html, /id="manualReplayChartFrame"/);
+  assert.match(html, /class="chart-wrap"/);
+  assert.doesNotMatch(html, /id="manualReplayChartFrame"/);
   assert.match(html, /id="fullscreenBtn"/);
   assert.match(html, /⛶ Full Screen/);
   assert.match(app, /function fullscreenChartFrame/);
+  assert.match(app, /document\.querySelector\('\.chart-wrap'\)/);
   assert.match(app, /frame\.requestFullscreen/);
   assert.match(app, /document\.exitFullscreen/);
   assert.match(app, /function syncFullscreenUi/);
-  assert.match(css, /#manualReplayChartFrame:fullscreen/);
+  assert.match(css, /\.chart-wrap:fullscreen/);
   assert.match(css, /#manualReplayChartFrame:fullscreen \.manual-replay-trade-layer/);
   assert.doesNotMatch(css, /#replayWorkspace:fullscreen/);
   assert.match(savedLayout, /fullscreenActive/);
@@ -449,9 +460,10 @@ test('chart frame has an always-visible line and support resistance drawing bar'
 
 test('manual replay has line and support resistance rectangle drawing tools', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
-  assert.match(html, /id="drawLineBtn"/);
-  assert.match(html, /id="drawRectBtn"/);
-  assert.match(html, /S\/R Zone/);
+  assert.doesNotMatch(html, /id="drawLineBtn"/);
+  assert.doesNotMatch(html, /id="drawRectBtn"/);
+  assert.match(html, /id="chartLineBtn"/);
+  assert.match(html, /id="chartRectBtn"/);
   assert.match(app, /toggleDrawingMode\('line'\)/);
   assert.match(app, /toggleDrawingMode\('rect'\)/);
   assert.match(liveChart, /function setDrawingMode/);
