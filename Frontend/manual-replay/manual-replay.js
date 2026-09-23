@@ -675,6 +675,13 @@
     $('metricAvgR').textContent = m.avgR == null ? '—' : `${m.avgR.toFixed(2)}R`;
     $('metricPf').textContent = m.pf == null ? '—' : m.pf.toFixed(2);
     $('metricDd').textContent = money(state.maxDrawdown);
+    for (const [id, value] of [['metricPnl', m.pnl], ['metricOpenPnl', openPnl], ['metricAvgR', m.avgR]]) {
+      const node = $(id);
+      if (!node) continue;
+      const displayedValue = value == null ? 0 : Number(Number(value).toFixed(2));
+      node.classList.toggle('positive', displayedValue > 0);
+      node.classList.toggle('negative', displayedValue < 0);
+    }
   }
 
   function renderPosition() {
