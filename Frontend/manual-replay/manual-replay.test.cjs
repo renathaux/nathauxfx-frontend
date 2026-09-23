@@ -11,8 +11,7 @@ const liveChart = fs.readFileSync(path.join(__dirname, 'manual-replay-live-chart
 const layoutEditor = fs.readFileSync(path.join(__dirname, 'manual-replay-layout-editor.js'), 'utf8');
 
 test('manual replay is standalone and does not require a strategy', () => {
-  assert.match(html, /Manual Trading Replay/);
-  assert.match(html, /No Strategy/);
+  assert.match(html, /NathauxFX — Manual Replay/);
   assert.doesNotMatch(html, /strategy_id/);
   assert.match(api, /STATIC_ROOT = '\/replay-data'/);
   assert.doesNotMatch(api, /strategy-simulator\/manual-history/);

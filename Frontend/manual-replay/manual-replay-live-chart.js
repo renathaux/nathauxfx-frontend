@@ -127,7 +127,7 @@
     const palette = appearancePalette();
     return {
       width: state.container?.clientWidth || 800,
-      height: Math.max(state.container?.clientHeight || 420, 320),
+      height: state.container?.clientHeight || 420,
       layout: {
         background: { color: palette.background },
         textColor: palette.text,
@@ -1100,7 +1100,7 @@
     if (!state.chart || !state.container) return;
     state.chart.applyOptions({
       width: state.container.clientWidth || 800,
-      height: Math.max(state.container.clientHeight || 420, 320),
+      height: state.container.clientHeight || 420,
     });
     requestAnimationFrame(positionDragLayer);
   }

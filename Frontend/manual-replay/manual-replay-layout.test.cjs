@@ -29,3 +29,17 @@ test('production stylesheet owns responsive layout without translated cards or g
   assert.match(css, /\.lower-grid\s*\{[^}]*display:\s*grid/);
   assert.match(css, /body\[data-replay-theme="dark"\]/);
 });
+
+test('compact replay starts with setup and omits the redundant title/status row', () => {
+  const html = read('../manual-replay.html');
+  assert.doesNotMatch(html, /class="page-heading"|Manual Trading Replay|Pure manual trading simulation/);
+  assert.match(html, /<main class="shell">\s*<section class="panel setup-panel">/);
+});
+
+test('the synchronized pair toolbar belongs to the chart fullscreen frame', () => {
+  const html = read('../manual-replay.html');
+  const frame = html.indexOf('<div class="chart-wrap">');
+  const title = html.indexOf('id="chartTitle"');
+  const plot = html.indexOf('class="chart-plot"');
+  assert.ok(frame < title && title < plot, 'pair header must be above the plot inside fullscreen');
+});

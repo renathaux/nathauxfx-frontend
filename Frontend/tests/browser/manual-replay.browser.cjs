@@ -39,6 +39,8 @@ async function geometry(page, width) {
     for(const v of [3,4]) localStorage.setItem(`nathauxfx_manual_replay_layout_editor_v${v}`,JSON.stringify({version:v,items}));
    });
    await page.goto(base+'/manual-replay.html');await ready(page);
+   assert.equal(await page.locator('.page-heading').count(),0);
+   assert.ok((await page.locator('.chart-panel').boundingBox()).y < 210, 'compact chart starts higher at 1440px');
    assert.equal(await page.locator('body').getAttribute('data-replay-theme'),'light');
    assert.equal(await page.locator('#metricEquity').textContent(),'$10,000.00');
    for(const [width,height] of sizes){
@@ -74,7 +76,21 @@ async function geometry(page, width) {
    await page.locator('#chartSelectBtn').click();assert.equal((await state(page)).drawingMode,null);
    await page.locator('#fullscreenBtn').click();await page.waitForTimeout(200);
    assert.ok(await page.evaluate(()=>!!document.fullscreenElement||!!document.webkitFullscreenElement||document.body.classList.contains('manual-replay-fullscreen-fallback')),'fullscreen active');
-   assert.ok(await page.locator('#chartLineBtn').isVisible());await page.locator('#fullscreenBtn').click();await page.waitForTimeout(150);
+   assert.ok(await page.locator('#chartLineBtn').isVisible());
+   assert.ok(await page.locator('#chartTitle').isVisible(), 'fullscreen pair is visible');
+   assert.equal(await page.locator('#chartTitle').textContent(), await page.locator('#symbol').inputValue());
+   const headerBox = await page.locator('#chartTitle').boundingBox();
+   const fullscreenPlot = await page.locator('.chart-plot').boundingBox();
+   assert.ok(headerBox.y < 30 && headerBox.y + headerBox.height <= fullscreenPlot.y, 'pair is above the fullscreen plot');
+   if(out) await page.screenshot({path:path.join(out,`${engine}-fullscreen.png`)});
+   await page.setViewportSize({width:844,height:430});
+   await page.waitForTimeout(200);
+   const shortPlot = await page.locator('.chart-plot').boundingBox();
+   const shortCanvas = await page.locator('#manualReplayChart table').boundingBox();
+   assert.ok(shortCanvas.height <= shortPlot.height, 'fullscreen chart and time axis fit a short viewport');
+   await page.setViewportSize({width:1440,height:900});
+   await page.waitForTimeout(150);
+   await page.locator('#fullscreenBtn').click();await page.waitForTimeout(150);
    assert.equal(await page.evaluate(()=>!!document.fullscreenElement||!!document.webkitFullscreenElement||document.body.classList.contains('manual-replay-fullscreen-fallback')),false);
    await page.locator('.chart-plot').scrollIntoViewIfNeeded();
    const plot = await page.locator('.chart-plot').boundingBox();

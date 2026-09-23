@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f2f6fb">
   <title>NathauxFX — Manual Replay</title>
-  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=31">
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=32">
 </head>
 <body>
   <header class="topbar">
@@ -21,12 +21,6 @@
     </div>
   </header>
   <main class="shell">
-    <div class="page-heading">
-      <div class="heading"><h1>Manual Trading Replay</h1><p>Replay historical price action, practice your strategy, and improve your trading.</p></div>
-      <div class="safe-badge"><span class="status-dot" aria-hidden="true"></span><span><strong>No Strategy • No Broker Orders</strong><small>Pure manual trading simulation</small></span><span aria-hidden="true">ⓘ</span></div>
-    </div>
-
-
     <section class="panel setup-panel">
       <div class="setup-intro"><h2>Replay Setup</h2><p>Configure your market,<br>timeframe and date range.</p></div>
       <div class="setup-grid">
@@ -51,6 +45,7 @@
     <div id="replayWorkspace" class="main-grid">
       <div class="workspace-left">
       <section class="panel chart-panel" aria-label="Replay chart">
+        <div class="chart-wrap">
         <div class="chart-toolbar">
           <h2 id="chartTitle">EURUSD</h2>
           <select id="chartTimeframe" aria-label="Chart timeframe"><option value="5m">5m</option><option value="15m">15m</option><option value="1h">1h</option></select>
@@ -61,7 +56,6 @@
           <button id="zoomInBtn" class="icon-button" type="button" title="Zoom in" aria-label="Zoom in">+</button>
         </div>
         <p id="chartMeta" class="sr-only">Historical candles only.</p>
-        <div class="chart-wrap">
           <div id="chartLoading" class="manual-replay-loading-overlay" role="status" aria-live="polite">
             <strong>Loading replay history…</strong>
             <span>Last year plus prior chart context</span>
@@ -175,7 +169,7 @@
   <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
   <script src="/manual-replay/manual-replay-position.js?v=4"></script>
-  <script src="/manual-replay/manual-replay-live-chart.js?v=22"></script>
+  <script src="/manual-replay/manual-replay-live-chart.js?v=23"></script>
   <script src="/manual-replay/manual-replay.js?v=25"></script>
   <script src="/manual-replay/manual-replay-layout-editor.js?v=10"></script>
 </body>
