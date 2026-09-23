@@ -2,6 +2,11 @@
   'use strict';
 
   const DESKTOP_MIN_WIDTH = 1200;
+  const LOWER_FLOW_PREFIXES = new Set([
+    'metricGrid', 'metricCard', 'metricLabel', 'metricValue',
+    'logPanel', 'logTitleBlock', 'logEyebrow', 'logTitle',
+    'tableWrap', 'tradeTable', 'tradeTableHeader', 'tradeTableCell',
+  ]);
   const saved = {
     "brand[0]":{"x":5,"y":-37,"width":250,"height":46},
     "headingEyebrow[0]":{"x":288,"y":-19,"width":167,"height":16},
@@ -385,7 +390,7 @@
           return;
         }
 
-        if (!transforms) return;
+        if (!transforms || LOWER_FLOW_PREFIXES.has(prefix)) return;
         const width = Number(item.width);
         const height = Number(item.height);
         const x = Number(item.x);
@@ -438,6 +443,7 @@
       // selector. Let the modern ticket flow naturally inside the preserved
       // sidebar while keeping the rest of the user's saved desktop layout.
       if (modernTicket && modernTicketPrefixes.has(prefix)) continue;
+      if (LOWER_FLOW_PREFIXES.has(prefix)) continue;
       const elements = all
         ? Array.from(document.querySelectorAll(selector))
         : [document.querySelector(selector)].filter(Boolean);
@@ -476,6 +482,42 @@
     }
 
     applyEditorOverrides({ transforms: window.innerWidth >= DESKTOP_MIN_WIDTH && !fullscreenActive });
+
+    const metricGrid = document.querySelector('.metric-grid');
+    if (metricGrid) {
+      metricGrid.style.setProperty('transform', 'none', 'important');
+      metricGrid.style.setProperty('width', 'auto', 'important');
+      metricGrid.style.setProperty('height', 'auto', 'important');
+      metricGrid.style.setProperty('min-height', '0', 'important');
+    }
+    document.querySelectorAll('.metric-grid article').forEach((card) => {
+      card.style.setProperty('transform', 'none', 'important');
+      card.style.setProperty('width', 'auto', 'important');
+      card.style.setProperty('height', 'auto', 'important');
+      card.style.setProperty('min-height', '0', 'important');
+    });
+    const logPanel = document.querySelector('.log-panel');
+    if (logPanel) {
+      logPanel.style.setProperty('transform', 'none', 'important');
+      logPanel.style.setProperty('width', 'auto', 'important');
+      logPanel.style.setProperty('height', 'auto', 'important');
+      logPanel.style.setProperty('min-height', '0', 'important');
+    }
+    const tableWrap = document.querySelector('.log-panel .table-wrap');
+    if (tableWrap) {
+      tableWrap.style.setProperty('transform', 'none', 'important');
+      tableWrap.style.setProperty('height', 'auto', 'important');
+    }
+    const table = document.querySelector('.log-panel table');
+    if (table) {
+      table.style.setProperty('transform', 'none', 'important');
+      table.style.setProperty('height', 'auto', 'important');
+    }
+    document.querySelectorAll('.log-panel th, .log-panel td').forEach((cell) => {
+      cell.style.setProperty('transform', 'none', 'important');
+      cell.style.setProperty('height', 'auto', 'important');
+    });
+
     stabilizeDynamicDesktopContent();
   }
 

@@ -230,6 +230,20 @@ test('manual replay cards are square and workspace is flush with setup', () => {
   assert.match(savedLayout, /margin-top', '0px'/);
   assert.match(savedLayout, /const desiredTop = setupRect\.bottom;/);
 });
+
+test('lower replay metrics and trade log ignore legacy saved transforms', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(savedLayout, /const LOWER_FLOW_PREFIXES = new Set/);
+  assert.match(savedLayout, /'metricGrid'/);
+  assert.match(savedLayout, /'logPanel'/);
+  assert.match(savedLayout, /LOWER_FLOW_PREFIXES\.has\(prefix\)/);
+  assert.match(savedLayout, /metricGrid\.style\.setProperty\('transform', 'none'/);
+  assert.match(savedLayout, /logPanel\.style\.setProperty\('height', 'auto'/);
+  assert.match(css, /\.metric-grid\{[\s\S]*margin:0!important/);
+  assert.match(css, /\.log-panel\{[\s\S]*height:auto!important/);
+  assert.match(css, /max-height:300px!important/);
+  assert.match(css, /\.log-panel td\.empty\{padding:26px 12px!important\}/);
+});
 test('manual replay uses a real risk reward position box instead of full-width price lines', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(liveChart, /manual-replay-position-tool/);

@@ -446,3 +446,43 @@ body[data-replay-theme="light"] .notice.error{background:#fff1f2!important;borde
 .position-card,
 .notice,
 .ui-settings-panel{border-radius:0!important}
+
+/* Keep the lower Manual Replay section compact and in normal document flow. */
+.metric-grid{
+  margin:0!important;
+  transform:none!important;
+  width:auto!important;
+  height:auto!important;
+  min-height:0!important;
+}
+.metric-grid article{
+  transform:none!important;
+  width:auto!important;
+  height:auto!important;
+  min-height:64px!important;
+}
+.log-panel{
+  margin-top:0!important;
+  transform:none!important;
+  width:auto!important;
+  height:auto!important;
+  min-height:0!important;
+  padding:14px!important;
+}
+.log-panel .panel-title{margin-bottom:8px!important}
+.log-panel .table-wrap{
+  transform:none!important;
+  height:auto!important;
+  max-height:300px!important;
+  overflow:auto!important;
+}
+.log-panel table{
+  transform:none!important;
+  height:auto!important;
+}
+.log-panel th,.log-panel td{
+  transform:none!important;
+  height:auto!important;
+  min-height:0!important;
+}
+.log-panel td.empty{padding:26px 12px!important}
