@@ -221,6 +221,15 @@ test('workspace gap is derived from the transformed card positions instead of a 
   assert.match(savedLayout, /desiredTop = setupRect\.bottom \+ 8/);
   assert.match(savedLayout, /margin-top', `\$\{baseMargin \+ overlap\}px`/);
 });
+
+test('manual replay cards are square and workspace is flush with setup', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(css, /\.main-grid\{margin-top:0!important\}/);
+  assert.match(css, /\.panel,[\s\S]*\.chart-wrap,[\s\S]*border-radius:0!important/);
+  assert.match(savedLayout, /const baseMargin = 0/);
+  assert.match(savedLayout, /margin-top', '0px'/);
+  assert.match(savedLayout, /const desiredTop = setupRect\.bottom;/);
+});
 test('manual replay uses a real risk reward position box instead of full-width price lines', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(liveChart, /manual-replay-position-tool/);

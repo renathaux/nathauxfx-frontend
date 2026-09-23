@@ -274,10 +274,10 @@
     const tradePanel = document.querySelector('.trade-panel');
     if (!setup || !workspace || !chartPanel) return;
 
-    // Always measure from the normal grid gap first. Saved child transforms
-    // can pull the chart upward, so a fixed 34px/66px margin is unreliable.
-    const baseMargin = 14;
-    workspace.style.setProperty('margin-top', `${baseMargin}px`, 'important');
+    // Keep the cards flush. We only add space when a saved transform would
+    // physically overlap Replay Setup.
+    const baseMargin = 0;
+    workspace.style.setProperty('margin-top', '0px', 'important');
 
     const setupRect = setup.getBoundingClientRect();
     const chartRect = chartPanel.getBoundingClientRect();
@@ -286,7 +286,7 @@
       chartRect.top,
       Number.isFinite(Number(tradeRect?.top)) ? tradeRect.top : chartRect.top
     );
-    const desiredTop = setupRect.bottom + 8;
+    const desiredTop = setupRect.bottom;
     const overlap = Math.max(0, Math.ceil(desiredTop - visibleTop));
     workspace.style.setProperty('margin-top', `${baseMargin + overlap}px`, 'important');
   }

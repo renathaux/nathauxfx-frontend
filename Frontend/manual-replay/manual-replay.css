@@ -437,3 +437,12 @@ body[data-replay-theme="light"] .ui-settings-head button{background:#e8eef5!impo
 body[data-replay-theme="light"] .notice{background:#ffffff!important;border-color:#64748b!important;color:#0b1220!important}
 body[data-replay-theme="light"] .notice.success{background:#ecfdf5!important;border-color:#16805d!important;color:#065f46!important}
 body[data-replay-theme="light"] .notice.error{background:#fff1f2!important;border-color:#b4233a!important;color:#8f1d30!important}
+
+/* Flush square-card layout requested for Manual Replay. */
+.main-grid{margin-top:0!important}
+.panel,
+.chart-wrap,
+.metric-grid article,
+.position-card,
+.notice,
+.ui-settings-panel{border-radius:0!important}
