@@ -34,6 +34,7 @@
     suppressChartClick: false,
     renderFrame: null,
     chartNeedsFit: true,
+    lastSpacePressAt: 0,
   };
 
   function notice(message, kind = '') {
@@ -375,12 +376,16 @@
 
 
   function syncDrawingToolButtons(mode = null) {
-    const line = $('drawLineBtn');
-    const rect = $('drawRectBtn');
-    line?.setAttribute('aria-pressed', String(mode === 'line'));
-    rect?.setAttribute('aria-pressed', String(mode === 'rect'));
-    line?.classList.toggle('is-active', mode === 'line');
-    rect?.classList.toggle('is-active', mode === 'rect');
+    const lineButtons = [$('drawLineBtn'), $('chartLineBtn')].filter(Boolean);
+    const rectButtons = [$('drawRectBtn'), $('chartRectBtn')].filter(Boolean);
+    for (const button of lineButtons) {
+      button.setAttribute('aria-pressed', String(mode === 'line'));
+      button.classList.toggle('is-active', mode === 'line');
+    }
+    for (const button of rectButtons) {
+      button.setAttribute('aria-pressed', String(mode === 'rect'));
+      button.classList.toggle('is-active', mode === 'rect');
+    }
   }
 
   function toggleDrawingMode(mode) {
@@ -1092,9 +1097,30 @@
     return ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || Boolean(target?.isContentEditable);
   }
 
+  function handleSpacePlaybackShortcut() {
+    if (state.timer) {
+      state.lastSpacePressAt = 0;
+      stopTimer();
+      return;
+    }
+
+    const now = Date.now();
+    const previous = Number(state.lastSpacePressAt) || 0;
+    if (previous && now - previous <= 450) {
+      state.lastSpacePressAt = 0;
+      setPlaying();
+      return;
+    }
+    state.lastSpacePressAt = now;
+  }
+
   function handleReplayKeyboard(event) {
     if (keyboardTargetIsEditable(event)) return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.code === 'Space' && event.repeat) {
+      event.preventDefault();
+      return;
+    }
 
     if (event.key === 'Escape' && document.body.classList.contains('manual-replay-fullscreen-fallback')) {
       document.body.classList.remove('manual-replay-fullscreen-fallback');
@@ -1144,7 +1170,7 @@
         setReplaySpeedFromShortcut(10);
         break;
       case 'Space':
-        stopTimer();
+        handleSpacePlaybackShortcut();
         break;
       default:
         handled = false;
@@ -1188,6 +1214,8 @@
   $('cancelPositionBtn').addEventListener('click', cancelPositionDraft);
   $('drawLineBtn').addEventListener('click', () => toggleDrawingMode('line'));
   $('drawRectBtn').addEventListener('click', () => toggleDrawingMode('rect'));
+  $('chartLineBtn')?.addEventListener('click', () => toggleDrawingMode('line'));
+  $('chartRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
 
 
   $('buyBtn').addEventListener('click', () => openManualTrade('BUY'));

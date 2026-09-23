@@ -194,6 +194,63 @@ body.manual-replay-fullscreen-fallback #manualReplayChartFrame{
 }
 .fullscreen-button{white-space:nowrap}
 
+/* Always-visible drawing bar inside the chart frame. Because it is a child of
+   the fullscreen target it remains available when the rest of the replay UI
+   is intentionally hidden. */
+.chart-drawing-bar{
+  position:absolute;
+  top:10px;
+  left:10px;
+  z-index:30;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:5px;
+  border:1px solid rgba(77,110,151,.8);
+  border-radius:9px;
+  background:rgba(6,18,31,.82);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  box-shadow:0 5px 18px rgba(0,0,0,.3);
+  pointer-events:auto;
+}
+.chart-drawing-label{
+  padding:0 4px;
+  color:#91a9c6;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.12em;
+}
+.chart-drawing-button{
+  min-height:30px;
+  height:30px;
+  padding:0 10px;
+  border:1px solid #315170;
+  border-radius:7px;
+  background:#0c2137;
+  color:#dce9f8;
+  font-size:11px;
+  font-weight:850;
+  cursor:pointer;
+}
+.chart-drawing-button:hover{border-color:#6f91b8}
+.chart-drawing-button.is-active{
+  border-color:#f5bd48!important;
+  background:rgba(245,189,72,.16)!important;
+  color:#ffe09a!important;
+  box-shadow:0 0 0 2px rgba(245,189,72,.14)!important;
+}
+#manualReplayChartFrame:fullscreen .chart-drawing-bar,
+#manualReplayChartFrame:-webkit-full-screen .chart-drawing-bar,
+body.manual-replay-fullscreen-fallback #manualReplayChartFrame .chart-drawing-bar{
+  top:14px;
+  left:14px;
+}
+@media(max-width:560px){
+  .chart-drawing-label{display:none}
+  .chart-drawing-button{padding:0 8px}
+}
+
 /* Full Manual Replay layout editor v4. Per-item controls only appear while the
    cursor is over an editable item. */
 #manualLayoutHoverActions{

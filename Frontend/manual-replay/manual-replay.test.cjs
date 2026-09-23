@@ -314,7 +314,7 @@ test('position box clicks route green to TP and red to SL with lock controls', (
 });
 
 
-test('manual replay keyboard shortcuts control position entry candles autoplay speed and stop', () => {
+test('manual replay keyboard shortcuts control position entry candles autoplay speed and space playback', () => {
   assert.match(app, /case 'KeyB':[\s\S]*createPositionDraft\('BUY'\)/);
   assert.match(app, /case 'KeyS':[\s\S]*createPositionDraft\('SELL'\)/);
   assert.match(app, /case 'Enter':[\s\S]*openManualTrade\(state\.positionDraft\.side\)/);
@@ -325,7 +325,11 @@ test('manual replay keyboard shortcuts control position entry candles autoplay s
   assert.match(app, /case 'Digit2':[\s\S]*setReplaySpeedFromShortcut\(2\)/);
   assert.match(app, /case 'Digit5':[\s\S]*setReplaySpeedFromShortcut\(5\)/);
   assert.match(app, /case 'Digit6':[\s\S]*setReplaySpeedFromShortcut\(10\)/);
-  assert.match(app, /case 'Space':[\s\S]*stopTimer\(\)/);
+  assert.match(app, /function handleSpacePlaybackShortcut/);
+  assert.match(app, /now - previous <= 450/);
+  assert.match(app, /case 'Space':[\s\S]*handleSpacePlaybackShortcut\(\)/);
+  assert.match(app, /if \(state\.timer\)[\s\S]*stopTimer\(\)/);
+  assert.match(app, /setPlaying\(\)/);
   assert.match(app, /document\.addEventListener\('keydown', handleReplayKeyboard, true\)/);
 });
 
@@ -425,6 +429,19 @@ test('active manual trade shows a live hologram with money pips and R', () => {
   assert.match(liveChart, /signedNumber\(snapshot\.r, 2, 'R'\)/);
   assert.match(css, /manual-replay-trade-hologram\.positive/);
   assert.match(css, /manual-replay-trade-hologram\.negative/);
+});
+
+
+test('chart frame has an always-visible line and support resistance drawing bar', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(html, /id="chartDrawingBar"/);
+  assert.match(html, /id="chartLineBtn"/);
+  assert.match(html, /id="chartRectBtn"/);
+  assert.match(app, /\$\('chartLineBtn'\)\?\.addEventListener\('click', \(\) => toggleDrawingMode\('line'\)\)/);
+  assert.match(app, /\$\('chartRectBtn'\)\?\.addEventListener\('click', \(\) => toggleDrawingMode\('rect'\)\)/);
+  assert.match(app, /\$\('drawLineBtn'\), \$\('chartLineBtn'\)/);
+  assert.match(css, /\.chart-drawing-bar/);
+  assert.match(css, /#manualReplayChartFrame:fullscreen \.chart-drawing-bar/);
 });
 
 test('manual replay has line and support resistance rectangle drawing tools', () => {
