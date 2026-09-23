@@ -244,6 +244,15 @@ test('lower replay metrics and trade log ignore legacy saved transforms', () => 
   assert.match(css, /max-height:300px!important/);
   assert.match(css, /\.log-panel td\.empty\{padding:26px 12px!important\}/);
 });
+
+test('workspace height follows transformed chart and trade cards so lower section has no blank gap', () => {
+  assert.match(savedLayout, /const finalWorkspaceRect = workspace\.getBoundingClientRect\(\)/);
+  assert.match(savedLayout, /const finalChartRect = chartPanel\.getBoundingClientRect\(\)/);
+  assert.match(savedLayout, /const visibleBottom = Math\.max/);
+  assert.match(savedLayout, /const visualHeight = Math\.max\(0, Math\.ceil\(visibleBottom - finalWorkspaceRect\.top\)\)/);
+  assert.match(savedLayout, /workspace\.style\.setProperty\('height', `\$\{visualHeight\}px`/);
+  assert.match(savedLayout, /workspace\.style\.setProperty\('min-height', '0'/);
+});
 test('manual replay uses a real risk reward position box instead of full-width price lines', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(liveChart, /manual-replay-position-tool/);

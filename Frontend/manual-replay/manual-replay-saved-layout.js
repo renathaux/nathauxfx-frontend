@@ -294,6 +294,21 @@
     const desiredTop = setupRect.bottom;
     const overlap = Math.max(0, Math.ceil(desiredTop - visibleTop));
     workspace.style.setProperty('margin-top', `${baseMargin + overlap}px`, 'important');
+
+    // Saved desktop transforms move the chart/trade cards visually upward,
+    // but CSS transforms do not shrink the grid's layout box. Collapse the
+    // workspace to the ACTUAL visible bottom so metrics/log follow directly
+    // underneath instead of leaving hundreds of pixels of empty space.
+    const finalWorkspaceRect = workspace.getBoundingClientRect();
+    const finalChartRect = chartPanel.getBoundingClientRect();
+    const finalTradeRect = tradePanel?.getBoundingClientRect?.();
+    const visibleBottom = Math.max(
+      finalChartRect.bottom,
+      Number.isFinite(Number(finalTradeRect?.bottom)) ? finalTradeRect.bottom : finalChartRect.bottom
+    );
+    const visualHeight = Math.max(0, Math.ceil(visibleBottom - finalWorkspaceRect.top));
+    workspace.style.setProperty('height', `${visualHeight}px`, 'important');
+    workspace.style.setProperty('min-height', '0', 'important');
   }
 
   function stabilizeDynamicDesktopContent() {
