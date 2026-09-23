@@ -462,6 +462,8 @@
   function syncDrawingToolButtons(mode = null) {
     $('chartSelectBtn')?.classList.toggle('is-active', !mode);
     $('chartSelectBtn')?.setAttribute('aria-pressed', String(!mode));
+    $('chartMeasureBtn')?.setAttribute('aria-pressed', String(mode === 'measure'));
+    $('chartMeasureBtn')?.classList.toggle('is-active', mode === 'measure');
     const lineButtons = [$('drawLineBtn'), $('chartLineBtn')].filter(Boolean);
     const rectButtons = [$('drawRectBtn'), $('chartRectBtn')].filter(Boolean);
     for (const button of lineButtons) {
@@ -475,15 +477,17 @@
   }
 
   function toggleDrawingMode(mode) {
-    if (!LiveChart || !['line', 'rect'].includes(mode)) return;
+    if (!LiveChart || !['line', 'rect', 'measure'].includes(mode)) return;
     const current = LiveChart.getState?.().drawingMode || null;
     const next = current === mode ? null : mode;
     LiveChart.setDrawingMode?.(next);
     syncDrawingToolButtons(next);
     if (next === 'line') {
-      notice('Line tool active • drag across the chart to draw. Esc cancels.', 'success');
+      notice('Line tool active • click to place or drag to size. Esc cancels.', 'success');
     } else if (next === 'rect') {
-      notice('S/R rectangle active • drag a zone, then resize it from all 8 handles.', 'success');
+      notice('S/R rectangle active • click to place or drag a zone, then resize its handles.', 'success');
+    } else if (next === 'measure') {
+      notice('Measure active • click or drag between prices to measure pips. Drag either endpoint to adjust.', 'success');
     }
   }
 
@@ -1362,6 +1366,7 @@
   $('drawLineBtn')?.addEventListener('click', () => toggleDrawingMode('line'));
   $('drawRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
   $('chartLineBtn')?.addEventListener('click', () => toggleDrawingMode('line'));
+  $('chartMeasureBtn')?.addEventListener('click', () => toggleDrawingMode('measure'));
   $('chartRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
   $('chartSelectBtn')?.addEventListener('click', () => {
     LiveChart?.setDrawingMode?.(null);

@@ -193,8 +193,7 @@ test('manual replay uses a real risk reward position box instead of full-width p
   assert.match(liveChart, /manual-replay-position-tool/);
   assert.match(liveChart, /manual-replay-position-zone profit/);
   assert.match(liveChart, /manual-replay-position-zone risk/);
-  assert.match(liveChart, /LONG.*POSITION/);
-  assert.match(liveChart, /SHORT.*POSITION/);
+  assert.doesNotMatch(liveChart, /manual-replay-position-info/);
   assert.match(liveChart, /clearPriceLines\(\);[\s\S]*requestAnimationFrame\(positionDragLayer\)/);
   assert.doesNotMatch(liveChart, /createPriceLine\('entry',[\s\S]*createPriceLine\('sl',[\s\S]*createPriceLine\('tp'/);
   assert.match(css, /manual-replay-position-zone\.profit/);
@@ -210,7 +209,9 @@ test('TradingView-style position box starts at the active candle and uses compac
   assert.match(liveChart, /barSpacing \* 18/);
   assert.match(liveChart, /Target: \$\{summary\.targetMoneyText\}/);
   assert.match(liveChart, /Stop: \$\{summary\.stopMoneyText\}/);
-  assert.match(liveChart, /Initial Risk/);
+  assert.doesNotMatch(liveChart, /Initial Risk|LONG POSITION|SHORT POSITION/);
+  assert.match(liveChart, /summary.targetPips/);
+  assert.match(liveChart, /summary.stopPips/);
   assert.match(css, /manual-replay-position-caption\.target/);
   assert.match(css, /manual-replay-position-caption\.stop/);
   assert.match(css, /#089981/);

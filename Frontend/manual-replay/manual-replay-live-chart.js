@@ -578,6 +578,18 @@
     return { logical: Number(logical), price: Number(price), x, y };
   }
 
+  // Use screen space for a useful initial size at any zoom, then store chart coordinates.
+  function defaultDrawingEnd(point, type) {
+    const width = Math.min(180, priceAxisStartX() * 0.45);
+    const height = type === 'rect' ? 60 : 70;
+    const x = point.x + (point.x + width < priceAxisStartX() - 8 ? width : -width);
+    const y = point.y + (point.y - height > 8 ? -height : height);
+    return {
+      logical: Number(state.chart.timeScale().coordinateToLogical(Math.max(8, x))),
+      price: yToPrice(Math.max(8, Math.min(state.container.clientHeight - 30, y))),
+    };
+  }
+
   function logicalToX(logical) {
     if (!state.chart || !Number.isFinite(Number(logical))) return null;
     try {
@@ -637,6 +649,26 @@
     return html + '</g>';
   }
 
+  function renderMeasureDrawing(drawing, selected) {
+    const x1 = logicalToX(drawing.a.logical), x2 = logicalToX(drawing.b.logical);
+    const y1 = priceToY(drawing.a.price), y2 = priceToY(drawing.b.price);
+    if (![x1, x2, y1, y2].every(Number.isFinite)) return '';
+    const change = drawing.b.price - drawing.a.price;
+    const pips = signedNumber(change / pipSizeForSymbol(), 1, ' pips');
+    const bars = Math.round(Math.abs(drawing.b.logical - drawing.a.logical));
+    const labelX = Math.max(90, Math.min(priceAxisStartX() - 90, (x1 + x2) / 2));
+    const labelY = Math.max(12, Math.min(state.container.clientHeight - 56, Math.min(y1, y2) - 46));
+    let html = '<g class="manual-drawing measure' + (selected ? ' selected' : '') + '" data-drawing-group="' + drawing.id + '">' +
+      '<rect class="manual-measure-area" data-replay-drawing="1" data-drawing-body="1" data-drawing-id="' + drawing.id +
+      '" x="' + Math.min(x1,x2) + '" y="' + Math.min(y1,y2) + '" width="' + Math.max(1,Math.abs(x2-x1)) + '" height="' + Math.max(1,Math.abs(y2-y1)) + '"></rect>' +
+      '<path class="manual-measure-guide" d="M ' + x1 + ' ' + y1 + ' H ' + x2 + ' V ' + y2 + '"></path>' +
+      '<g class="manual-measure-label" transform="translate(' + labelX + ',' + labelY + ')">' +
+      '<rect x="-86" y="0" width="172" height="40" rx="5"></rect>' +
+      '<text text-anchor="middle" y="16">' + pips + '<tspan x="0" dy="16">' + signedNumber(change, state.symbol === 'XAUUSD' ? 2 : 5, '') + ' · ' + bars + ' bars</tspan></text></g>';
+    if (selected) html += circleHandle(drawing.id, 'a', x1, y1) + circleHandle(drawing.id, 'b', x2, y2);
+    return html + '</g>';
+  }
+
   function rectHandlePoints(x1, y1, x2, y2) {
     const left = Math.min(x1, x2);
     const right = Math.max(x1, x2);
@@ -681,14 +713,14 @@
     if (!svg) return;
     svg.innerHTML = state.drawings.map((drawing) => {
       const selected = drawing.id === state.selectedDrawingId;
-      return drawing.type === 'rect'
+      return drawing.type === 'measure' ? renderMeasureDrawing(drawing, selected) : drawing.type === 'rect'
         ? renderRectDrawing(drawing, selected)
         : renderLineDrawing(drawing, selected);
     }).join('');
   }
 
   function setDrawingMode(mode) {
-    const normalized = ['line', 'rect'].includes(mode) ? mode : null;
+    const normalized = ['line', 'rect', 'measure'].includes(mode) ? mode : null;
     state.drawingMode = normalized;
     state.drawingGesture = null;
     state.callbacks.onDrawingModeChange?.(normalized);
@@ -742,7 +774,9 @@
     if (!drawing || !point) return false;
 
     if (gesture.type === 'create') {
-      drawing.b = { logical: point.logical, price: point.price };
+      if (Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) >= 8) {
+        drawing.b = { logical: point.logical, price: point.price };
+      }
     } else if (gesture.type === 'move') {
       const logicalDelta = point.logical - gesture.start.logical;
       const priceDelta = point.price - gesture.start.price;
@@ -755,7 +789,7 @@
         price: gesture.original.b.price + priceDelta,
       };
     } else if (gesture.type === 'resize') {
-      if (drawing.type === 'line') {
+      if (drawing.type !== 'rect') {
         drawing[gesture.handle] = { logical: point.logical, price: point.price };
       } else {
         applyRectangleHandle(drawing, gesture.handle, point);
@@ -807,10 +841,10 @@
         id,
         type: state.drawingMode,
         a: { logical: point.logical, price: point.price },
-        b: { logical: point.logical, price: point.price },
+        b: defaultDrawingEnd(point, state.drawingMode),
       });
       state.selectedDrawingId = id;
-      state.drawingGesture = { type: 'create', id, pointerId: event.pointerId };
+      state.drawingGesture = { type: 'create', id, pointerId: event.pointerId, start: point };
     } else {
       if (state.selectedDrawingId) {
         state.selectedDrawingId = null;
@@ -856,7 +890,6 @@
         <div class="manual-replay-position-zone risk"></div>
         <div class="manual-replay-position-caption target"></div>
         <div class="manual-replay-position-caption stop"></div>
-        <div class="manual-replay-position-info"></div>
       `;
       state.layer.prepend(tool);
     }
@@ -926,6 +959,8 @@
       risk: money(riskDollars),
       targetMoneyText: signedMoney(Number.isFinite(targetR) ? targetR * riskDollars : NaN),
       stopMoneyText: signedMoney(Number.isFinite(stopR) ? stopR * riskDollars : NaN),
+      targetPips: (Math.abs(Number(position.tp) - Number(position.entry)) / pipSizeForSymbol()).toFixed(1),
+      stopPips: (Math.abs(Number(position.sl) - Number(position.entry)) / pipSizeForSymbol()).toFixed(1),
       targetRText: signedR(targetR),
       stopRText: signedR(stopR),
     };
@@ -1011,7 +1046,6 @@
     const risk = tool.querySelector('.manual-replay-position-zone.risk');
     const targetCaption = tool.querySelector('.manual-replay-position-caption.target');
     const stopCaption = tool.querySelector('.manual-replay-position-caption.stop');
-    const info = tool.querySelector('.manual-replay-position-info');
 
     const placeZone = (node, y1, y2) => {
       const top = Math.max(0, Math.min(y1, y2));
@@ -1039,20 +1073,29 @@
       riskBottom,
     };
 
-    targetCaption.textContent = `Target: ${summary.targetMoneyText} • ${summary.targetRText}`;
-    targetCaption.style.left = `${Math.round(startX + width / 2)}px`;
-    targetCaption.style.top = `${Math.round(Math.max(8, Math.min(containerHeight - 28, (profitTop + profitBottom) / 2 - 10)))}px`;
-    targetCaption.classList.toggle('compact', profitBottom - profitTop < 38);
-
-    stopCaption.textContent = `Stop: ${summary.stopMoneyText} • ${summary.stopRText}`;
-    stopCaption.style.left = `${Math.round(startX + width / 2)}px`;
-    stopCaption.style.top = `${Math.round(Math.max(8, Math.min(containerHeight - 28, (riskTop + riskBottom) / 2 - 10)))}px`;
-    stopCaption.classList.toggle('compact', riskBottom - riskTop < 38);
-
-    info.textContent = `${position.side === 'BUY' ? 'LONG POSITION' : 'SHORT POSITION'} • Initial Risk ${summary.risk}${state.positionLocked ? ' • 🔒 LOCKED' : ''}`;
-    info.style.left = `${Math.round(startX + width / 2)}px`;
-    const infoTop = Math.max(8, Math.min(containerHeight - 34, entryY - 14));
-    info.style.top = `${Math.round(infoTop)}px`;
+    const placeCaption = (node, top, bottom, pips, details) => {
+      const compact = bottom - top < 34;
+      node.textContent = compact ? `${pips} pips` : `${details}\n${pips} pips`;
+      node.classList.toggle('compact', compact);
+      node.style.left = `${Math.round(startX + width / 2)}px`;
+      const height = node.offsetHeight;
+      const desired = compact
+        ? (bottom <= entryY ? top - height - 4 : bottom + 4)
+        : (top + bottom - height) / 2;
+      return { node, height, top: Math.max(4, Math.min(containerHeight - height - 4, desired)) };
+    };
+    const targetLabel = placeCaption(targetCaption, profitTop, profitBottom, summary.targetPips,
+      `Target: ${summary.targetMoneyText} • ${summary.targetRText}`);
+    const stopLabel = placeCaption(stopCaption, riskTop, riskBottom, summary.stopPips,
+      `Stop: ${summary.stopMoneyText} • ${summary.stopRText}`);
+    const labels = (profitTop + profitBottom < riskTop + riskBottom)
+      ? [targetLabel, stopLabel] : [stopLabel, targetLabel];
+    if (labels[0].top + labels[0].height + 4 > labels[1].top) {
+      const total = labels[0].height + labels[1].height + 4;
+      labels[0].top = Math.max(4, Math.min(containerHeight - total - 4, entryY - total / 2));
+      labels[1].top = labels[0].top + labels[0].height + 4;
+    }
+    for (const label of labels) label.node.style.top = `${Math.round(label.top)}px`;
 
     const hover = state.hoverPoint;
     const minY = Math.min(slY, tpY);
@@ -1066,7 +1109,7 @@
     );
     tool.classList.toggle('show-details', isHoveringTool || Boolean(state.drag));
 
-    const entry = ensureDragLine('entry', 'ENTRY', 'entry');
+    const entry = ensureDragLine('entry', '', 'entry');
     const sl = ensureDragLine('sl', 'STOP', 'sl');
     const tp = ensureDragLine('tp', 'TARGET', 'tp');
 
@@ -1084,7 +1127,7 @@
       node.style.width = `${Math.round(width)}px`;
       node.style.transform = `translateY(${Math.round(y)}px)`;
       node.classList.toggle('locked', Boolean(locked));
-      node.querySelector('span').textContent = `${node.dataset.replayPriceField.toUpperCase()} ${formatPrice(value)}`;
+      node.querySelector('span').textContent = node.dataset.replayPriceField === 'entry' ? '' : `${node.dataset.replayPriceField.toUpperCase()} ${formatPrice(value)}`;
     }
   }
 

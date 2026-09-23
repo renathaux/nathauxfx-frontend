@@ -64,11 +64,53 @@ async function geometry(page, width) {
    await page.keyboard.press('p');await page.waitForTimeout(240);await page.keyboard.press('Space');assert.ok((await state(page)).candles>count);assert.match(await page.locator('#playBtn').textContent(),/Play/);
    await page.keyboard.press('Space');await page.keyboard.press('Space');assert.match(await page.locator('#playBtn').textContent(),/Pause/);await page.keyboard.press('Space');
    await page.locator('#longPositionBtn').click();assert.equal(await page.locator('#draftDirection').inputValue(),'LONG / BUY');
+   assert.equal(await page.locator('.manual-replay-position-info').count(),0);
+   assert.equal(await page.locator('.manual-replay-live-level.entry span').textContent(),'');
+   const checkPips = async () => {
+    const entry=Number(await page.locator('#draftEntry').inputValue());
+    for(const [kind,input] of [['target','tpPrice'],['stop','slPrice']]) {
+     const expected=(Math.abs(Number(await page.locator('#'+input).inputValue())-entry)/.0001).toFixed(1)+' pips';
+     assert.ok((await page.locator('.manual-replay-position-caption.'+kind).textContent()).includes(expected),expected);
+     assert.ok(await page.locator('.manual-replay-position-caption.'+kind).isVisible());
+    }
+   };
+   await checkPips();
+   const originalSL=await page.locator('#slPrice').inputValue(),originalTP=await page.locator('#tpPrice').inputValue();
+   const draftEntry=Number(await page.locator('#draftEntry').inputValue());
+   await page.locator('#slPrice').fill((draftEntry-.0001).toFixed(5));await page.locator('#slPrice').dispatchEvent('change');
+   await page.locator('#tpPrice').fill((draftEntry+.0001).toFixed(5));await page.locator('#tpPrice').dispatchEvent('change');
+   await checkPips();
+   const captions=await page.locator('.manual-replay-position-caption').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,bottom:r.bottom};}).sort((a,b)=>a.top-b.top));
+   assert.ok(captions[0].bottom<=captions[1].top,'tight position pip labels do not overlap');
+   await page.locator('#slPrice').fill(originalSL);await page.locator('#slPrice').dispatchEvent('change');
+   await page.locator('#tpPrice').fill(originalTP);await page.locator('#tpPrice').dispatchEvent('change');
+   await page.evaluate(()=>scrollTo(0,0));
+   if(out) await page.screenshot({path:path.join(out,engine+'-position-pips.png')});
    await page.locator('#positionSizingMode').selectOption('MANUAL_LOT');await page.locator('#lotSize').fill('0.10');assert.equal(await page.locator('#draftLot').textContent(),'0.10');
    page.on('dialog',d=>d.accept());await unfocus(page);await page.keyboard.press('Enter');assert.ok(await page.locator('#positionCard').isVisible());await page.locator('.manual-replay-trade-hologram').waitFor({state:'visible'});
    await page.keyboard.press('ArrowRight');const equity=await page.locator('#metricEquity').textContent();assert.notEqual(equity,'—');await page.locator('#closeBtn').click();assert.equal(await page.locator('#tradeBody tr').count(),1);assert.equal(await page.locator('#metricTrades').textContent(),'1');
    await page.locator('#resetBtn').click();await page.locator('#shortPositionBtn').click();assert.equal(await page.locator('#draftDirection').inputValue(),'SHORT / SELL');await page.locator('#cancelPositionBtn').click();
-   for(const [button,type] of [['chartLineBtn','line'],['chartRectBtn','rect']]){
+   await page.evaluate(()=>scrollTo(0,0));
+   for(const [button,type] of [['chartLineBtn','line'],['chartRectBtn','rect'],['chartMeasureBtn','measure']]) {
+    await page.locator('#'+button).click();
+    const plot=await page.locator('.chart-plot').boundingBox();
+    await page.mouse.click(plot.x+150,plot.y+130);
+    await page.locator('.manual-drawing.'+type).waitFor({state:'attached'});
+    const shape=await page.locator('.manual-drawing.'+type).evaluate(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height};});
+    assert.ok(shape && shape.width>=120 && shape.height>=30, type+' single click creates a usable size');
+    if(type==='measure') {
+     const saved=await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('nathauxfx_manual_replay_drawings_v1:')).flatMap(k=>JSON.parse(localStorage[k])).find(d=>d.type==='measure'));
+     const expected=((saved.b.price-saved.a.price)/.0001).toFixed(1)+' pips';
+     assert.ok((await page.locator('.manual-measure-label').textContent()).includes(expected),expected);
+     const previous=await page.locator('.manual-measure-label').textContent();
+     const handle=await page.locator('.measure [data-drawing-handle="b"]').evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};});
+     await page.mouse.move(handle.x,handle.y);await page.mouse.down();await page.mouse.move(handle.x+40,handle.y+50,{steps:5});await page.mouse.up();
+     assert.notEqual(await page.locator('.manual-measure-label').textContent(),previous,'measure updates when resizing');
+     if(out) await page.screenshot({path:path.join(out,engine+'-measure.png')});
+    }
+    await page.locator('#chartDeleteBtn').click();
+   }
+   for(const [button,type] of [['chartLineBtn','line'],['chartRectBtn','rect'],['chartMeasureBtn','measure']]){
     await page.locator('#'+button).click();assert.equal((await state(page)).drawingMode,type);const box=await page.locator('.chart-plot').boundingBox();
     await page.mouse.move(box.x+180,box.y+100);await page.mouse.down();await page.mouse.move(box.x+300,box.y+180,{steps:10});await page.mouse.up();assert.equal((await state(page)).drawings,1);
     await page.locator('#chartDeleteBtn').click();assert.equal((await state(page)).drawings,0);
@@ -82,7 +124,11 @@ async function geometry(page, width) {
    const headerBox = await page.locator('#chartTitle').boundingBox();
    const fullscreenPlot = await page.locator('.chart-plot').boundingBox();
    assert.ok(headerBox.y < 30 && headerBox.y + headerBox.height <= fullscreenPlot.y, 'pair is above the fullscreen plot');
+   await page.locator('#chartMeasureBtn').click();
+   await page.mouse.click(fullscreenPlot.x+240,fullscreenPlot.y+190);
+   assert.ok(await page.locator('.manual-measure-label').isVisible(),'measure works in fullscreen');
    if(out) await page.screenshot({path:path.join(out,`${engine}-fullscreen.png`)});
+   await page.locator('#chartDeleteBtn').click();
    await page.setViewportSize({width:844,height:430});
    await page.waitForTimeout(200);
    const shortPlot = await page.locator('.chart-plot').boundingBox();
