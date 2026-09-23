@@ -193,6 +193,7 @@ test('symbol and timeframe title change immediately while new replay data loads'
 test('light theme has strong contrast and leaves the replay toolbar clear of setup', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.doesNotMatch(css, /#replayWorkspace\{margin-top:66px!important\}/);
+  assert.match(css, /body\[data-replay-theme="light"\] #replayWorkspace\{margin-top:34px!important\}/);
   assert.match(css, /--text:#0b1220/);
   assert.match(css, /--muted:#334155/);
   assert.match(css, /border:1\.5px solid #718096/);
