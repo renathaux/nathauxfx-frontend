@@ -353,10 +353,8 @@ body[data-chart-background="black"] .chart-wrap,body[data-chart-background="blac
 body[data-chart-background="navy"] .chart-wrap,body[data-chart-background="navy"] .manual-replay-live-chart{background:#071524!important}
 body[data-chart-background="white"] .chart-wrap,body[data-chart-background="white"] .manual-replay-live-chart{background:#fff!important}
 
-/* High-contrast light theme + keep the transformed replay workspace clear of Setup. */
-@media (min-width:1200px){
-  body[data-replay-theme="light"] #replayWorkspace{margin-top:66px!important}
-}
+/* High-contrast light theme. Keep normal workspace spacing; selector hit-testing
+   is handled independently so light mode does not create a large empty gap. */
 body[data-replay-theme="light"]{
   --bg:#dfe7f1;
   --panel:#ffffff;
