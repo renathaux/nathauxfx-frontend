@@ -8,6 +8,14 @@
   const REPLAY_CONTEXT_MONTHS = 11;
   const DEFAULT_REPLAY_MONTHS = 12;
   const INITIAL_VISIBLE_BARS = 220;
+  const UI_SETTINGS_KEY = 'nathauxfx_manual_replay_ui_v1';
+  const DEFAULT_UI_SETTINGS = Object.freeze({
+    theme: 'dark',
+    chartBackground: 'match',
+    bullColor: 'teal',
+    grid: 'on',
+  });
+  let uiSettings = { ...DEFAULT_UI_SETTINGS };
 
   const state = {
     candles: [],
@@ -39,6 +47,7 @@
     renderFrame: null,
     chartNeedsFit: true,
     lastSpacePressAt: 0,
+    loadRequestId: 0,
   };
 
   function notice(message, kind = '') {
@@ -50,6 +59,52 @@
 
   function money(value) {
     return Number.isFinite(Number(value)) ? `$${Number(value).toFixed(2)}` : '—';
+  }
+
+  function normalizeUiSettings(raw = {}) {
+    const next = { ...DEFAULT_UI_SETTINGS, ...(raw || {}) };
+    if (!['dark', 'light'].includes(next.theme)) next.theme = DEFAULT_UI_SETTINGS.theme;
+    if (!['match', 'black', 'navy', 'white'].includes(next.chartBackground)) next.chartBackground = DEFAULT_UI_SETTINGS.chartBackground;
+    if (!['teal', 'blue', 'white'].includes(next.bullColor)) next.bullColor = DEFAULT_UI_SETTINGS.bullColor;
+    if (!['on', 'off'].includes(next.grid)) next.grid = DEFAULT_UI_SETTINGS.grid;
+    return next;
+  }
+
+  function readUiSettings() {
+    try {
+      const raw = localStorage.getItem(UI_SETTINGS_KEY);
+      return normalizeUiSettings(raw ? JSON.parse(raw) : DEFAULT_UI_SETTINGS);
+    } catch (_error) {
+      return { ...DEFAULT_UI_SETTINGS };
+    }
+  }
+
+  function applyUiSettings(next, { persist = true } = {}) {
+    uiSettings = normalizeUiSettings(next);
+    document.body.dataset.replayTheme = uiSettings.theme;
+    document.body.dataset.chartBackground = uiSettings.chartBackground;
+    $('uiTheme') && ($('uiTheme').value = uiSettings.theme);
+    $('uiChartBackground') && ($('uiChartBackground').value = uiSettings.chartBackground);
+    $('uiBullColor') && ($('uiBullColor').value = uiSettings.bullColor);
+    $('uiGrid') && ($('uiGrid').value = uiSettings.grid);
+    LiveChart?.setAppearance?.({
+      theme: uiSettings.theme,
+      background: uiSettings.chartBackground,
+      bull: uiSettings.bullColor,
+      grid: uiSettings.grid === 'on',
+    });
+    if (persist) {
+      try { localStorage.setItem(UI_SETTINGS_KEY, JSON.stringify(uiSettings)); } catch (_error) {}
+    }
+  }
+
+  function toggleUiSettings(forceOpen = null) {
+    const panel = $('uiSettingsPanel');
+    const button = $('uiSettingsBtn');
+    if (!panel) return;
+    const open = forceOpen == null ? panel.classList.contains('hidden') : Boolean(forceOpen);
+    panel.classList.toggle('hidden', !open);
+    button?.setAttribute('aria-expanded', String(open));
   }
 
   function num(value, digits) {
@@ -865,6 +920,7 @@
   }
 
   async function loadReplay() {
+    const requestId = ++state.loadRequestId;
     stopTimer();
     notice('');
     state.busy = true;
@@ -889,6 +945,7 @@
         start: historyStart,
         end,
       });
+      if (requestId !== state.loadRequestId) return;
       if (!Array.isArray(result.candles) || result.candles.length < 2) {
         throw new Error('Not enough historical candles for replay.');
       }
@@ -930,12 +987,15 @@
       );
       renderAll();
     } catch (error) {
+      if (requestId !== state.loadRequestId) return;
       const message = error.message || 'Manual replay could not be loaded.';
       notice(message, 'error');
       setChartLoading(true, message, true);
     } finally {
-      state.busy = false;
-      $('loadBtn').disabled = false;
+      if (requestId === state.loadRequestId) {
+        state.busy = false;
+        $('loadBtn').disabled = false;
+      }
     }
   }
 
@@ -1159,7 +1219,7 @@
   function keyboardTargetIsEditable(event) {
     const target = event.target;
     const tag = String(target?.tagName || '').toUpperCase();
-    return ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || Boolean(target?.isContentEditable);
+    return ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tag) || Boolean(target?.isContentEditable);
   }
 
   function handleSpacePlaybackShortcut() {
@@ -1251,6 +1311,8 @@
   $('endYear')?.addEventListener('change', () => applyYearJump('endDate', 'endYear'));
 
   $('loadBtn').addEventListener('click', loadReplay);
+  $('symbol').addEventListener('change', () => { void loadReplay(); });
+  $('timeframe').addEventListener('change', () => { void loadReplay(); });
   $('nextBtn').addEventListener('click', () => { stopTimer(); advanceOne(); });
   $('prevBtn').addEventListener('click', () => { stopTimer(); retreatOne(); });
   $('playBtn').addEventListener('click', () => state.timer ? stopTimer() : setPlaying());
@@ -1281,6 +1343,13 @@
   $('drawRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
   $('chartLineBtn')?.addEventListener('click', () => toggleDrawingMode('line'));
   $('chartRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
+  $('uiSettingsBtn')?.addEventListener('click', () => toggleUiSettings());
+  $('uiSettingsClose')?.addEventListener('click', () => toggleUiSettings(false));
+  $('uiTheme')?.addEventListener('change', () => applyUiSettings({ ...uiSettings, theme: $('uiTheme').value }));
+  $('uiChartBackground')?.addEventListener('change', () => applyUiSettings({ ...uiSettings, chartBackground: $('uiChartBackground').value }));
+  $('uiBullColor')?.addEventListener('change', () => applyUiSettings({ ...uiSettings, bullColor: $('uiBullColor').value }));
+  $('uiGrid')?.addEventListener('change', () => applyUiSettings({ ...uiSettings, grid: $('uiGrid').value }));
+  $('uiSettingsReset')?.addEventListener('click', () => applyUiSettings({ ...DEFAULT_UI_SETTINGS }));
 
 
   $('buyBtn').addEventListener('click', () => openManualTrade('BUY'));
@@ -1290,6 +1359,7 @@
 
   document.addEventListener('keydown', handleReplayKeyboard, true);
 
+  applyUiSettings(readUiSettings(), { persist: false });
   setDefaultDates();
   setActivePriceField('slPrice');
   updateSizingControls();

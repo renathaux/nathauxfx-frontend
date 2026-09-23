@@ -35,6 +35,12 @@
     drawingGesture: null,
     drawingUndo: [],
     initialized: false,
+    appearance: {
+      theme: 'dark',
+      background: 'match',
+      bull: 'teal',
+      grid: true,
+    },
   };
 
   function precisionFor(symbol) {
@@ -62,14 +68,37 @@
     return Object.values(result).every(Number.isFinite) ? result : null;
   }
 
+  function appearancePalette() {
+    const lightPage = state.appearance.theme === 'light';
+    const backgroundMap = {
+      black: '#000000',
+      navy: '#071524',
+      white: '#ffffff',
+    };
+    const background = backgroundMap[state.appearance.background] || (lightPage ? '#ffffff' : '#0b0f1a');
+    const lightChart = background === '#ffffff';
+    const bullMap = { teal: '#26a69a', blue: '#2962ff', white: lightChart ? '#4b5563' : '#f5f7fb' };
+    return {
+      background,
+      text: lightChart ? '#475569' : '#9fb0c8',
+      grid: state.appearance.grid ? (lightChart ? 'rgba(148,163,184,.32)' : 'rgba(42,51,66,.45)') : 'rgba(0,0,0,0)',
+      crosshair: lightChart ? 'rgba(71,85,105,.38)' : 'rgba(180,190,210,.35)',
+      label: lightChart ? '#e2e8f0' : '#111827',
+      border: lightChart ? '#cbd5e1' : '#1f2937',
+      bull: bullMap[state.appearance.bull] || bullMap.teal,
+      bear: '#ef5350',
+    };
+  }
+
   function chartOptions(symbol) {
     const price = precisionFor(symbol);
+    const palette = appearancePalette();
     return {
       width: state.container?.clientWidth || 800,
       height: Math.max(state.container?.clientHeight || 420, 320),
       layout: {
-        background: { color: '#0b0f1a' },
-        textColor: '#9fb0c8',
+        background: { color: palette.background },
+        textColor: palette.text,
         attributionLogo: false,
       },
       priceFormat: {
@@ -78,26 +107,26 @@
         minMove: price.minMove,
       },
       grid: {
-        vertLines: { color: 'rgba(42, 51, 66, 0.45)' },
-        horzLines: { color: 'rgba(42, 51, 66, 0.45)' },
+        vertLines: { color: palette.grid },
+        horzLines: { color: palette.grid },
       },
       crosshair: {
         mode: 1,
         vertLine: {
-          color: 'rgba(180, 190, 210, 0.35)',
+          color: palette.crosshair,
           width: 1,
           style: 2,
-          labelBackgroundColor: '#111827',
+          labelBackgroundColor: palette.label,
         },
         horzLine: {
-          color: 'rgba(180, 190, 210, 0.35)',
+          color: palette.crosshair,
           width: 1,
           style: 2,
-          labelBackgroundColor: '#111827',
+          labelBackgroundColor: palette.label,
         },
       },
       rightPriceScale: {
-        borderColor: '#1f2937',
+        borderColor: palette.border,
         autoScale: true,
         scaleMargins: {
           top: 0.08,
@@ -130,7 +159,7 @@
         touch: true,
       },
       timeScale: {
-        borderColor: '#1f2937',
+        borderColor: palette.border,
         timeVisible: true,
         secondsVisible: false,
         barSpacing: 14,
@@ -267,13 +296,14 @@
 
   function seriesOptions(symbol) {
     const price = precisionFor(symbol);
+    const palette = appearancePalette();
     return {
-      upColor: '#26a69a',
-      borderUpColor: '#26a69a',
-      wickUpColor: '#26a69a',
-      downColor: '#ef5350',
-      borderDownColor: '#ef5350',
-      wickDownColor: '#ef5350',
+      upColor: palette.bull,
+      borderUpColor: palette.bull,
+      wickUpColor: palette.bull,
+      downColor: palette.bear,
+      borderDownColor: palette.bear,
+      wickDownColor: palette.bear,
       priceLineVisible: false,
       lastValueVisible: true,
       autoscaleInfoProvider: (originalProvider) => transformedCandleAutoscale(originalProvider),
@@ -1328,6 +1358,14 @@
     state.callbacks = callbacks;
   }
 
+  function setAppearance(next = {}) {
+    state.appearance = { ...state.appearance, ...(next || {}) };
+    state.chart?.applyOptions(chartOptions(state.symbol));
+    state.series?.applyOptions(seriesOptions(state.symbol));
+    if (state.container) state.container.style.background = appearancePalette().background;
+    requestAnimationFrame(positionDragLayer);
+  }
+
   function setSymbol(symbol) {
     const normalized = String(symbol || 'EURUSD').toUpperCase();
     if (normalized === state.symbol) return;
@@ -1433,6 +1471,7 @@
     init,
     destroy,
     setCallbacks,
+    setAppearance,
     setSymbol,
     setCandles,
     setPosition,

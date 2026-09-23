@@ -275,6 +275,27 @@
       notice.style.setProperty('box-shadow', '0 12px 34px rgba(0,0,0,.45)', 'important');
     }
 
+    // Keep the primary replay selectors above the upward-shifted chart panel.
+    // Safari can otherwise hit-test the transformed chart over these selects
+    // until a scroll forces a repaint.
+    const setupPanel = document.querySelector('.setup-panel');
+    if (setupPanel) {
+      setupPanel.style.setProperty('position', 'relative', 'important');
+      setupPanel.style.setProperty('z-index', '20000', 'important');
+      setupPanel.style.setProperty('overflow', 'visible', 'important');
+    }
+    for (const id of ['symbol', 'timeframe']) {
+      const control = document.getElementById(id);
+      if (!control) continue;
+      remember(control);
+      control.style.setProperty('position', 'relative', 'important');
+      control.style.setProperty('z-index', '20001', 'important');
+      control.style.setProperty('pointer-events', 'auto', 'important');
+      control.style.setProperty('transform', 'none', 'important');
+      control.style.setProperty('height', '40px', 'important');
+      control.style.setProperty('min-height', '40px', 'important');
+    }
+
     const dynamicSingleLine = [
       document.getElementById('chartTitle'),
       document.getElementById('chartMeta'),

@@ -141,6 +141,37 @@ test('manual replay progress starts at the selected replay date instead of count
   assert.match(app, /replayTotal = Math\.max\(0, state\.candles\.length - state\.initialIndex\)/);
   assert.match(app, /replayCurrent = Math\.max\(0, state\.index - state\.initialIndex \+ 1\)/);
 });
+
+test('symbol and timeframe stay clickable above the transformed chart and auto reload', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(savedLayout, /for \(const id of \['symbol', 'timeframe'\]\)/);
+  assert.match(savedLayout, /z-index', '20001'/);
+  assert.match(savedLayout, /pointer-events', 'auto'/);
+  assert.match(savedLayout, /transform', 'none'/);
+  assert.match(css, /#symbol,#timeframe/);
+  assert.match(app, /\$\('symbol'\)\.addEventListener\('change', \(\) => \{ void loadReplay\(\); \}\)/);
+  assert.match(app, /\$\('timeframe'\)\.addEventListener\('change', \(\) => \{ void loadReplay\(\); \}\)/);
+  assert.match(app, /loadRequestId/);
+  assert.match(app, /requestId !== state\.loadRequestId/);
+});
+
+test('manual replay UI settings persist theme chart background candle color and grid', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(html, /id="uiSettingsBtn"/);
+  assert.match(html, /id="uiSettingsPanel"/);
+  assert.match(html, /id="uiTheme"/);
+  assert.match(html, /id="uiChartBackground"/);
+  assert.match(html, /id="uiBullColor"/);
+  assert.match(html, /id="uiGrid"/);
+  assert.match(app, /UI_SETTINGS_KEY/);
+  assert.match(app, /localStorage\.setItem\(UI_SETTINGS_KEY/);
+  assert.match(app, /LiveChart\?\.setAppearance\?\./);
+  assert.match(liveChart, /function setAppearance/);
+  assert.match(liveChart, /function appearancePalette/);
+  assert.match(liveChart, /blue: '#2962ff'/);
+  assert.match(css, /data-replay-theme="light"/);
+  assert.match(css, /data-chart-background="black"/);
+});
 test('manual replay uses a real risk reward position box instead of full-width price lines', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(liveChart, /manual-replay-position-tool/);
