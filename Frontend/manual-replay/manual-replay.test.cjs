@@ -189,6 +189,24 @@ test('symbol and timeframe title change immediately while new replay data loads'
   assert.match(app, /symbol: requestedSymbol/);
   assert.match(app, /timeframe: requestedTimeframe/);
 });
+
+test('light theme has strong contrast and leaves the replay toolbar clear of setup', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(css, /body\[data-replay-theme="light"\] #replayWorkspace\{margin-top:66px!important\}/);
+  assert.match(css, /--text:#0b1220/);
+  assert.match(css, /--muted:#334155/);
+  assert.match(css, /border:1\.5px solid #718096/);
+  assert.match(css, /input:focus/);
+  assert.match(liveChart, /rgba\(71,85,105,\.38\)/);
+  assert.match(liveChart, /text: lightChart \? '#1f2937'/);
+});
+
+test('setup card itself no longer overlays the chart while selectors keep click priority', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.doesNotMatch(css, /\.setup-panel\{position:relative!important;z-index:20000/);
+  assert.match(css, /#symbol,#timeframe\{position:relative!important;z-index:20002/);
+  assert.match(savedLayout, /setupPanel\.style\.removeProperty\('z-index'\)/);
+});
 test('manual replay uses a real risk reward position box instead of full-width price lines', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(liveChart, /manual-replay-position-tool/);

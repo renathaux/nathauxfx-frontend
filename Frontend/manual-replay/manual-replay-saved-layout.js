@@ -281,7 +281,10 @@
     const setupPanel = document.querySelector('.setup-panel');
     if (setupPanel) {
       setupPanel.style.setProperty('position', 'relative', 'important');
-      setupPanel.style.setProperty('z-index', '20000', 'important');
+      // Do not put the whole setup CARD above the chart. Only the actual
+      // controls need hit-testing priority; a panel-level z-index made the
+      // light theme visually cover the replay toolbar underneath.
+      setupPanel.style.removeProperty('z-index');
       setupPanel.style.setProperty('overflow', 'visible', 'important');
     }
     for (const id of ['symbol', 'timeframe']) {

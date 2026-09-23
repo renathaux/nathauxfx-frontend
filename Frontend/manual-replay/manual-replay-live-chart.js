@@ -112,11 +112,11 @@
     const bullMap = { teal: '#26a69a', blue: '#2962ff', white: lightChart ? '#4b5563' : '#f5f7fb' };
     return {
       background,
-      text: lightChart ? '#475569' : '#9fb0c8',
-      grid: state.appearance.grid ? (lightChart ? 'rgba(148,163,184,.32)' : 'rgba(42,51,66,.45)') : 'rgba(0,0,0,0)',
-      crosshair: lightChart ? 'rgba(71,85,105,.38)' : 'rgba(180,190,210,.35)',
+      text: lightChart ? '#1f2937' : '#9fb0c8',
+      grid: state.appearance.grid ? (lightChart ? 'rgba(71,85,105,.38)' : 'rgba(42,51,66,.45)') : 'rgba(0,0,0,0)',
+      crosshair: lightChart ? 'rgba(30,41,59,.58)' : 'rgba(180,190,210,.35)',
       label: lightChart ? '#e2e8f0' : '#111827',
-      border: lightChart ? '#cbd5e1' : '#1f2937',
+      border: lightChart ? '#64748b' : '#1f2937',
       bull: bullMap[state.appearance.bull] || bullMap.teal,
       bear: '#ef5350',
     };

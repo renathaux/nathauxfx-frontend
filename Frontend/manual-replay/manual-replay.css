@@ -328,7 +328,7 @@ body.manual-replay-fullscreen-fallback .chart-wrap .chart-drawing-bar{
 }
 
 /* Replay setup interaction priority + user appearance controls. */
-.setup-panel{position:relative!important;z-index:20000!important;overflow:visible!important}
+.setup-panel{position:relative!important;overflow:visible!important}
 .setup-grid{position:relative!important;z-index:20001!important}
 #symbol,#timeframe{position:relative!important;z-index:20002!important;pointer-events:auto!important;min-height:40px!important}
 .main-grid{position:relative;z-index:1}
@@ -352,3 +352,90 @@ body[data-replay-theme="light"] .ui-settings-head button{background:#f8fafc;colo
 body[data-chart-background="black"] .chart-wrap,body[data-chart-background="black"] .manual-replay-live-chart{background:#000!important}
 body[data-chart-background="navy"] .chart-wrap,body[data-chart-background="navy"] .manual-replay-live-chart{background:#071524!important}
 body[data-chart-background="white"] .chart-wrap,body[data-chart-background="white"] .manual-replay-live-chart{background:#fff!important}
+
+/* High-contrast light theme + keep the transformed replay workspace clear of Setup. */
+@media (min-width:1200px){
+  body[data-replay-theme="light"] #replayWorkspace{margin-top:66px!important}
+}
+body[data-replay-theme="light"]{
+  --bg:#dfe7f1;
+  --panel:#ffffff;
+  --panel2:#eef3f8;
+  --line:#718096;
+  --text:#0b1220;
+  --muted:#334155;
+  --shadow:0 12px 32px rgba(15,23,42,.18);
+  background:#dfe7f1!important;
+  color:#0b1220!important;
+}
+body[data-replay-theme="light"] .panel{
+  background:#ffffff!important;
+  border:1.5px solid #718096!important;
+  box-shadow:0 8px 24px rgba(15,23,42,.14)!important;
+}
+body[data-replay-theme="light"] .setup-panel{
+  background:#f8fafc!important;
+  border-color:#64748b!important;
+}
+body[data-replay-theme="light"] .heading h1,
+body[data-replay-theme="light"] .panel-title h2,
+body[data-replay-theme="light"] .chart-toolbar h2,
+body[data-replay-theme="light"] .trade-panel h2{color:#08111f!important}
+body[data-replay-theme="light"] .muted,
+body[data-replay-theme="light"] label span,
+body[data-replay-theme="light"] .metric-grid span{color:#334155!important}
+body[data-replay-theme="light"] .eyebrow{color:#244b73!important}
+body[data-replay-theme="light"] input,
+body[data-replay-theme="light"] select{
+  background:#ffffff!important;
+  color:#0b1220!important;
+  border:1.5px solid #64748b!important;
+  box-shadow:inset 0 0 0 1px rgba(15,23,42,.03)!important;
+}
+body[data-replay-theme="light"] input:focus,
+body[data-replay-theme="light"] select:focus{
+  border-color:#1d4ed8!important;
+  box-shadow:0 0 0 2px rgba(29,78,216,.18)!important;
+  outline:none!important;
+}
+body[data-replay-theme="light"] .button,
+body[data-replay-theme="light"] .icon-button{
+  background:#e8eef5!important;
+  color:#0b1220!important;
+  border:1.5px solid #64748b!important;
+}
+body[data-replay-theme="light"] .button:hover,
+body[data-replay-theme="light"] .icon-button:hover{background:#dce6f0!important}
+body[data-replay-theme="light"] .button.primary{
+  background:#f5bd48!important;
+  border-color:#9a6500!important;
+  color:#1a1200!important;
+}
+body[data-replay-theme="light"] .button.buy{background:#08775b!important;color:#fff!important;border-color:#065f46!important}
+body[data-replay-theme="light"] .button.sell{background:#b4233a!important;color:#fff!important;border-color:#8f1d30!important}
+body[data-replay-theme="light"] .button:disabled,
+body[data-replay-theme="light"] .icon-button:disabled{opacity:.52!important}
+body[data-replay-theme="light"] .trade-panel .ticket-grid input[readonly]{background:#eef2f7!important;color:#111827!important}
+body[data-replay-theme="light"] .draft-metrics>div,
+body[data-replay-theme="light"] .metric-grid article,
+body[data-replay-theme="light"] .position-card,
+body[data-replay-theme="light"] .price-pick-hint{
+  background:#edf2f7!important;
+  border-color:#718096!important;
+  color:#111827!important;
+}
+body[data-replay-theme="light"] .draft-metrics strong,
+body[data-replay-theme="light"] .metric-grid strong,
+body[data-replay-theme="light"] .position-row strong{color:#0b1220!important}
+body[data-replay-theme="light"] .chart-toolbar,
+body[data-replay-theme="light"] .position-tools,
+body[data-replay-theme="light"] .candle-strip{color:#111827!important}
+body[data-replay-theme="light"] .ui-settings-panel{
+  background:#ffffff!important;
+  border:1.5px solid #64748b!important;
+  color:#0b1220!important;
+}
+body[data-replay-theme="light"] .ui-settings-head button{background:#e8eef5!important;color:#0b1220!important;border-color:#64748b!important}
+body[data-replay-theme="light"] .notice{background:#ffffff!important;border-color:#64748b!important;color:#0b1220!important}
+body[data-replay-theme="light"] .notice.success{background:#ecfdf5!important;border-color:#16805d!important;color:#065f46!important}
+body[data-replay-theme="light"] .notice.error{background:#fff1f2!important;border-color:#b4233a!important;color:#8f1d30!important}
