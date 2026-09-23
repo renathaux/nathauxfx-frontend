@@ -34,6 +34,10 @@
     drawingScope: 'default',
     selectedDrawingId: null,
     drawingGesture: null,
+    pathDraft: null,
+    pathPreview: null,
+    pathLastClick: null,
+    pathFinishedAt: -Infinity,
     drawingUndo: [],
     initialized: false,
     appearance: {
@@ -697,22 +701,68 @@
     return html + '</g>';
   }
 
+  function renderPathDrawing(drawing, selected, preview = null) {
+    const vertices = preview ? [...drawing.points, preview] : drawing.points;
+    const points = vertices.map(point => [logicalToX(point.logical), priceToY(point.price)]);
+    if (!points.length || !points.flat().every(Number.isFinite)) return '';
+    const coordinates = points.map(point => point.join(',')).join(' ');
+    let html = `<g class="manual-drawing path${selected ? ' selected' : ''}" data-drawing-group="${drawing.id}">
+      <polyline class="manual-drawing-hit manual-path-hit" data-replay-drawing="1" data-drawing-body="1" data-drawing-id="${drawing.id}" points="${coordinates}"></polyline>
+      <polyline class="manual-path-line" points="${coordinates}" marker-end="url(#manual-replay-path-arrow)"></polyline>`;
+    if (selected) drawing.points.forEach((point, index) => {
+      html += circleHandle(drawing.id, String(index), points[index][0], points[index][1]);
+    });
+    return html + '</g>';
+  }
+
+  function finishPath() {
+    const draft = state.pathDraft;
+    if (draft && draft.points.length >= 2) {
+      pushDrawingUndo();
+      state.drawings.push(draft);
+      state.selectedDrawingId = draft.id;
+      saveDrawings();
+    }
+    setDrawingMode(null);
+  }
+
+  function addPathPoint(point) {
+    if (!state.pathDraft) {
+      state.pathDraft = { id: 'drawing_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), type: 'path', points: [] };
+      state.selectedDrawingId = null;
+    }
+    const points = state.pathDraft.points;
+    const last = points[points.length - 1];
+    // A double-click contributes one vertex, not two coincident handles.
+    if (!last || Math.hypot(point.x - logicalToX(last.logical), point.y - priceToY(last.price)) > 4) {
+      points.push({ logical: point.logical, price: point.price });
+    }
+    state.pathPreview = null;
+    document.activeElement?.blur?.();
+    renderDrawings();
+  }
+
   function renderDrawings() {
     if (!state.layer || !state.container) return;
     const svg = ensureDrawingSvg();
     if (!svg) return;
-    svg.innerHTML = state.drawings.map((drawing) => {
+    const arrow = '<defs><marker id="manual-replay-path-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M1 1 L7 4 L1 7" fill="none" stroke="#2f6bff" stroke-width="1.2"/></marker></defs>';
+    svg.innerHTML = arrow + state.drawings.map((drawing) => {
       const selected = drawing.id === state.selectedDrawingId;
+      if (drawing.type === 'path') return renderPathDrawing(drawing, selected);
       return drawing.type === 'measure' ? renderMeasureDrawing(drawing, selected) : drawing.type === 'rect'
         ? renderRectDrawing(drawing, selected)
         : renderLineDrawing(drawing, selected);
-    }).join('');
+    }).join('') + (state.pathDraft ? renderPathDrawing(state.pathDraft, true, state.pathPreview) : '');
   }
 
   function setDrawingMode(mode) {
-    const normalized = ['line', 'rect', 'measure'].includes(mode) ? mode : null;
+    const normalized = ['line', 'rect', 'measure', 'path'].includes(mode) ? mode : null;
     state.drawingMode = normalized;
     state.drawingGesture = null;
+    state.pathDraft = null;
+    state.pathPreview = null;
+    state.pathLastClick = null;
     state.callbacks.onDrawingModeChange?.(normalized);
     renderDrawings();
   }
@@ -720,6 +770,7 @@
   function setDrawingScope(scope) {
     const normalized = String(scope || 'default');
     if (normalized === state.drawingScope) return;
+    setDrawingMode(null);
     state.drawingScope = normalized;
     loadDrawings();
     renderDrawings();
@@ -770,16 +821,22 @@
     } else if (gesture.type === 'move') {
       const logicalDelta = point.logical - gesture.start.logical;
       const priceDelta = point.price - gesture.start.price;
-      drawing.a = {
-        logical: gesture.original.a.logical + logicalDelta,
-        price: gesture.original.a.price + priceDelta,
-      };
-      drawing.b = {
-        logical: gesture.original.b.logical + logicalDelta,
-        price: gesture.original.b.price + priceDelta,
-      };
+      if (drawing.type === 'path') {
+        drawing.points = gesture.original.points.map(point => ({ logical: point.logical + logicalDelta, price: point.price + priceDelta }));
+      } else {
+        drawing.a = {
+          logical: gesture.original.a.logical + logicalDelta,
+          price: gesture.original.a.price + priceDelta,
+        };
+        drawing.b = {
+          logical: gesture.original.b.logical + logicalDelta,
+          price: gesture.original.b.price + priceDelta,
+        };
+      }
     } else if (gesture.type === 'resize') {
-      if (drawing.type !== 'rect') {
+      if (drawing.type === 'path') {
+        drawing.points[Number(gesture.handle)] = { logical: point.logical, price: point.price };
+      } else if (drawing.type !== 'rect') {
         drawing[gesture.handle] = { logical: point.logical, price: point.price };
       } else {
         applyRectangleHandle(drawing, gesture.handle, point);
@@ -798,6 +855,20 @@
     const handle = event.target.closest?.('[data-drawing-handle]');
     const body = event.target.closest?.('[data-drawing-body]');
     const point = drawingPointFromEvent(event);
+
+    if (state.drawingMode === 'path' && point) {
+      const last = state.pathLastClick;
+      if (last && event.timeStamp - last.time < 350 && Math.hypot(event.clientX - last.x, event.clientY - last.y) < 5) {
+        finishPath();
+        state.pathFinishedAt = event.timeStamp;
+      } else {
+        addPathPoint(point);
+        state.pathLastClick = { time: event.timeStamp, x: event.clientX, y: event.clientY };
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation?.();
+      return true;
+    }
 
     if (handle) {
       const id = handle.getAttribute('data-drawing-id');
@@ -851,6 +922,7 @@
   }
 
   function deleteSelectedDrawing() {
+    if (state.pathDraft) { setDrawingMode(null); return true; }
     if (!state.selectedDrawingId) return false;
     const index = state.drawings.findIndex((item) => item.id === state.selectedDrawingId);
     if (index < 0) return false;
@@ -1175,7 +1247,7 @@
     });
 
     state.chart.subscribeClick((param) => {
-      if (!param?.point || !currentPosition() || state.positionLocked) return;
+      if (state.drawingMode || !param?.point || !currentPosition() || state.positionLocked) return;
       const point = { x: Number(param.point.x), y: Number(param.point.y) };
       const region = positionRegionAtPoint(point.x, point.y);
       if (!region) return;
@@ -1223,6 +1295,14 @@
     };
 
     const onDrawingPointerMove = (event) => {
+      if (state.pathDraft) {
+        const point = drawingPointFromEvent(event);
+        if (point) {
+          state.pathPreview = { logical: point.logical, price: point.price };
+          renderDrawings();
+        }
+        return;
+      }
       updateDrawingGesture(event);
     };
 
@@ -1282,6 +1362,12 @@
     };
 
     const onDoubleClick = (event) => {
+      if (state.drawingMode === 'path' || event.timeStamp - state.pathFinishedAt < 400) {
+        if (state.drawingMode === 'path') finishPath();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       const rect = state.container.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
@@ -1308,6 +1394,15 @@
       const typing = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tag) || document.activeElement?.isContentEditable;
 
       if (!typing && (event.metaKey || event.ctrlKey) && String(event.key).toLowerCase() === 'z') {
+        if (state.pathDraft) {
+          state.pathDraft.points.pop();
+          state.pathPreview = null;
+          state.pathLastClick = null;
+          if (!state.pathDraft.points.length) state.pathDraft = null;
+          renderDrawings();
+          event.preventDefault();
+          return;
+        }
         if (undoDrawingEdit()) {
           event.preventDefault();
           return;
@@ -1323,8 +1418,7 @@
 
       if (event.key === 'Escape') {
         if (state.drawingMode || state.selectedDrawingId) {
-          state.drawingMode = null;
-          state.drawingGesture = null;
+          setDrawingMode(null);
           state.selectedDrawingId = null;
           state.callbacks.onDrawingModeChange?.(null);
           renderDrawings();
@@ -1419,6 +1513,10 @@
     state.drawingScope = 'default';
     state.selectedDrawingId = null;
     state.drawingGesture = null;
+    state.pathDraft = null;
+    state.pathPreview = null;
+    state.pathLastClick = null;
+    state.pathFinishedAt = -Infinity;
     state.drawingUndo = [];
     state.verticalViewport.scale = 1;
     state.verticalViewport.offsetRatio = 0;
@@ -1552,6 +1650,7 @@
     setPosition,
     clearPosition,
     setDrawingMode,
+    finishPath,
     setDrawingScope,
     deleteSelectedDrawing,
     undoDrawingEdit,

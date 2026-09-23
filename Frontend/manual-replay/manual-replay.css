@@ -329,3 +329,6 @@ body.manual-replay-fullscreen-fallback .chart-wrap { position: fixed; inset: 0; 
 .open-trade-row button[aria-pressed="true"] { border-color: #2f6bff; background: var(--surface-soft); }
 .open-trade-row small { display: block; margin-top: 3px; font-size: 10px; }
 .open-trade-row strong { font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.manual-path-line { fill: none; stroke: #2f6bff; stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
+.manual-drawing.path .manual-drawing-handle { fill: var(--surface); stroke: #2f6bff; cursor: crosshair; }

@@ -471,6 +471,9 @@
   function syncDrawingToolButtons(mode = null) {
     $('chartSelectBtn')?.classList.toggle('is-active', !mode);
     $('chartSelectBtn')?.setAttribute('aria-pressed', String(!mode));
+    $('chartPathBtn')?.setAttribute('aria-pressed', String(mode === 'path'));
+    $('chartPathBtn')?.classList.toggle('is-active', mode === 'path');
+    $('chartPathFinishBtn')?.classList.toggle('hidden', mode !== 'path');
     $('chartMeasureBtn')?.setAttribute('aria-pressed', String(mode === 'measure'));
     $('chartMeasureBtn')?.classList.toggle('is-active', mode === 'measure');
     const lineButtons = [$('drawLineBtn'), $('chartLineBtn')].filter(Boolean);
@@ -486,7 +489,7 @@
   }
 
   function toggleDrawingMode(mode) {
-    if (!LiveChart || !['line', 'rect', 'measure'].includes(mode)) return;
+    if (!LiveChart || !['line', 'rect', 'measure', 'path'].includes(mode)) return;
     const current = LiveChart.getState?.().drawingMode || null;
     const next = current === mode ? null : mode;
     LiveChart.setDrawingMode?.(next);
@@ -495,6 +498,8 @@
       notice('Line tool active • click to place or drag to size. Esc cancels.', 'success');
     } else if (next === 'rect') {
       notice('S/R rectangle active • click to place or drag a zone, then resize its handles.', 'success');
+    } else if (next === 'path') {
+      notice('Path active • click each point. Double-click, Enter or Done finishes; Esc cancels.', 'success');
     } else if (next === 'measure') {
       notice('Measure active • click or drag between prices to measure pips. Drag either endpoint to adjust.', 'success');
     }
@@ -987,6 +992,7 @@
   }
 
   async function loadReplay() {
+    LiveChart?.setDrawingMode?.(null);
     const requestId = ++state.loadRequestId;
     stopTimer();
     notice('');
@@ -1073,6 +1079,7 @@
   }
 
   function resetSession() {
+    LiveChart?.setDrawingMode?.(null);
     stopTimer();
     if (!state.candles.length) return;
     const starting = Number($('startingBalance').value);
@@ -1320,6 +1327,15 @@
 
   function handleReplayKeyboard(event) {
     if (document.querySelector('dialog[open]')) return;
+    if (LiveChart?.getState?.().drawingMode === 'path' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target?.tagName)) {
+      if (event.key === 'Enter' || event.key === 'Escape') {
+        if (event.key === 'Enter') LiveChart.finishPath();
+        else LiveChart.setDrawingMode(null);
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+    }
     if (keyboardTargetIsEditable(event)) return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.code === 'Space' && event.repeat) {
@@ -1432,6 +1448,8 @@
   $('drawLineBtn')?.addEventListener('click', () => toggleDrawingMode('line'));
   $('drawRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
   $('chartLineBtn')?.addEventListener('click', () => toggleDrawingMode('line'));
+  $('chartPathBtn')?.addEventListener('click', () => toggleDrawingMode('path'));
+  $('chartPathFinishBtn')?.addEventListener('click', () => LiveChart?.finishPath());
   $('chartMeasureBtn')?.addEventListener('click', () => toggleDrawingMode('measure'));
   $('chartRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
   $('chartSelectBtn')?.addEventListener('click', () => {

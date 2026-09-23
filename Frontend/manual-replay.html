@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f2f6fb">
   <title>NathauxFX — Manual Replay</title>
-  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=35">
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=36">
 </head>
 <body>
   <header class="topbar">
@@ -69,6 +69,8 @@
               <button id="chartSelectBtn" class="chart-drawing-button is-active" type="button" aria-label="Select drawing" aria-pressed="true" title="Select drawing">↖</button>
               <button id="chartLineBtn" class="chart-drawing-button drawing-tool" type="button" aria-pressed="false" title="Draw a line">╱ <span>Line</span></button>
               <button id="chartRectBtn" class="chart-drawing-button drawing-tool" type="button" aria-pressed="false" title="Draw a support or resistance rectangle">▭ <span>S/R</span></button>
+              <button id="chartPathBtn" class="chart-drawing-button drawing-tool" type="button" aria-pressed="false" title="Draw a path — click points, double-click to finish"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m3 18 6-11 6 8 6-12M16 3h5v5"/><circle cx="3" cy="18" r="1.5"/><circle cx="9" cy="7" r="1.5"/><circle cx="15" cy="15" r="1.5"/></svg><span>Path</span></button>
+              <button id="chartPathFinishBtn" class="chart-drawing-button hidden" type="button" title="Finish path" aria-label="Finish path">✓ <span>Done</span></button>
               <button id="chartMeasureBtn" class="chart-drawing-button drawing-tool" type="button" aria-pressed="false" title="Measure pip distance"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m3 16 13-13 5 5L8 21zM12 7l3 3M8 11l3 3M4 15l3 3"/></svg><span>Measure</span></button>
               <button id="chartDeleteBtn" class="chart-drawing-button" type="button" aria-label="Delete selected drawing" title="Delete selected drawing">⌫</button>
             </div>
@@ -191,8 +193,8 @@
   <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
   <script src="/manual-replay/manual-replay-position.js?v=5"></script>
-  <script src="/manual-replay/manual-replay-live-chart.js?v=26"></script>
-  <script src="/manual-replay/manual-replay.js?v=29"></script>
+  <script src="/manual-replay/manual-replay-live-chart.js?v=27"></script>
+  <script src="/manual-replay/manual-replay.js?v=30"></script>
   <script src="/manual-replay/manual-replay-calendar.js?v=1"></script>
   <script src="/manual-replay/manual-replay-layout-editor.js?v=10"></script>
 </body>
