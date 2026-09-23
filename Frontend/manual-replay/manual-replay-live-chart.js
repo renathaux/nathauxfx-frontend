@@ -704,6 +704,7 @@
 
   function beginDrawingGesture(event) {
     if (event.button !== 0) return false;
+    if (event.target.closest?.('[data-replay-chart-toolbar]')) return false;
     const handle = event.target.closest?.('[data-drawing-handle]');
     const body = event.target.closest?.('[data-drawing-body]');
     const point = drawingPointFromEvent(event);
@@ -1097,6 +1098,7 @@
     const onVerticalPointerDown = (event) => {
       if (event.button !== 0) return;
       if (state.drawingMode || state.drawingGesture) return;
+      if (event.target.closest?.('[data-replay-chart-toolbar]')) return;
       if (event.target.closest?.('[data-replay-price-field], [data-replay-drawing]')) return;
       const rect = state.container.getBoundingClientRect();
       const x = event.clientX - rect.left;

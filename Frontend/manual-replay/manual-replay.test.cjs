@@ -435,6 +435,7 @@ test('active manual trade shows a live hologram with money pips and R', () => {
 test('chart frame has an always-visible line and support resistance drawing bar', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(html, /id="chartDrawingBar"/);
+  assert.match(html, /data-replay-chart-toolbar/);
   assert.match(html, /id="chartLineBtn"/);
   assert.match(html, /id="chartRectBtn"/);
   assert.match(app, /\$\('chartLineBtn'\)\?\.addEventListener\('click', \(\) => toggleDrawingMode\('line'\)\)/);
@@ -442,6 +443,8 @@ test('chart frame has an always-visible line and support resistance drawing bar'
   assert.match(app, /\$\('drawLineBtn'\), \$\('chartLineBtn'\)/);
   assert.match(css, /\.chart-drawing-bar/);
   assert.match(css, /#manualReplayChartFrame:fullscreen \.chart-drawing-bar/);
+  assert.match(liveChart, /beginDrawingGesture[\s\S]*data-replay-chart-toolbar/);
+  assert.match(liveChart, /onVerticalPointerDown[\s\S]*data-replay-chart-toolbar/);
 });
 
 test('manual replay has line and support resistance rectangle drawing tools', () => {
