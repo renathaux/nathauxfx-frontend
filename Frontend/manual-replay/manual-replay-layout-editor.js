@@ -4,6 +4,11 @@
   const params = new URLSearchParams(window.location.search);
   if (params.get('layoutEdit') !== '1') return;
 
+  const stylesheet = document.createElement('link');
+  stylesheet.rel = 'stylesheet';
+  stylesheet.href = '/manual-replay/manual-replay-layout-editor.css?v=1';
+  document.head.appendChild(stylesheet);
+
   const STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v4';
   const LEGACY_STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v3';
   const dirs = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];

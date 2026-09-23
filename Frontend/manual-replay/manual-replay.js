@@ -10,7 +10,7 @@
   const INITIAL_VISIBLE_BARS = 220;
   const UI_SETTINGS_KEY = 'nathauxfx_manual_replay_ui_v1';
   const DEFAULT_UI_SETTINGS = Object.freeze({
-    theme: 'dark',
+    theme: 'light',
     chartBackground: 'match',
     bullColor: 'teal',
     grid: 'on',
@@ -58,7 +58,7 @@
   }
 
   function money(value) {
-    return Number.isFinite(Number(value)) ? `$${Number(value).toFixed(2)}` : '—';
+    return Number.isFinite(Number(value)) ? Number(value).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '—';
   }
 
   function normalizeUiSettings(raw = {}) {
@@ -460,6 +460,8 @@
 
 
   function syncDrawingToolButtons(mode = null) {
+    $('chartSelectBtn')?.classList.toggle('is-active', !mode);
+    $('chartSelectBtn')?.setAttribute('aria-pressed', String(!mode));
     const lineButtons = [$('drawLineBtn'), $('chartLineBtn')].filter(Boolean);
     const rectButtons = [$('drawRectBtn'), $('chartRectBtn')].filter(Boolean);
     for (const button of lineButtons) {
@@ -660,6 +662,10 @@
     const m = metrics();
     $('metricBalance').textContent = money(state.balance);
     $('metricPnl').textContent = money(m.pnl);
+    const openPnl = state.openTrade && currentCandle()
+      ? tradeR(state.openTrade, currentCandle().close) * state.openTrade.riskDollars : 0;
+    if ($('metricOpenPnl')) $('metricOpenPnl').textContent = money(openPnl);
+    if ($('metricEquity')) $('metricEquity').textContent = money(state.balance + openPnl);
     $('metricWinRate').textContent = m.winRate == null ? '—' : `${m.winRate.toFixed(1)}%`;
     $('metricTrades').textContent = String(m.resolved);
     $('metricAvgR').textContent = m.avgR == null ? '—' : `${m.avgR.toFixed(2)}R`;
@@ -738,7 +744,7 @@
   function renderLog() {
     const body = $('tradeBody');
     if (!state.trades.length) {
-      body.innerHTML = '<tr><td colspan="12" class="empty">No manual trades yet.</td></tr>';
+      body.innerHTML = '<tr><td colspan="12" class="empty"><strong>No trades yet</strong><span>Your manual trades will appear here.</span></td></tr>';
       return;
     }
     body.innerHTML = state.trades.map((t, i) => `<tr>
@@ -904,6 +910,12 @@
     $('currentPrice').textContent = price(c.close);
     $('currentTime').textContent = new Date(c.timestamp).toLocaleString();
     $('ohlc').textContent = `O ${price(c.open)}  H ${price(c.high)}  L ${price(c.low)}  C ${price(c.close)}`;
+    const change = Number(c.close) - Number(c.open);
+    const changeNode = $('priceChange');
+    if (changeNode) {
+      changeNode.textContent = `${change >= 0 ? '+' : ''}${price(change)} (${change >= 0 ? '+' : ''}${(change / c.open * 100).toFixed(2)}%)`;
+      changeNode.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
+    }
     const replayTotal = Math.max(0, state.candles.length - state.initialIndex);
     const replayCurrent = Math.max(0, state.index - state.initialIndex + 1);
     $('progress').textContent = `${replayCurrent} / ${replayTotal}`;
@@ -932,7 +944,9 @@
 
       const requestedSymbol = $('symbol').value;
       const requestedTimeframe = $('timeframe').value;
-      $('chartTitle').textContent = `${requestedSymbol} • ${requestedTimeframe} • Loading…`;
+      $('chartTitle').textContent = requestedSymbol;
+      $('chartTitle').title = `${requestedSymbol} • ${requestedTimeframe} • Loading…`;
+      if ($('chartTimeframe')) $('chartTimeframe').value = requestedTimeframe;
 
       const replayStart = new Date(start);
       const historyStart = subtractCalendarMonths(replayStart, REPLAY_CONTEXT_MONTHS).toISOString();
@@ -979,16 +993,14 @@
 
       const contextCount = replayStartIndex;
       const replayCount = result.candles.length - replayStartIndex;
-      $('chartTitle').textContent = `${result.symbol} • ${result.timeframe} • Manual Replay`;
+      $('chartTitle').textContent = result.symbol;
+      $('chartTitle').title = `${result.symbol} • ${result.timeframe} • Manual Replay`;
       $('chartMeta').textContent =
         `${contextCount.toLocaleString()} history candles before your start • ` +
         `${replayCount.toLocaleString()} replay candles • future candles hidden`;
 
       setChartLoading(false);
-      notice(
-        `Replay loaded with ${REPLAY_CONTEXT_MONTHS} months of chart history before your selected start.`,
-        'success'
-      );
+      notice('');
       renderAll();
     } catch (error) {
       if (requestId !== state.loadRequestId) return;
@@ -1209,7 +1221,11 @@
       document.body.classList.contains('manual-replay-fullscreen-fallback')
     );
     const button = $('fullscreenBtn');
-    if (button) button.textContent = active ? '⤢ Exit Full Screen' : '⛶ Full Screen';
+    if (button) {
+      button.textContent = active ? '⤢' : '⛶';
+      button.title = active ? 'Exit full screen' : 'Full screen chart';
+      button.setAttribute('aria-label', button.title);
+    }
     requestAnimationFrame(() => LiveChart?.resize?.());
   }
 
@@ -1347,6 +1363,15 @@
   $('drawRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
   $('chartLineBtn')?.addEventListener('click', () => toggleDrawingMode('line'));
   $('chartRectBtn')?.addEventListener('click', () => toggleDrawingMode('rect'));
+  $('chartSelectBtn')?.addEventListener('click', () => {
+    LiveChart?.setDrawingMode?.(null);
+    syncDrawingToolButtons(null);
+  });
+  $('chartDeleteBtn')?.addEventListener('click', () => LiveChart?.deleteSelectedDrawing?.());
+  $('chartTimeframe')?.addEventListener('change', () => {
+    $('timeframe').value = $('chartTimeframe').value;
+    void loadReplay();
+  });
   $('uiSettingsBtn')?.addEventListener('click', () => toggleUiSettings());
   $('uiSettingsClose')?.addEventListener('click', () => toggleUiSettings(false));
   $('uiTheme')?.addEventListener('change', () => applyUiSettings({ ...uiSettings, theme: $('uiTheme').value }));

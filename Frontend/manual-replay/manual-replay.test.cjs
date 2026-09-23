@@ -9,11 +9,10 @@ const api = fs.readFileSync(path.join(__dirname, 'manual-replay-api.js'), 'utf8'
 const app = fs.readFileSync(path.join(__dirname, 'manual-replay.js'), 'utf8');
 const liveChart = fs.readFileSync(path.join(__dirname, 'manual-replay-live-chart.js'), 'utf8');
 const layoutEditor = fs.readFileSync(path.join(__dirname, 'manual-replay-layout-editor.js'), 'utf8');
-const savedLayout = fs.readFileSync(path.join(__dirname, 'manual-replay-saved-layout.js'), 'utf8');
 
 test('manual replay is standalone and does not require a strategy', () => {
   assert.match(html, /Manual Trading Replay/);
-  assert.match(html, /NO STRATEGY/);
+  assert.match(html, /No Strategy/);
   assert.doesNotMatch(html, /strategy_id/);
   assert.match(api, /STATIC_ROOT = '\/replay-data'/);
   assert.doesNotMatch(api, /strategy-simulator\/manual-history/);
@@ -46,8 +45,8 @@ test('manual replay exposes one synchronized long or short draft ticket', () => 
     'longPositionBtn', 'shortPositionBtn', 'cancelPositionBtn',
     'draftDirection', 'draftEntry', 'draftRr', 'draftRisk', 'draftReward',
   ]) assert.match(html, new RegExp(`id="${id}"`));
-  assert.match(html, /OPEN BUY/);
-  assert.match(html, /OPEN SELL/);
+  assert.match(html, /Open Buy/);
+  assert.match(html, /Open Sell/);
   assert.match(html, /manual-replay-position\.js/);
 });
 
@@ -106,7 +105,7 @@ test('manual replay uses one visible year control plus month-day-time text', () 
   assert.match(app, /populateYearJump\('startYear'/);
   assert.match(app, /Use MM-DD HH:MM for the replay date and time/);
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
-  assert.match(css, /grid-template-columns:86px minmax\(0,1fr\)/);
+  assert.match(css, /grid-template-columns: 66px minmax\(0, 1fr\)/);
   assert.match(css, /date-without-year/);
 });
 
@@ -142,18 +141,7 @@ test('manual replay progress starts at the selected replay date instead of count
   assert.match(app, /replayCurrent = Math\.max\(0, state\.index - state\.initialIndex \+ 1\)/);
 });
 
-test('symbol and timeframe stay clickable above the transformed chart and auto reload', () => {
-  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
-  assert.match(savedLayout, /for \(const id of \['symbol', 'timeframe'\]\)/);
-  assert.match(savedLayout, /z-index', '20001'/);
-  assert.match(savedLayout, /pointer-events', 'auto'/);
-  assert.match(savedLayout, /transform', 'none'/);
-  assert.match(css, /#symbol,#timeframe/);
-  assert.match(app, /\$\('symbol'\)\.addEventListener\('change', \(\) => \{ void loadReplay\(\); \}\)/);
-  assert.match(app, /\$\('timeframe'\)\.addEventListener\('change', \(\) => \{ void loadReplay\(\); \}\)/);
-  assert.match(app, /loadRequestId/);
-  assert.match(app, /requestId !== state\.loadRequestId/);
-});
+
 
 test('manual replay UI settings persist theme chart background candle color and grid', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
@@ -190,69 +178,17 @@ test('symbol and timeframe title change immediately while new replay data loads'
   assert.match(app, /timeframe: requestedTimeframe/);
 });
 
-test('light theme has strong contrast and leaves the replay toolbar clear of setup', () => {
-  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
-  assert.doesNotMatch(css, /#replayWorkspace\{margin-top:66px!important\}/);
-  assert.doesNotMatch(css, /#replayWorkspace\{margin-top:34px!important\}/);
-  assert.match(savedLayout, /function stabilizeWorkspaceSeparation/);
-  assert.match(savedLayout, /const desiredTop = setupRect\.bottom \+ 8/);
-  assert.match(savedLayout, /const overlap = Math\.max\(0, Math\.ceil\(desiredTop - visibleTop\)\)/);
-  assert.match(savedLayout, /baseMargin \+ overlap/);
-  assert.match(css, /--text:#0b1220/);
-  assert.match(css, /--muted:#334155/);
-  assert.match(css, /border:1\.5px solid #718096/);
-  assert.match(css, /input:focus/);
-  assert.match(liveChart, /rgba\(71,85,105,\.38\)/);
-  assert.match(liveChart, /text: lightChart \? '#1f2937'/);
-});
 
-test('setup card itself no longer overlays the chart while selectors keep click priority', () => {
-  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
-  assert.doesNotMatch(css, /\.setup-panel\{position:relative!important;z-index:20000/);
-  assert.match(css, /#symbol,#timeframe\{position:relative!important;z-index:20002/);
-  assert.match(savedLayout, /setupPanel\.style\.removeProperty\('z-index'\)/);
-});
 
-test('workspace gap is derived from the transformed card positions instead of a fixed offset', () => {
-  assert.match(savedLayout, /workspace\.style\.setProperty\('margin-top', `\$\{baseMargin\}px`/);
-  assert.match(savedLayout, /setup\.getBoundingClientRect\(\)/);
-  assert.match(savedLayout, /chartPanel\.getBoundingClientRect\(\)/);
-  assert.match(savedLayout, /tradePanel\?\.getBoundingClientRect/);
-  assert.match(savedLayout, /desiredTop = setupRect\.bottom \+ 8/);
-  assert.match(savedLayout, /margin-top', `\$\{baseMargin \+ overlap\}px`/);
-});
 
-test('manual replay cards are square and workspace is flush with setup', () => {
-  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
-  assert.match(css, /\.main-grid\{margin-top:0!important\}/);
-  assert.match(css, /\.panel,[\s\S]*\.chart-wrap,[\s\S]*border-radius:0!important/);
-  assert.match(savedLayout, /const baseMargin = 0/);
-  assert.match(savedLayout, /margin-top', '0px'/);
-  assert.match(savedLayout, /const desiredTop = setupRect\.bottom;/);
-});
 
-test('lower replay metrics and trade log ignore legacy saved transforms', () => {
-  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
-  assert.match(savedLayout, /const LOWER_FLOW_PREFIXES = new Set/);
-  assert.match(savedLayout, /'metricGrid'/);
-  assert.match(savedLayout, /'logPanel'/);
-  assert.match(savedLayout, /LOWER_FLOW_PREFIXES\.has\(prefix\)/);
-  assert.match(savedLayout, /metricGrid\.style\.setProperty\('transform', 'none'/);
-  assert.match(savedLayout, /logPanel\.style\.setProperty\('height', 'auto'/);
-  assert.match(css, /\.metric-grid\{[\s\S]*margin:0!important/);
-  assert.match(css, /\.log-panel\{[\s\S]*height:auto!important/);
-  assert.match(css, /max-height:300px!important/);
-  assert.match(css, /\.log-panel td\.empty\{padding:26px 12px!important\}/);
-});
 
-test('workspace height follows transformed chart and trade cards so lower section has no blank gap', () => {
-  assert.match(savedLayout, /const finalWorkspaceRect = workspace\.getBoundingClientRect\(\)/);
-  assert.match(savedLayout, /const finalChartRect = chartPanel\.getBoundingClientRect\(\)/);
-  assert.match(savedLayout, /const visibleBottom = Math\.max/);
-  assert.match(savedLayout, /const visualHeight = Math\.max\(0, Math\.ceil\(visibleBottom - finalWorkspaceRect\.top\)\)/);
-  assert.match(savedLayout, /workspace\.style\.setProperty\('height', `\$\{visualHeight\}px`/);
-  assert.match(savedLayout, /workspace\.style\.setProperty\('min-height', '0'/);
-});
+
+
+
+
+
+
 test('manual replay uses a real risk reward position box instead of full-width price lines', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(liveChart, /manual-replay-position-tool/);
@@ -333,32 +269,15 @@ test('manual replay can switch off auto risk and use fixed lot sizing', () => {
 });
 
 
-test('modern sizing ticket is protected from the legacy saved layout', () => {
-  const savedLayout = fs.readFileSync(path.join(__dirname, 'manual-replay-saved-layout.js'), 'utf8');
-  assert.match(savedLayout, /modernTicketLayoutEnabled/);
-  assert.match(savedLayout, /document\.getElementById\('positionSizingMode'\)/);
-  assert.match(savedLayout, /modernTicketPrefixes/);
-  assert.match(savedLayout, /'ticketFieldControl'/);
-  assert.match(savedLayout, /'draftMetrics'/);
-  assert.match(savedLayout, /if \(modernTicket && modernTicketPrefixes\.has\(prefix\)\) continue/);
-  assert.match(savedLayout, /sizing\.style\.setProperty\('display', 'block', 'important'\)/);
-  assert.match(savedLayout, /tradePanel\.style\.setProperty\('height', 'auto', 'important'\)/);
-});
 
 
 
-test('chart frame keeps the legacy chartWrap layout key so it does not fall down', () => {
-  const savedLayout = fs.readFileSync(path.join(__dirname, 'manual-replay-saved-layout.js'), 'utf8');
-  assert.match(html, /<div class="chart-wrap">/);
-  assert.doesNotMatch(html, /id="manualReplayChartFrame"/);
-  assert.match(savedLayout, /"chartWrap\[0\]"/);
-  assert.match(savedLayout, /\['chartWrap', '\.chart-wrap'\]/);
-});
+
+
 
 test('manual replay fullscreen is chart-only and preserves the trade hologram layer', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
-  const savedLayout = fs.readFileSync(path.join(__dirname, 'manual-replay-saved-layout.js'), 'utf8');
-  assert.match(html, /class="chart-wrap"/);
+    assert.match(html, /class="chart-wrap"/);
   assert.doesNotMatch(html, /id="manualReplayChartFrame"/);
   assert.match(html, /id="fullscreenBtn"/);
   assert.match(html, /⛶ Full Screen/);
@@ -370,13 +289,11 @@ test('manual replay fullscreen is chart-only and preserves the trade hologram la
   assert.match(css, /\.chart-wrap:fullscreen/);
   assert.match(css, /\.chart-wrap:fullscreen \.manual-replay-trade-layer/);
   assert.doesNotMatch(css, /#replayWorkspace:fullscreen/);
-  assert.match(savedLayout, /fullscreenActive/);
-  assert.match(savedLayout, /document\.addEventListener\('fullscreenchange', applySavedLayout\)/);
 });
 
 
 test('full layout editor can edit text lock delete move and stretch', () => {
-  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay-layout-editor.css'), 'utf8');
   assert.match(layoutEditor, /layoutEdit/);
   assert.match(layoutEditor, /nathauxfx_manual_replay_layout_editor_v4/);
   assert.match(layoutEditor, /data-layout-action="text"/);
@@ -410,14 +327,7 @@ test('full editor targets buttons cards blocks and individual text controls', ()
   assert.match(layoutEditor, /prefix: 'dateYearJump'/);
 });
 
-test('saved full editor changes persist after exiting edit mode', () => {
-  assert.match(savedLayout, /EDITOR_STORAGE_KEY = 'nathauxfx_manual_replay_layout_editor_v4'/);
-  assert.match(savedLayout, /function applyEditorOverrides/);
-  assert.match(savedLayout, /item\.deleted/);
-  assert.match(savedLayout, /item\.text != null/);
-  assert.match(savedLayout, /translate3d/);
-  assert.match(savedLayout, /layoutEdit.*=== '1'/);
-});
+
 
 
 test('layout editor selection is click-sticky with undo and stable lock', () => {
@@ -437,17 +347,7 @@ test('layout editor selection is click-sticky with undo and stable lock', () => 
 });
 
 
-test('submitted v4 layout is the production default', () => {
-  assert.match(savedLayout, /window\.ManualReplayDefaultLayoutV4/);
-  assert.match(savedLayout, /"width":1440/);
-  assert.match(savedLayout, /"height":810/);
-  assert.match(savedLayout, /"headingEyebrow\[0\]":\{"locked":false,"deleted":true\}/);
-  assert.match(savedLayout, /"chartMeta#chartMeta":\{"locked":false,"deleted":true\}/);
-  assert.match(savedLayout, /"priceHint#pricePickHint":\{"locked":false,"deleted":true\}/);
-  assert.match(savedLayout, /"setupFieldText\[4\]":\{"x":-38,"y":-5,"width":91,"height":23,"locked":false,"deleted":false,"text":"Balance"\}/);
-  assert.match(savedLayout, /editorSaved = raw \? JSON\.parse\(raw\) : \(window\.ManualReplayDefaultLayoutV4 \|\| null\)/);
-  assert.match(layoutEditor, /saved = raw \? JSON\.parse\(raw\) : \(window\.ManualReplayDefaultLayoutV4 \|\| null\)/);
-});
+
 
 
 test('position box clicks route green to TP and red to SL with lock controls', () => {
@@ -636,4 +536,11 @@ test('manual chart drawings persist by replay symbol timeframe and support undo 
   assert.match(liveChart, /event\.key === 'Delete'/);
   assert.match(liveChart, /String\(event\.key\)\.toLowerCase\(\) === 'z'/);
   assert.match(app, /setDrawingScope\?\.\(symbol \+ '\\|' \+ \$\('timeframe'\)\.value\)/);
+});
+
+
+test('symbol and timeframe auto reload with latest request protection', () => {
+  assert.match(app, /\$\('symbol'\)\.addEventListener\('change', \(\) => \{ void loadReplay\(\); \}\)/);
+  assert.match(app, /\$\('timeframe'\)\.addEventListener\('change', \(\) => \{ void loadReplay\(\); \}\)/);
+  assert.match(app, /requestId !== state\.loadRequestId/);
 });

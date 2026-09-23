@@ -113,10 +113,10 @@
     return {
       background,
       text: lightChart ? '#1f2937' : '#9fb0c8',
-      grid: state.appearance.grid ? (lightChart ? 'rgba(71,85,105,.38)' : 'rgba(42,51,66,.45)') : 'rgba(0,0,0,0)',
+      grid: state.appearance.grid ? (lightChart ? 'rgba(210,224,241,.48)' : 'rgba(42,51,66,.45)') : 'rgba(0,0,0,0)',
       crosshair: lightChart ? 'rgba(30,41,59,.58)' : 'rgba(180,190,210,.35)',
       label: lightChart ? '#e2e8f0' : '#111827',
-      border: lightChart ? '#64748b' : '#1f2937',
+      border: lightChart ? '#dce6f3' : '#1f2937',
       bull: bullMap[state.appearance.bull] || bullMap.teal,
       bear: '#ef5350',
     };

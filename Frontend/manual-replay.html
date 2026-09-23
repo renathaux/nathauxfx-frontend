@@ -3,39 +3,39 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07101f">
+  <meta name="theme-color" content="#f2f6fb">
   <title>NathauxFX — Manual Replay</title>
-  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=30">
-  <style>
-    .nav-actions .button.is-active {
-      border-color: #f5bd48;
-      background: rgba(245, 189, 72, .15);
-      color: #ffd46b;
-    }
-  </style>
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=31">
 </head>
 <body>
-  <div class="shell">
-    <header class="topbar">
-      <a class="brand" href="/app.html"><span class="brand-mark">N</span><span><strong>NathauxFX</strong><small>Manual Replay</small></span></a>
-      <div class="heading"><span class="eyebrow">YOU VS THE CHART</span><h1>Manual Trading Replay</h1><p>No strategy decides for you. Future candles stay hidden until you advance.</p></div>
-      <div class="safe-badge">NO STRATEGY • NO BROKER ORDERS</div>
-    </header>
+  <header class="topbar">
+    <a class="brand" href="/app.html"><span class="brand-mark">N</span><span><strong>NathauxFX</strong><small>Trade. Replay. Improve.</small></span></a>
+    <nav class="nav-actions" aria-label="Main navigation">
+      <a id="manualReplayNavLink" href="/manual-replay" aria-current="page">Manual Replay</a>
+      <a href="/strategy-simulator.html">Strategy Simulator</a>
+      <a href="/strategy-studio.html">Strategy Studio</a>
+    </nav>
+    <div class="account-actions">
+      <button id="uiSettingsBtn" class="icon-button" type="button" aria-label="UI settings" title="UI settings" aria-expanded="false" aria-controls="uiSettingsPanel">⚙</button>
+      <a class="account-link" href="/app.html" aria-label="Open NathauxFX dashboard"><span class="avatar">N</span><span><strong>NathauxFX</strong><small>Trader</small></span><span aria-hidden="true">⌄</span></a>
+    </div>
+  </header>
+  <main class="shell">
+    <div class="page-heading">
+      <div class="heading"><h1>Manual Trading Replay</h1><p>Replay historical price action, practice your strategy, and improve your trading.</p></div>
+      <div class="safe-badge"><span class="status-dot" aria-hidden="true"></span><span><strong>No Strategy • No Broker Orders</strong><small>Pure manual trading simulation</small></span><span aria-hidden="true">ⓘ</span></div>
+    </div>
 
-    <div id="notice" class="notice hidden" role="status"></div>
 
     <section class="panel setup-panel">
-      <div class="panel-title">
-        <div><span class="eyebrow">HISTORICAL SESSION</span><h2>Replay Setup</h2></div>
-        <div class="nav-actions"><a id="manualReplayNavLink" href="/manual-replay" class="button ghost">Manual Replay</a><a class="button ghost" href="/strategy-simulator.html">Strategy Simulator</a><a class="button ghost" href="/strategy-studio.html">Strategy Studio</a><button id="uiSettingsBtn" class="button ghost" type="button" aria-expanded="false" aria-controls="uiSettingsPanel">⚙ UI</button></div>
-      </div>
+      <div class="setup-intro"><h2>Replay Setup</h2><p>Configure your market,<br>timeframe and date range.</p></div>
       <div class="setup-grid">
         <label><span>Symbol</span><select id="symbol"><option>EURUSD</option><option>XAUUSD</option></select></label>
         <label><span>Timeframe</span><select id="timeframe"><option value="5m">5m</option><option value="15m">15m</option><option value="1h">1h</option></select></label>
-        <label class="date-field"><span>Start</span><div class="date-input-row"><select id="startYear" class="date-year-jump" aria-label="Start year" title="Jump directly to a year"></select><input id="startDate" class="date-without-year" type="text" inputmode="numeric" placeholder="MM-DD HH:MM" aria-label="Start month day and time" autocomplete="off"></div></label>
-        <label class="date-field"><span>End</span><div class="date-input-row"><select id="endYear" class="date-year-jump" aria-label="End year" title="Jump directly to a year"></select><input id="endDate" class="date-without-year" type="text" inputmode="numeric" placeholder="MM-DD HH:MM" aria-label="End month day and time" autocomplete="off"></div></label>
+        <label class="date-field"><span>Start Date &amp; Time</span><div class="date-input-row"><select id="startYear" class="date-year-jump" aria-label="Start year" title="Jump directly to a year"></select><input id="startDate" class="date-without-year" type="text" inputmode="numeric" placeholder="MM-DD HH:MM" aria-label="Start month day and time" autocomplete="off"></div></label>
+        <label class="date-field"><span>End Date &amp; Time</span><div class="date-input-row"><select id="endYear" class="date-year-jump" aria-label="End year" title="Jump directly to a year"></select><input id="endDate" class="date-without-year" type="text" inputmode="numeric" placeholder="MM-DD HH:MM" aria-label="End month day and time" autocomplete="off"></div></label>
         <label><span>Starting Balance</span><input id="startingBalance" type="number" min="1" step="100" value="10000"></label>
-        <button id="loadBtn" class="button primary setup-button" type="button">Load Replay</button>
+        <button id="loadBtn" class="button primary setup-button" type="button"><span aria-hidden="true">▶</span> Load Replay</button>
       </div>
     </section>
 
@@ -49,57 +49,85 @@
     </section>
 
     <div id="replayWorkspace" class="main-grid">
-      <section class="panel chart-panel">
+      <div class="workspace-left">
+      <section class="panel chart-panel" aria-label="Replay chart">
         <div class="chart-toolbar">
-          <div>
-            <span class="eyebrow">CLOSED-CANDLE REPLAY</span>
-            <h2 id="chartTitle">Load a session</h2>
-            <p id="chartMeta" class="muted">Historical candles only.</p>
-          </div>
-          <div class="playback">
-            <button id="prevBtn" class="icon-button" type="button" title="Previous candle">◀</button>
-            <button id="playBtn" class="button secondary" type="button">▶ Play</button>
-            <button id="nextBtn" class="icon-button" type="button" title="Next candle">▶</button>
-            <select id="speed" aria-label="Playback speed"><option value="1">1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option></select>
-            <button id="zoomOutBtn" class="icon-button" type="button" title="Zoom out">−</button>
-            <button id="zoomInBtn" class="icon-button" type="button" title="Zoom in">+</button>
-            <button id="fullscreenBtn" class="button ghost fullscreen-button" type="button" title="Open chart workspace full screen">⛶ Full Screen</button>
-            <span id="progress" class="muted">0 / 0</span>
-          </div>
+          <h2 id="chartTitle">EURUSD</h2>
+          <select id="chartTimeframe" aria-label="Chart timeframe"><option value="5m">5m</option><option value="15m">15m</option><option value="1h">1h</option></select>
+          <span id="ohlc" class="ohlc">O — H — L — C —</span>
+          <span id="priceChange" class="price-change">—</span>
+          <span class="chart-type" title="Candlestick chart">▥ Candles</span>
+          <button id="zoomOutBtn" class="icon-button" type="button" title="Zoom out" aria-label="Zoom out">−</button>
+          <button id="zoomInBtn" class="icon-button" type="button" title="Zoom in" aria-label="Zoom in">+</button>
         </div>
-        <div class="position-tools" role="toolbar" aria-label="Position tools">
-          <button id="longPositionBtn" class="button position-tool long" type="button" aria-pressed="false">↗ Long Position</button>
-          <button id="shortPositionBtn" class="button position-tool short" type="button" aria-pressed="false">↘ Short Position</button>
-          <button id="cancelPositionBtn" class="button ghost position-tool" type="button" disabled>✕ Cancel Draft</button>
-        </div>
+        <p id="chartMeta" class="sr-only">Historical candles only.</p>
         <div class="chart-wrap">
-          <div id="chartDrawingBar" class="chart-drawing-bar" data-replay-chart-toolbar role="toolbar" aria-label="Chart drawing tools">
-            <span class="chart-drawing-label">DRAW</span>
-            <button id="chartLineBtn" class="chart-drawing-button drawing-tool" type="button" aria-pressed="false" title="Draw a line">╱ Line</button>
-            <button id="chartRectBtn" class="chart-drawing-button drawing-tool" type="button" aria-pressed="false" title="Draw a support or resistance rectangle">▭ S/R</button>
-          </div>
           <div id="chartLoading" class="manual-replay-loading-overlay" role="status" aria-live="polite">
             <strong>Loading replay history…</strong>
             <span>Last year plus prior chart context</span>
           </div>
-          <div id="manualReplayChart" class="manual-replay-live-chart" role="img" aria-label="Manual replay candlestick chart"></div>
-          <div id="manualReplayTradeLayer" class="manual-replay-trade-layer" aria-label="Draggable replay trade levels"></div>
+          <div class="chart-plot">
+            <div id="manualReplayChart" class="manual-replay-live-chart" role="img" aria-label="Manual replay candlestick chart"></div>
+            <div id="manualReplayTradeLayer" class="manual-replay-trade-layer" aria-label="Draggable replay trade levels"></div>
+          </div>
+          <div class="chart-footer" data-replay-chart-toolbar>
+            <div id="chartDrawingBar" class="chart-drawing-bar" data-replay-chart-toolbar role="toolbar" aria-label="Chart drawing tools">
+              <button id="chartSelectBtn" class="chart-drawing-button is-active" type="button" aria-label="Select drawing" aria-pressed="true" title="Select drawing">↖</button>
+              <button id="chartLineBtn" class="chart-drawing-button drawing-tool" type="button" aria-pressed="false" title="Draw a line">╱ <span>Line</span></button>
+              <button id="chartRectBtn" class="chart-drawing-button drawing-tool" type="button" aria-pressed="false" title="Draw a support or resistance rectangle">▭ <span>S/R</span></button>
+              <button id="chartDeleteBtn" class="chart-drawing-button" type="button" aria-label="Delete selected drawing" title="Delete selected drawing">⌫</button>
+            </div>
+            <div class="playback" role="toolbar" aria-label="Replay playback">
+              <button id="prevBtn" class="icon-button" type="button" title="Previous candle" aria-label="Previous candle">Ⅰ◀</button>
+              <button id="playBtn" class="button secondary" type="button" title="Play or pause replay">▶ Play</button>
+              <button id="nextBtn" class="icon-button" type="button" title="Next candle" aria-label="Next candle">▶Ⅰ</button>
+              <select id="speed" aria-label="Playback speed"><option value="1">1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option></select>
+              <button id="fullscreenBtn" class="icon-button fullscreen-button" type="button" title="⛶ Full Screen" aria-label="Full screen chart">⛶</button>
+            </div>
+          </div>
         </div>
-        <div class="candle-strip">
-          <strong id="currentPrice">—</strong>
-          <span id="currentTime" class="muted">No candle loaded</span>
-          <span id="ohlc" class="muted">O — H — L — C —</span>
-        </div>
+        <div class="candle-strip"><strong id="currentPrice">—</strong><span id="currentTime">No candle loaded</span><span id="progress">0 / 0</span></div>
       </section>
+      <!-- Metrics and log stay directly below the chart, independently of ticket height. -->
+      <div class="lower-grid">
+        <section class="panel metrics-panel" aria-labelledby="metricsTitle">
+          <div class="panel-title"><span class="section-icon" aria-hidden="true">▥</span><div><h2 id="metricsTitle">Account Metrics</h2><p>Real-time performance during this replay session.</p></div></div>
+          <div class="metric-grid">
+            <article><span>Balance</span><strong id="metricBalance">—</strong></article>
+            <article><span>Equity</span><strong id="metricEquity">—</strong></article>
+            <article><span>Open P&amp;L</span><strong id="metricOpenPnl">—</strong></article>
+            <article><span>Net P&amp;L</span><strong id="metricPnl">—</strong></article>
+            <article><span>Win Rate</span><strong id="metricWinRate">—</strong></article>
+            <article><span>Total Trades</span><strong id="metricTrades">0</strong></article>
+          </div>
+          <details class="advanced-metrics"><summary>More metrics</summary><div class="metric-grid">
+            <article><span>Average R</span><strong id="metricAvgR">—</strong></article>
+            <article><span>Profit Factor</span><strong id="metricPf">—</strong></article>
+            <article><span>Max Drawdown</span><strong id="metricDd">—</strong></article>
+          </div></details>
+        </section>
+        <section class="panel log-panel" aria-labelledby="logTitle">
+          <div class="panel-title"><span class="section-icon" aria-hidden="true">☷</span><div><h2 id="logTitle">Manual Trade Log</h2><p>All trades you place during the replay session.</p></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Side</th><th>Lot</th><th>Entry Time</th><th>Exit Time</th><th>Entry</th><th>Exit</th><th>SL</th><th>TP</th><th>Result</th><th>R</th><th>P/L</th></tr></thead>
+              <tbody id="tradeBody"><tr><td colspan="12" class="empty"><strong>No trades yet</strong><span>Your manual trades will appear here.</span></td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+      </div>
 
       <aside class="panel trade-panel">
-        <span class="eyebrow">MANUAL ORDER TICKET</span>
-        <h2>You decide</h2>
-        <p class="muted">Virtual orders only. Nothing is sent to cTrader.</p>
+        <div class="panel-title"><span class="section-icon" aria-hidden="true">▥</span><div><h2>Trade Ticket</h2><p>Place manual trades in the replay.</p></div></div>
+        <div class="position-tools" role="toolbar" aria-label="Position tools">
+          <button id="longPositionBtn" class="button position-tool long" type="button" aria-pressed="false" title="Long Position">↑ Buy (Long)</button>
+          <button id="shortPositionBtn" class="button position-tool short" type="button" aria-pressed="false" title="Short Position">↓ Sell (Short)</button>
+        </div>
 
         <div class="ticket-grid">
-          <label><span>Direction</span><input id="draftDirection" type="text" value="—" readonly></label>
-          <label><span>Entry</span><input id="draftEntry" type="text" value="—" readonly></label>
+          <label class="sr-only"><span>Direction</span><input id="draftDirection" type="text" value="—" readonly></label>
+          <label><span>Entry Price</span><input id="draftEntry" type="text" value="—" readonly></label>
           <label><span>Position Sizing</span><select id="positionSizingMode"><option value="AUTO_RISK">Auto Risk</option><option value="MANUAL_LOT">Manual Lot Size</option></select></label>
           <label id="riskMethodField"><span>Risk Method</span><select id="riskMethod"><option value="PERCENT">% Balance</option><option value="FIXED">Fixed $</option></select></label>
           <label id="riskValueField"><span>Risk Value</span><input id="riskValue" type="number" min="0.01" step="0.01" value="1"></label>
@@ -108,18 +136,19 @@
           <label><span>Take Profit</span><input id="tpPrice" type="number" step="any" placeholder="Required"></label>
         </div>
         <div class="draft-metrics manual-sizing-metrics" aria-live="polite">
-          <div><span>Lot</span><strong id="draftLot">—</strong></div>
+          <div><span>Lot Size</span><strong id="draftLot">—</strong></div>
           <div><span>SL Pips</span><strong id="draftSlPips">—</strong></div>
-          <div><span>Risk</span><strong id="draftRisk">—</strong></div>
           <div><span>TP Pips</span><strong id="draftTpPips">—</strong></div>
-          <div><span>Projected Reward</span><strong id="draftReward">—</strong></div>
           <div><span>R:R</span><strong id="draftRr">—</strong></div>
+          <div class="money-metric"><span>Risk</span><strong id="draftRisk">—</strong></div>
+          <div class="money-metric"><span>Projected Reward</span><strong id="draftReward">—</strong></div>
         </div>
+        <button id="cancelPositionBtn" class="button ghost cancel-draft" type="button" disabled>✕ Cancel Draft</button>
         <p id="pricePickHint" class="price-pick-hint">SL selected • move over the chart to see a price • click the chart to set SL</p>
 
         <div class="side-buttons">
-          <button id="buyBtn" class="button buy" type="button" disabled>OPEN BUY</button>
-          <button id="sellBtn" class="button sell" type="button" disabled>OPEN SELL</button>
+          <button id="buyBtn" class="button buy" type="button" disabled>Open Buy</button>
+          <button id="sellBtn" class="button sell" type="button" disabled>Open Sell</button>
         </div>
 
         <div id="positionCard" class="position-card hidden">
@@ -132,30 +161,12 @@
           <button id="closeBtn" class="button ghost full" type="button">Close at Current Price</button>
         </div>
 
-        <button id="resetBtn" class="button ghost full reset-button" type="button">Reset Session</button>
+        <button id="resetBtn" class="button ghost full reset-button" type="button">↻ Reset Session</button>
       </aside>
     </div>
 
-    <section class="metric-grid">
-      <article><span>Balance</span><strong id="metricBalance">—</strong></article>
-      <article><span>Net P/L</span><strong id="metricPnl">—</strong></article>
-      <article><span>Win Rate</span><strong id="metricWinRate">—</strong></article>
-      <article><span>Trades</span><strong id="metricTrades">0</strong></article>
-      <article><span>Average R</span><strong id="metricAvgR">—</strong></article>
-      <article><span>Profit Factor</span><strong id="metricPf">—</strong></article>
-      <article><span>Max Drawdown</span><strong id="metricDd">—</strong></article>
-    </section>
-
-    <section class="panel log-panel">
-      <div class="panel-title"><div><span class="eyebrow">YOUR DECISIONS</span><h2>Manual Trade Log</h2></div></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>#</th><th>Side</th><th>Lot</th><th>Entry Time</th><th>Exit Time</th><th>Entry</th><th>Exit</th><th>SL</th><th>TP</th><th>Result</th><th>R</th><th>P/L</th></tr></thead>
-          <tbody id="tradeBody"><tr><td colspan="12" class="empty">No manual trades yet.</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-  </div>
+    <div id="notice" class="notice hidden" role="status"></div>
+  </main>
 
   <script
     data-manual-replay-chart-library
@@ -164,9 +175,8 @@
   <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
   <script src="/manual-replay/manual-replay-position.js?v=4"></script>
-  <script src="/manual-replay/manual-replay-live-chart.js?v=21"></script>
-  <script src="/manual-replay/manual-replay.js?v=24"></script>
-  <script src="/manual-replay/manual-replay-saved-layout.js?v=14"></script>
-  <script src="/manual-replay/manual-replay-layout-editor.js?v=9"></script>
+  <script src="/manual-replay/manual-replay-live-chart.js?v=22"></script>
+  <script src="/manual-replay/manual-replay.js?v=25"></script>
+  <script src="/manual-replay/manual-replay-layout-editor.js?v=10"></script>
 </body>
 </html>

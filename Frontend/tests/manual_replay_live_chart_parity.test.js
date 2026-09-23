@@ -9,16 +9,16 @@ const replayPage = fs.readFileSync(path.join(frontend, 'manual-replay.html'), 'u
 const replayController = fs.readFileSync(path.join(frontend, 'manual-replay', 'manual-replay.js'), 'utf8');
 
 for (const expected of [
-  "background: { color: '#0b0f1a' }",
-  "textColor: '#9fb0c8'",
-  "vertLines: { color: 'rgba(42, 51, 66, 0.45)' }",
-  "borderColor: '#1f2937'",
-  "barSpacing: 14",
-  "rightOffset: 10",
-  "upColor: '#26a69a'",
-  "downColor: '#ef5350'",
+  'background: { color: palette.background }',
+  'textColor: palette.text',
+  'vertLines: { color: palette.grid }',
+  'borderColor: palette.border',
+  'barSpacing: 14',
+  'rightOffset: 22',
+  'upColor: palette.bull',
+  'downColor: palette.bear',
 ]) {
-  assert.ok(replay.includes(expected), `replay adapter keeps LIVE chart option: ${expected}`);
+  assert.ok(replay.includes(expected), `replay adapter keeps theme-aware chart option: ${expected}`);
 }
 
 assert.ok(live.includes('LightweightCharts.createChart(container'));
