@@ -51,6 +51,40 @@ async function geometry(page, width) {
     console.log(`PASS ${engine} ${width}x${height}: geometry, stale storage, control hit targets`);
    }
    await page.setViewportSize({width:1440,height:900});await page.evaluate(()=>scrollTo(0,0));
+   await page.locator('#chartLineBtn').click();
+   const originalStart = await page.locator('#startDate').inputValue();
+   const originalEnd = await page.locator('#endDate').inputValue();
+   for(const field of ['start','end']) {
+    await page.locator('#'+field+'CalendarBtn').click();
+    assert.ok(await page.locator('#replayCalendar').isVisible());
+    if(field==='start') {
+     if(out) await page.screenshot({path:path.join(out,engine+'-calendar.png')});
+     await page.setViewportSize({width:390,height:844});
+     const popup=await page.locator('#replayCalendar').boundingBox();
+     assert.ok(popup.x>=0 && popup.x+popup.width<=390 && popup.y>=0 && popup.y+popup.height<=844,'calendar fits mobile');
+     if(out) await page.screenshot({path:path.join(out,engine+'-calendar-mobile.png')});
+     await page.setViewportSize({width:1440,height:900});
+    }
+    await page.locator('#calendarYear').selectOption('2024');
+    await page.locator('#calendarMonth').selectOption('1');
+    await page.locator('#calendarDays button[data-day="29"]').click();
+    await page.locator('#calendarTime').fill('14:35');
+    await page.locator('#calendarApply').click();
+    assert.equal(await page.locator('#'+field+'Year').inputValue(),'2024');
+    assert.equal(await page.locator('#'+field+'Date').inputValue(),'02-29 14:35');
+    await page.locator('#'+field+'CalendarBtn').click();
+    assert.equal(await page.locator('#calendarDays [aria-pressed="true"]').textContent(),'29');
+    await page.locator('#calendarYear').selectOption('2025');
+    assert.equal(await page.locator('#calendarDays button[data-day="29"]').count(),0,'non-leap February');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#replayCalendar').isVisible(),false,'Escape closes calendar with an active drawing tool');
+    assert.equal((await state(page)).drawingMode,'line','calendar keys leave chart tools unchanged');
+    assert.equal(await page.locator('#'+field+'Date').inputValue(),'02-29 14:35','Escape cancels edits');
+   }
+   await page.locator('#chartSelectBtn').click();
+   await page.locator('#startDate').fill(originalStart);await page.locator('#endDate').fill(originalEnd);
+   await page.locator('#startYear').selectOption(String(new Date().getFullYear()-1));
+   await page.locator('#endYear').selectOption(String(new Date().getFullYear()));
    const before=await page.locator('.main-grid').boundingBox();
    await page.locator('#uiSettingsBtn').click();await page.locator('#uiTheme').selectOption('dark');
    assert.deepEqual(await page.locator('.main-grid').boundingBox(),before,'theme must not change geometry');
@@ -96,8 +130,10 @@ async function geometry(page, width) {
     const plot=await page.locator('.chart-plot').boundingBox();
     await page.mouse.click(plot.x+150,plot.y+130);
     await page.locator('.manual-drawing.'+type).waitFor({state:'attached'});
-    const shape=await page.locator('.manual-drawing.'+type).evaluate(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height};});
-    assert.ok(shape && shape.width>=120 && shape.height>=30, type+' single click creates a usable size');
+    await page.waitForFunction(type => {
+     const shape = document.querySelector('.manual-drawing.'+type)?.getBoundingClientRect();
+     return shape && shape.width >= 120 && shape.height >= 30;
+    }, type); // Read within one task: chart redraws replace SVG nodes frequently.
     if(type==='measure') {
      const saved=await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('nathauxfx_manual_replay_drawings_v1:')).flatMap(k=>JSON.parse(localStorage[k])).find(d=>d.type==='measure'));
      const expected=((saved.b.price-saved.a.price)/.0001).toFixed(1)+' pips';

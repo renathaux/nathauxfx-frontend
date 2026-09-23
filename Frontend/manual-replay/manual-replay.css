@@ -296,3 +296,27 @@ body.manual-replay-fullscreen-fallback .chart-wrap { position: fixed; inset: 0; 
 .manual-measure-label rect { fill: #245bd6; }
 .manual-measure-label text { fill: #fff; font: 11px system-ui, sans-serif; font-weight: 600; }
 @media (max-width: 420px) { .chart-drawing-bar { gap: 4px; } .chart-drawing-button { padding: 0 7px; gap: 5px; } }
+
+.date-field-heading { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 4px; }
+.date-field-heading label { display: block; margin: 0; font-size: 12px; color: var(--muted); }
+.date-calendar-button { display: grid; place-items: center; width: 26px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: var(--surface-soft); color: var(--primary); cursor: pointer; }
+.date-calendar-button:hover { background: #e6efff; }
+.replay-calendar { width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; margin: auto; padding: 18px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 60px #0b214640; }
+.replay-calendar::backdrop { background: #0b21464d; }
+.calendar-heading, .calendar-navigation, .calendar-actions { display: flex; align-items: center; gap: 8px; }
+.calendar-heading { justify-content: space-between; margin-bottom: 12px; }
+.calendar-heading h2 { font-size: 17px; }
+.calendar-heading .icon-button { width: 30px; min-height: 30px; }
+.calendar-navigation { margin-bottom: 12px; }
+.calendar-navigation select { min-width: 0; }
+#calendarMonth { flex: 1; }
+#calendarYear { width: 82px; }
+.calendar-navigation .icon-button { width: 30px; min-height: 36px; font-size: 22px; }
+.calendar-weekdays, .calendar-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; text-align: center; }
+.calendar-weekdays { margin-bottom: 5px; color: var(--muted); font-size: 11px; }
+.calendar-days button { min-height: 36px; padding: 0; background: var(--surface); border: 1px solid transparent; border-radius: 6px; color: var(--text); cursor: pointer; }
+.calendar-days button:hover { border-color: var(--border); background: var(--surface-soft); }
+.calendar-days button[aria-pressed="true"] { background: #245bd6; color: #fff; }
+.calendar-time { margin-top: 16px; }
+.calendar-time input { min-height: 40px; }
+.calendar-actions { justify-content: flex-end; margin-top: 16px; }

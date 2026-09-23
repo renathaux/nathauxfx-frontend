@@ -1264,6 +1264,7 @@
   }
 
   function handleReplayKeyboard(event) {
+    if (document.querySelector('dialog[open]')) return;
     if (keyboardTargetIsEditable(event)) return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.code === 'Space' && event.repeat) {

@@ -1313,6 +1313,7 @@
       togglePositionLocked('double-click');
     };
     const onKeyDown = (event) => {
+      if (document.querySelector('dialog[open]')) return;
       const tag = String(document.activeElement?.tagName || '').toUpperCase();
       const typing = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tag) || document.activeElement?.isContentEditable;
 
