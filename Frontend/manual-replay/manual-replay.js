@@ -930,6 +930,10 @@
       const end = inputIso('endDate');
       if (new Date(end) <= new Date(start)) throw new Error('End must be after start.');
 
+      const requestedSymbol = $('symbol').value;
+      const requestedTimeframe = $('timeframe').value;
+      $('chartTitle').textContent = `${requestedSymbol} • ${requestedTimeframe} • Loading…`;
+
       const replayStart = new Date(start);
       const historyStart = subtractCalendarMonths(replayStart, REPLAY_CONTEXT_MONTHS).toISOString();
       setChartLoading(
@@ -940,8 +944,8 @@
       const starting = Number($('startingBalance').value);
       if (!Number.isFinite(starting) || starting <= 0) throw new Error('Starting balance must be positive.');
       const result = await Api.loadHistory({
-        symbol: $('symbol').value,
-        timeframe: $('timeframe').value,
+        symbol: requestedSymbol,
+        timeframe: requestedTimeframe,
         start: historyStart,
         end,
       });

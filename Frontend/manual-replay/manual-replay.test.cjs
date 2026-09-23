@@ -172,6 +172,23 @@ test('manual replay UI settings persist theme chart background candle color and 
   assert.match(css, /data-replay-theme="light"/);
   assert.match(css, /data-chart-background="black"/);
 });
+
+test('manual replay time axis renders timestamps in browser local time', () => {
+  assert.match(liveChart, /function chartTimeDate/);
+  assert.match(liveChart, /function formatLocalChartDateTime/);
+  assert.match(liveChart, /function formatLocalTickMark/);
+  assert.match(liveChart, /timeFormatter: formatLocalChartDateTime/);
+  assert.match(liveChart, /tickMarkFormatter: formatLocalTickMark/);
+  assert.match(liveChart, /new Intl\.DateTimeFormat\(undefined/);
+});
+
+test('symbol and timeframe title change immediately while new replay data loads', () => {
+  assert.match(app, /const requestedSymbol = \$\('symbol'\)\.value/);
+  assert.match(app, /const requestedTimeframe = \$\('timeframe'\)\.value/);
+  assert.match(app, /Loading…/);
+  assert.match(app, /symbol: requestedSymbol/);
+  assert.match(app, /timeframe: requestedTimeframe/);
+});
 test('manual replay uses a real risk reward position box instead of full-width price lines', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(liveChart, /manual-replay-position-tool/);

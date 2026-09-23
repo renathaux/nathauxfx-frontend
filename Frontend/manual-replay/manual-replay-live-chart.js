@@ -68,6 +68,38 @@
     return Object.values(result).every(Number.isFinite) ? result : null;
   }
 
+  function chartTimeDate(time) {
+    if (typeof time === 'number' && Number.isFinite(time)) return new Date(time * 1000);
+    if (time && typeof time === 'object' && Number.isFinite(Number(time.year))) {
+      return new Date(Number(time.year), Number(time.month || 1) - 1, Number(time.day || 1));
+    }
+    const parsed = new Date(time);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function formatLocalChartDateTime(time) {
+    const date = chartTimeDate(time);
+    if (!date) return '';
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric', month: 'short', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(date);
+  }
+
+  function formatLocalTickMark(time, tickMarkType) {
+    const date = chartTimeDate(time);
+    if (!date) return '';
+    const type = Number(tickMarkType);
+    if (type === 3 || type === 4) {
+      return new Intl.DateTimeFormat(undefined, {
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      }).format(date);
+    }
+    return new Intl.DateTimeFormat(undefined, {
+      day: '2-digit', month: 'short', year: '2-digit',
+    }).format(date);
+  }
+
   function appearancePalette() {
     const lightPage = state.appearance.theme === 'light';
     const backgroundMap = {
@@ -100,6 +132,9 @@
         background: { color: palette.background },
         textColor: palette.text,
         attributionLogo: false,
+      },
+      localization: {
+        timeFormatter: formatLocalChartDateTime,
       },
       priceFormat: {
         type: 'price',
@@ -161,6 +196,7 @@
       timeScale: {
         borderColor: palette.border,
         timeVisible: true,
+        tickMarkFormatter: formatLocalTickMark,
         secondsVisible: false,
         barSpacing: 14,
         minBarSpacing: 0.5,
