@@ -193,7 +193,11 @@ test('symbol and timeframe title change immediately while new replay data loads'
 test('light theme has strong contrast and leaves the replay toolbar clear of setup', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.doesNotMatch(css, /#replayWorkspace\{margin-top:66px!important\}/);
-  assert.match(css, /body\[data-replay-theme="light"\] #replayWorkspace\{margin-top:34px!important\}/);
+  assert.doesNotMatch(css, /#replayWorkspace\{margin-top:34px!important\}/);
+  assert.match(savedLayout, /function stabilizeWorkspaceSeparation/);
+  assert.match(savedLayout, /const desiredTop = setupRect\.bottom \+ 8/);
+  assert.match(savedLayout, /const overlap = Math\.max\(0, Math\.ceil\(desiredTop - visibleTop\)\)/);
+  assert.match(savedLayout, /baseMargin \+ overlap/);
   assert.match(css, /--text:#0b1220/);
   assert.match(css, /--muted:#334155/);
   assert.match(css, /border:1\.5px solid #718096/);
@@ -207,6 +211,15 @@ test('setup card itself no longer overlays the chart while selectors keep click 
   assert.doesNotMatch(css, /\.setup-panel\{position:relative!important;z-index:20000/);
   assert.match(css, /#symbol,#timeframe\{position:relative!important;z-index:20002/);
   assert.match(savedLayout, /setupPanel\.style\.removeProperty\('z-index'\)/);
+});
+
+test('workspace gap is derived from the transformed card positions instead of a fixed offset', () => {
+  assert.match(savedLayout, /workspace\.style\.setProperty\('margin-top', `\$\{baseMargin\}px`/);
+  assert.match(savedLayout, /setup\.getBoundingClientRect\(\)/);
+  assert.match(savedLayout, /chartPanel\.getBoundingClientRect\(\)/);
+  assert.match(savedLayout, /tradePanel\?\.getBoundingClientRect/);
+  assert.match(savedLayout, /desiredTop = setupRect\.bottom \+ 8/);
+  assert.match(savedLayout, /margin-top', `\$\{baseMargin \+ overlap\}px`/);
 });
 test('manual replay uses a real risk reward position box instead of full-width price lines', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');

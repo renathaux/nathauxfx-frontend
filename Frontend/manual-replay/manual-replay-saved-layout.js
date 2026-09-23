@@ -260,6 +260,37 @@
     }
   }
 
+  function stabilizeWorkspaceSeparation() {
+    if (window.innerWidth < DESKTOP_MIN_WIDTH) return;
+    if (
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.body.classList.contains('manual-replay-fullscreen-fallback')
+    ) return;
+
+    const setup = document.querySelector('.setup-panel');
+    const workspace = document.getElementById('replayWorkspace');
+    const chartPanel = document.querySelector('.chart-panel');
+    const tradePanel = document.querySelector('.trade-panel');
+    if (!setup || !workspace || !chartPanel) return;
+
+    // Always measure from the normal grid gap first. Saved child transforms
+    // can pull the chart upward, so a fixed 34px/66px margin is unreliable.
+    const baseMargin = 14;
+    workspace.style.setProperty('margin-top', `${baseMargin}px`, 'important');
+
+    const setupRect = setup.getBoundingClientRect();
+    const chartRect = chartPanel.getBoundingClientRect();
+    const tradeRect = tradePanel?.getBoundingClientRect?.();
+    const visibleTop = Math.min(
+      chartRect.top,
+      Number.isFinite(Number(tradeRect?.top)) ? tradeRect.top : chartRect.top
+    );
+    const desiredTop = setupRect.bottom + 8;
+    const overlap = Math.max(0, Math.ceil(desiredTop - visibleTop));
+    workspace.style.setProperty('margin-top', `${baseMargin + overlap}px`, 'important');
+  }
+
   function stabilizeDynamicDesktopContent() {
     const notice = document.getElementById('notice');
     if (notice) {
@@ -298,6 +329,8 @@
       control.style.setProperty('height', '40px', 'important');
       control.style.setProperty('min-height', '40px', 'important');
     }
+
+    stabilizeWorkspaceSeparation();
 
     const dynamicSingleLine = [
       document.getElementById('chartTitle'),
