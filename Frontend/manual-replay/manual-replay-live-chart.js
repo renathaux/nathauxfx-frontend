@@ -1231,9 +1231,9 @@
         }
       }
 
-      if (event.code !== 'Space' || !currentPosition() || state.positionLocked || typing) return;
-      event.preventDefault();
-      setPositionLocked(true, 'space');
+      // Space belongs to Manual Replay playback (stop). Position locking stays
+      // available by double-clicking the position box, so playback shortcuts
+      // never change a trade drawing by accident.
     };
     interactionHost.addEventListener('pointerdown', beginDrawingGesture, true);
     interactionHost.addEventListener('pointerdown', onVerticalPointerDown, true);

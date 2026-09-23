@@ -204,18 +204,19 @@ test('modern sizing ticket is protected from the legacy saved layout', () => {
 });
 
 
-test('manual replay exposes a fullscreen chart workspace with the ticket visible', () => {
+test('manual replay fullscreen is chart-only and preserves the trade hologram layer', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   const savedLayout = fs.readFileSync(path.join(__dirname, 'manual-replay-saved-layout.js'), 'utf8');
-  assert.match(html, /id="replayWorkspace"/);
+  assert.match(html, /id="manualReplayChartFrame"/);
   assert.match(html, /id="fullscreenBtn"/);
   assert.match(html, /⛶ Full Screen/);
-  assert.match(app, /function toggleFullscreenWorkspace/);
-  assert.match(app, /workspace\.requestFullscreen/);
+  assert.match(app, /function fullscreenChartFrame/);
+  assert.match(app, /frame\.requestFullscreen/);
   assert.match(app, /document\.exitFullscreen/);
   assert.match(app, /function syncFullscreenUi/);
-  assert.match(css, /#replayWorkspace:fullscreen/);
-  assert.match(css, /grid-template-columns:minmax\(0,1fr\) 330px/);
+  assert.match(css, /#manualReplayChartFrame:fullscreen/);
+  assert.match(css, /#manualReplayChartFrame:fullscreen \.manual-replay-trade-layer/);
+  assert.doesNotMatch(css, /#replayWorkspace:fullscreen/);
   assert.match(savedLayout, /fullscreenActive/);
   assert.match(savedLayout, /document\.addEventListener\('fullscreenchange', applySavedLayout\)/);
 });
@@ -306,11 +307,26 @@ test('position box clicks route green to TP and red to SL with lock controls', (
   assert.match(app, /green target/);
   assert.match(app, /red risk/);
   assert.match(liveChart, /positionLocked/);
-  assert.match(liveChart, /event\.code !== 'Space'/);
   assert.match(liveChart, /togglePositionLocked\('double-click'\)/);
-  assert.match(liveChart, /setPositionLocked\(true, 'space'\)/);
+  assert.doesNotMatch(liveChart, /setPositionLocked\(true, 'space'\)/);
   assert.match(app, /Double-click the position box to edit it again/);
   assert.match(css, /manual-replay-position-tool\.position-locked/);
+});
+
+
+test('manual replay keyboard shortcuts control position entry candles autoplay speed and stop', () => {
+  assert.match(app, /case 'KeyB':[\s\S]*createPositionDraft\('BUY'\)/);
+  assert.match(app, /case 'KeyS':[\s\S]*createPositionDraft\('SELL'\)/);
+  assert.match(app, /case 'Enter':[\s\S]*openManualTrade\(state\.positionDraft\.side\)/);
+  assert.match(app, /case 'ArrowRight':[\s\S]*advanceOne\(\)/);
+  assert.match(app, /case 'ArrowLeft':[\s\S]*retreatOne\(\)/);
+  assert.match(app, /case 'KeyP':[\s\S]*state\.timer \? stopTimer\(\) : setPlaying\(\)/);
+  assert.match(app, /case 'Digit1':[\s\S]*setReplaySpeedFromShortcut\(1\)/);
+  assert.match(app, /case 'Digit2':[\s\S]*setReplaySpeedFromShortcut\(2\)/);
+  assert.match(app, /case 'Digit5':[\s\S]*setReplaySpeedFromShortcut\(5\)/);
+  assert.match(app, /case 'Digit6':[\s\S]*setReplaySpeedFromShortcut\(10\)/);
+  assert.match(app, /case 'Space':[\s\S]*stopTimer\(\)/);
+  assert.match(app, /document\.addEventListener\('keydown', handleReplayKeyboard, true\)/);
 });
 
 test('double click cancels pending single-click edit before locking', () => {

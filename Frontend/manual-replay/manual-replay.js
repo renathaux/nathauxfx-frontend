@@ -471,6 +471,18 @@
     return state.index < state.candles.length - 1;
   }
 
+  function retreatOne() {
+    if (
+      !state.candles.length ||
+      state.index <= state.initialIndex ||
+      state.trades.length > 0 ||
+      state.openTrade
+    ) return false;
+    state.index -= 1;
+    renderAll();
+    return true;
+  }
+
   function openManualTrade(side) {
     if (!state.candles.length) return notice('Load a replay first.', 'error');
     if (state.openTrade) return notice('Close the current virtual position first.', 'error');
@@ -1019,36 +1031,129 @@
     return true;
   }
 
+  function fullscreenChartFrame() {
+    return $('manualReplayChartFrame');
+  }
+
   async function toggleFullscreenWorkspace() {
-    const workspace = $('replayWorkspace');
-    if (!workspace) return;
+    const frame = fullscreenChartFrame();
+    if (!frame) return;
 
     try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen?.();
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
         return;
       }
-      if (workspace.requestFullscreen) {
-        await workspace.requestFullscreen();
-      } else if (workspace.webkitRequestFullscreen) {
-        workspace.webkitRequestFullscreen();
+
+      if (frame.requestFullscreen) {
+        await frame.requestFullscreen();
+      } else if (frame.webkitRequestFullscreen) {
+        frame.webkitRequestFullscreen();
       } else {
         document.body.classList.toggle('manual-replay-fullscreen-fallback');
         window.dispatchEvent(new Event('resize'));
         syncFullscreenUi();
       }
+      $('fullscreenBtn')?.blur?.();
     } catch (_error) {
       document.body.classList.toggle('manual-replay-fullscreen-fallback');
       window.dispatchEvent(new Event('resize'));
       syncFullscreenUi();
+      $('fullscreenBtn')?.blur?.();
     }
   }
 
   function syncFullscreenUi() {
-    const active = Boolean(document.fullscreenElement || document.body.classList.contains('manual-replay-fullscreen-fallback'));
+    const frame = fullscreenChartFrame();
+    const active = Boolean(
+      document.fullscreenElement === frame ||
+      document.webkitFullscreenElement === frame ||
+      document.body.classList.contains('manual-replay-fullscreen-fallback')
+    );
     const button = $('fullscreenBtn');
     if (button) button.textContent = active ? '⤢ Exit Full Screen' : '⛶ Full Screen';
     requestAnimationFrame(() => LiveChart?.resize?.());
+  }
+
+  function setReplaySpeedFromShortcut(speed) {
+    const control = $('speed');
+    if (!control) return;
+    control.value = String(speed);
+    if (state.timer) setPlaying();
+  }
+
+  function keyboardTargetIsEditable(event) {
+    const target = event.target;
+    const tag = String(target?.tagName || '').toUpperCase();
+    return ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || Boolean(target?.isContentEditable);
+  }
+
+  function handleReplayKeyboard(event) {
+    if (keyboardTargetIsEditable(event)) return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+    if (event.key === 'Escape' && document.body.classList.contains('manual-replay-fullscreen-fallback')) {
+      document.body.classList.remove('manual-replay-fullscreen-fallback');
+      syncFullscreenUi();
+      event.preventDefault();
+      return;
+    }
+
+    if (!state.candles.length) return;
+
+    let handled = true;
+    switch (event.code) {
+      case 'KeyB':
+        createPositionDraft('BUY');
+        break;
+      case 'KeyS':
+        createPositionDraft('SELL');
+        break;
+      case 'Enter':
+        if (state.positionDraft) {
+          openManualTrade(state.positionDraft.side);
+        } else {
+          notice('Press B for Long or S for Short before Enter.', 'error');
+        }
+        break;
+      case 'ArrowRight':
+        stopTimer();
+        advanceOne();
+        break;
+      case 'ArrowLeft':
+        stopTimer();
+        retreatOne();
+        break;
+      case 'KeyP':
+        state.timer ? stopTimer() : setPlaying();
+        break;
+      case 'Digit1':
+        setReplaySpeedFromShortcut(1);
+        break;
+      case 'Digit2':
+        setReplaySpeedFromShortcut(2);
+        break;
+      case 'Digit5':
+        setReplaySpeedFromShortcut(5);
+        break;
+      case 'Digit6':
+        setReplaySpeedFromShortcut(10);
+        break;
+      case 'Space':
+        stopTimer();
+        break;
+      default:
+        handled = false;
+        break;
+    }
+
+    if (!handled) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
   }
 
   $('startYear')?.addEventListener('change', () => applyYearJump('startDate', 'startYear'));
@@ -1056,11 +1161,7 @@
 
   $('loadBtn').addEventListener('click', loadReplay);
   $('nextBtn').addEventListener('click', () => { stopTimer(); advanceOne(); });
-  $('prevBtn').addEventListener('click', () => {
-    stopTimer();
-    if (state.trades.length || state.openTrade || state.index <= state.initialIndex) return;
-    state.index -= 1; renderAll();
-  });
+  $('prevBtn').addEventListener('click', () => { stopTimer(); retreatOne(); });
   $('playBtn').addEventListener('click', () => state.timer ? stopTimer() : setPlaying());
   $('speed').addEventListener('change', () => { if (state.timer) setPlaying(); });
   $('zoomInBtn').addEventListener('click', () => zoomChart(-1, null));
@@ -1094,12 +1195,7 @@
   $('closeBtn').addEventListener('click', closeManually);
   $('resetBtn').addEventListener('click', resetSession);
 
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && document.body.classList.contains('manual-replay-fullscreen-fallback')) {
-      document.body.classList.remove('manual-replay-fullscreen-fallback');
-      syncFullscreenUi();
-    }
-  });
+  document.addEventListener('keydown', handleReplayKeyboard, true);
 
   setDefaultDates();
   setActivePriceField('slPrice');

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101f">
   <title>NathauxFX — Manual Replay</title>
-  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=19">
+  <link rel="stylesheet" href="/manual-replay/manual-replay.css?v=20">
   <style>
     .nav-actions .button.is-active {
       border-color: #f5bd48;
@@ -65,7 +65,7 @@
           <button id="drawLineBtn" class="button ghost position-tool drawing-tool" type="button" aria-pressed="false" title="Draw a line on the chart">╱ Line</button>
           <button id="drawRectBtn" class="button ghost position-tool drawing-tool" type="button" aria-pressed="false" title="Draw a support / resistance rectangle">▭ S/R Zone</button>
         </div>
-        <div class="chart-wrap">
+        <div id="manualReplayChartFrame" class="chart-wrap">
           <div id="manualReplayChart" class="manual-replay-live-chart" role="img" aria-label="Manual replay candlestick chart"></div>
           <div id="manualReplayTradeLayer" class="manual-replay-trade-layer" aria-label="Draggable replay trade levels"></div>
         </div>
@@ -148,8 +148,8 @@
   <script src="/manual-replay/manual-replay-navigation.js?v=1"></script>
   <script src="/manual-replay/manual-replay-api.js?v=2"></script>
   <script src="/manual-replay/manual-replay-position.js?v=4"></script>
-  <script src="/manual-replay/manual-replay-live-chart.js?v=15"></script>
-  <script src="/manual-replay/manual-replay.js?v=18"></script>
+  <script src="/manual-replay/manual-replay-live-chart.js?v=16"></script>
+  <script src="/manual-replay/manual-replay.js?v=19"></script>
   <script src="/manual-replay/manual-replay-saved-layout.js?v=8"></script>
   <script src="/manual-replay/manual-replay-layout-editor.js?v=9"></script>
 </body>

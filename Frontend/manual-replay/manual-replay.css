@@ -153,83 +153,46 @@
   letter-spacing:.02em;
 }
 
-/* Full-screen manual trading workspace. The chart stays large while the order
-   ticket remains visible so trades can still be entered and managed. */
-#replayWorkspace:fullscreen,
-#replayWorkspace:-webkit-full-screen,
-body.manual-replay-fullscreen-fallback #replayWorkspace{
+/* Chart-only full screen. The native fullscreen target is the chart frame, so
+   the order ticket, replay toolbar, setup controls, metrics, and log stay out.
+   The trade overlay remains inside the frame, which keeps the live P/L hologram
+   and the user's chart drawings visible. */
+#manualReplayChartFrame:fullscreen,
+#manualReplayChartFrame:-webkit-full-screen,
+body.manual-replay-fullscreen-fallback #manualReplayChartFrame{
   width:100vw!important;
   height:100vh!important;
   max-width:none!important;
-  margin:0!important;
-  padding:10px!important;
-  background:#06101d!important;
-  display:grid!important;
-  grid-template-columns:minmax(0,1fr) 330px!important;
-  gap:10px!important;
-  overflow:hidden!important;
-  transform:none!important;
-}
-#replayWorkspace:fullscreen .chart-panel,
-#replayWorkspace:-webkit-full-screen .chart-panel,
-body.manual-replay-fullscreen-fallback #replayWorkspace .chart-panel{
   min-width:0!important;
-  width:auto!important;
-  height:calc(100vh - 20px)!important;
-  max-height:none!important;
-  transform:none!important;
-  display:flex!important;
-  flex-direction:column!important;
-  overflow:hidden!important;
-}
-#replayWorkspace:fullscreen .trade-panel,
-#replayWorkspace:-webkit-full-screen .trade-panel,
-body.manual-replay-fullscreen-fallback #replayWorkspace .trade-panel{
-  width:330px!important;
-  height:calc(100vh - 20px)!important;
-  max-height:none!important;
-  transform:none!important;
-  overflow:auto!important;
-}
-#replayWorkspace:fullscreen .chart-wrap,
-#replayWorkspace:-webkit-full-screen .chart-wrap,
-body.manual-replay-fullscreen-fallback #replayWorkspace .chart-wrap{
-  flex:1 1 auto!important;
   min-height:0!important;
-  height:auto!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:#0b0f1a!important;
+  overflow:hidden!important;
   transform:none!important;
 }
-#replayWorkspace:fullscreen .manual-replay-live-chart,
-#replayWorkspace:-webkit-full-screen .manual-replay-live-chart,
-body.manual-replay-fullscreen-fallback #replayWorkspace .manual-replay-live-chart{
+#manualReplayChartFrame:fullscreen .manual-replay-live-chart,
+#manualReplayChartFrame:-webkit-full-screen .manual-replay-live-chart,
+body.manual-replay-fullscreen-fallback #manualReplayChartFrame .manual-replay-live-chart{
+  width:100%!important;
   height:100%!important;
   min-height:0!important;
+}
+#manualReplayChartFrame:fullscreen .manual-replay-trade-layer,
+#manualReplayChartFrame:-webkit-full-screen .manual-replay-trade-layer,
+body.manual-replay-fullscreen-fallback #manualReplayChartFrame .manual-replay-trade-layer{
+  inset:0!important;
 }
 body.manual-replay-fullscreen-fallback{
   overflow:hidden!important;
 }
-body.manual-replay-fullscreen-fallback #replayWorkspace{
+body.manual-replay-fullscreen-fallback #manualReplayChartFrame{
   position:fixed!important;
   inset:0!important;
   z-index:2147483600!important;
 }
 .fullscreen-button{white-space:nowrap}
-@media(max-width:900px){
-  #replayWorkspace:fullscreen,
-  #replayWorkspace:-webkit-full-screen,
-  body.manual-replay-fullscreen-fallback #replayWorkspace{
-    grid-template-columns:1fr!important;
-    grid-template-rows:minmax(0,1fr) auto!important;
-    overflow:auto!important;
-  }
-  #replayWorkspace:fullscreen .trade-panel,
-  #replayWorkspace:-webkit-full-screen .trade-panel,
-  body.manual-replay-fullscreen-fallback #replayWorkspace .trade-panel{
-    width:auto!important;
-    height:auto!important;
-    max-height:42vh!important;
-  }
-}
 
 /* Full Manual Replay layout editor v4. Per-item controls only appear while the
    cursor is over an editable item. */
