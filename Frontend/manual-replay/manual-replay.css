@@ -240,6 +240,31 @@ body.manual-replay-fullscreen-fallback .chart-wrap{
   color:#ffe09a!important;
   box-shadow:0 0 0 2px rgba(245,189,72,.14)!important;
 }
+.manual-replay-loading-overlay{
+  position:absolute;
+  inset:0;
+  z-index:24;
+  display:grid;
+  place-content:center;
+  justify-items:center;
+  gap:7px;
+  padding:24px;
+  background:rgba(7,15,27,.92);
+  color:#dce9f8;
+  text-align:center;
+  pointer-events:none;
+}
+.manual-replay-loading-overlay strong{
+  font-size:17px;
+  font-weight:900;
+}
+.manual-replay-loading-overlay span{
+  max-width:430px;
+  color:#91a9c6;
+  font-size:12px;
+}
+.manual-replay-loading-overlay.error strong{color:#ff9aaa}
+.manual-replay-loading-overlay.error span{color:#ffc0c8}
 .chart-wrap:fullscreen .chart-drawing-bar,
 .chart-wrap:-webkit-full-screen .chart-drawing-bar,
 body.manual-replay-fullscreen-fallback .chart-wrap .chart-drawing-bar{

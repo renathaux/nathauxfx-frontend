@@ -5,6 +5,10 @@
   const Position = window.ManualReplayPosition;
   const LiveChart = window.ManualReplayLiveChart;
   const $ = (id) => document.getElementById(id);
+  const REPLAY_CONTEXT_MONTHS = 11;
+  const DEFAULT_REPLAY_MONTHS = 12;
+  const INITIAL_VISIBLE_BARS = 220;
+
   const state = {
     candles: [],
     index: 0,
@@ -122,9 +126,19 @@
     // untouched in the neighboring field.
   }
 
+  function subtractCalendarMonths(date, months) {
+    const value = new Date(date.getTime());
+    const originalDay = value.getDate();
+    value.setDate(1);
+    value.setMonth(value.getMonth() - Math.max(0, Number(months) || 0));
+    const lastDay = new Date(value.getFullYear(), value.getMonth() + 1, 0).getDate();
+    value.setDate(Math.min(originalDay, lastDay));
+    return value;
+  }
+
   function setDefaultDates() {
     const end = new Date();
-    const start = new Date(end.getTime() - 7 * 86400000);
+    const start = subtractCalendarMonths(end, DEFAULT_REPLAY_MONTHS);
     $('startDate').value = datePartWithoutYear(start);
     $('endDate').value = datePartWithoutYear(end);
     populateYearJump('startYear', start.getFullYear());
@@ -141,6 +155,21 @@
 
   function currentCandle() {
     return state.candles[state.index] || null;
+  }
+
+  function setChartLoading(active, message = '', isError = false) {
+    const overlay = $('chartLoading');
+    if (!overlay) return;
+    overlay.classList.toggle('hidden', !active);
+    overlay.classList.toggle('error', Boolean(isError));
+    const title = overlay.querySelector('strong');
+    const detail = overlay.querySelector('span');
+    if (title) title.textContent = isError ? 'Replay could not load' : 'Loading replay history…';
+    if (detail) detail.textContent = message || (
+      isError
+        ? 'Change the replay dates and try again.'
+        : 'Preparing historical candles.'
+    );
   }
 
   const MIN_VISIBLE_CANDLES = 10;
@@ -800,7 +829,10 @@
     // Replay safety: the LIVE chart engine only receives candles already
     // revealed by replay. Future candles never enter the chart library.
     const revealed = state.candles.slice(0, state.index + 1);
-    LiveChart.setCandles(revealed, { fit: state.chartNeedsFit });
+    LiveChart.setCandles(revealed, {
+      fit: state.chartNeedsFit,
+      focusBars: INITIAL_VISIBLE_BARS,
+    });
     state.chartNeedsFit = false;
     LiveChart.setPosition({
       draft: state.positionDraft,
@@ -817,7 +849,9 @@
     $('currentPrice').textContent = price(c.close);
     $('currentTime').textContent = new Date(c.timestamp).toLocaleString();
     $('ohlc').textContent = `O ${price(c.open)}  H ${price(c.high)}  L ${price(c.low)}  C ${price(c.close)}`;
-    $('progress').textContent = `${state.index + 1} / ${state.candles.length}`;
+    const replayTotal = Math.max(0, state.candles.length - state.initialIndex);
+    const replayCurrent = Math.max(0, state.index - state.initialIndex + 1);
+    $('progress').textContent = `${replayCurrent} / ${replayTotal}`;
     $('prevBtn').disabled = state.index <= state.initialIndex || state.trades.length > 0 || Boolean(state.openTrade);
     $('nextBtn').disabled = state.index >= state.candles.length - 1;
   }
@@ -839,18 +873,37 @@
       const start = inputIso('startDate');
       const end = inputIso('endDate');
       if (new Date(end) <= new Date(start)) throw new Error('End must be after start.');
+
+      const replayStart = new Date(start);
+      const historyStart = subtractCalendarMonths(replayStart, REPLAY_CONTEXT_MONTHS).toISOString();
+      setChartLoading(
+        true,
+        `Loading ${REPLAY_CONTEXT_MONTHS} months before your replay start so you can read structure before trading.`
+      );
+
       const starting = Number($('startingBalance').value);
       if (!Number.isFinite(starting) || starting <= 0) throw new Error('Starting balance must be positive.');
       const result = await Api.loadHistory({
         symbol: $('symbol').value,
         timeframe: $('timeframe').value,
-        start,
+        start: historyStart,
         end,
       });
-      if (!Array.isArray(result.candles) || result.candles.length < 2) throw new Error('Not enough historical candles for replay.');
+      if (!Array.isArray(result.candles) || result.candles.length < 2) {
+        throw new Error('Not enough historical candles for replay.');
+      }
+
+      const replayStartMs = replayStart.getTime();
+      const replayStartIndex = result.candles.findIndex(
+        (candle) => Date.parse(candle.timestamp) >= replayStartMs
+      );
+      if (replayStartIndex < 0 || replayStartIndex >= result.candles.length) {
+        throw new Error('No replay candle exists at or after the selected start time.');
+      }
+
       state.candles = result.candles;
-      state.initialIndex = Math.min(59, state.candles.length - 1);
-      state.index = state.initialIndex;
+      state.initialIndex = replayStartIndex;
+      state.index = replayStartIndex;
       state.openTrade = null;
       state.positionDraft = null;
       state.trades = [];
@@ -862,12 +915,24 @@
       $('slPrice').value = '';
       $('tpPrice').value = '';
       setActivePriceField('slPrice');
+
+      const contextCount = replayStartIndex;
+      const replayCount = result.candles.length - replayStartIndex;
       $('chartTitle').textContent = `${result.symbol} • ${result.timeframe} • Manual Replay`;
-      $('chartMeta').textContent = `${result.candles.length.toLocaleString()} closed candles • static replay data • future candles hidden • strategy required: NO`;
-      notice('Manual replay loaded. You control every trade.', 'success');
+      $('chartMeta').textContent =
+        `${contextCount.toLocaleString()} history candles before your start • ` +
+        `${replayCount.toLocaleString()} replay candles • future candles hidden`;
+
+      setChartLoading(false);
+      notice(
+        `Replay loaded with ${REPLAY_CONTEXT_MONTHS} months of chart history before your selected start.`,
+        'success'
+      );
       renderAll();
     } catch (error) {
-      notice(error.message || 'Manual replay could not be loaded.', 'error');
+      const message = error.message || 'Manual replay could not be loaded.';
+      notice(message, 'error');
+      setChartLoading(true, message, true);
     } finally {
       state.busy = false;
       $('loadBtn').disabled = false;
@@ -1231,4 +1296,9 @@
   syncDrawingToolButtons(null);
   renderMetrics();
   renderAll();
+
+  // Manual Replay should never open as an empty black chart. Load the default
+  // one-year session immediately; the selected start still controls where
+  // replay begins, while earlier candles remain visible as read-only context.
+  void loadReplay();
 })();

@@ -111,6 +111,36 @@ test('manual replay uses one visible year control plus month-day-time text', () 
 });
 
 
+
+test('manual replay defaults to one year, auto-loads, and keeps eleven months of prior history', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
+  assert.match(app, /REPLAY_CONTEXT_MONTHS = 11/);
+  assert.match(app, /DEFAULT_REPLAY_MONTHS = 12/);
+  assert.match(app, /subtractCalendarMonths\(end, DEFAULT_REPLAY_MONTHS\)/);
+  assert.match(app, /const historyStart = subtractCalendarMonths\(replayStart, REPLAY_CONTEXT_MONTHS\)\.toISOString\(\)/);
+  assert.match(app, /start: historyStart/);
+  assert.match(app, /findIndex\([\s\S]*Date\.parse\(candle\.timestamp\) >= replayStartMs/);
+  assert.match(app, /state\.initialIndex = replayStartIndex/);
+  assert.match(app, /state\.index = replayStartIndex/);
+  assert.match(app, /void loadReplay\(\)/);
+  assert.match(html, /id="chartLoading"/);
+  assert.match(app, /function setChartLoading/);
+  assert.match(css, /manual-replay-loading-overlay/);
+});
+
+test('manual replay initial viewport shows recent context without flattening all history', () => {
+  assert.match(app, /INITIAL_VISIBLE_BARS = 220/);
+  assert.match(app, /focusBars: INITIAL_VISIBLE_BARS/);
+  assert.match(liveChart, /focusBars = 220/);
+  assert.match(liveChart, /setVisibleLogicalRange/);
+  assert.match(liveChart, /candles\.length - visibleBars/);
+  assert.match(liveChart, /rightPaddingBars = 18/);
+});
+
+test('manual replay progress starts at the selected replay date instead of counting context history', () => {
+  assert.match(app, /replayTotal = Math\.max\(0, state\.candles\.length - state\.initialIndex\)/);
+  assert.match(app, /replayCurrent = Math\.max\(0, state\.index - state\.initialIndex \+ 1\)/);
+});
 test('manual replay uses a real risk reward position box instead of full-width price lines', () => {
   const css = fs.readFileSync(path.join(__dirname, 'manual-replay.css'), 'utf8');
   assert.match(liveChart, /manual-replay-position-tool/);

@@ -1336,7 +1336,7 @@
     state.series?.applyOptions(seriesOptions(state.symbol));
   }
 
-  function setCandles(rawCandles, { fit = false } = {}) {
+  function setCandles(rawCandles, { fit = false, focusBars = 220 } = {}) {
     if (!state.series) return;
     const candles = (rawCandles || []).map(normalizeCandle).filter(Boolean);
     const previous = state.lastCandles;
@@ -1365,8 +1365,17 @@
       state.verticalViewport.scale = 1;
       state.verticalViewport.offsetRatio = 0;
       try {
-        state.chart.timeScale().fitContent();
-        state.chart.timeScale().applyOptions({ rightOffset: 22 });
+        const visibleBars = Math.max(40, Math.round(Number(focusBars) || 220));
+        if (candles.length > visibleBars) {
+          const rightPaddingBars = 18;
+          state.chart.timeScale().setVisibleLogicalRange({
+            from: Math.max(0, candles.length - visibleBars),
+            to: candles.length - 1 + rightPaddingBars,
+          });
+        } else {
+          state.chart.timeScale().fitContent();
+          state.chart.timeScale().applyOptions({ rightOffset: 22 });
+        }
       } catch (_error) {}
     } else if (!state.userMovedRange && isSingleAppend) {
       try { state.chart.timeScale().scrollToRealTime(); } catch (_error) {}
