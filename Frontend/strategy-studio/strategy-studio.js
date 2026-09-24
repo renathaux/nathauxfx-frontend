@@ -770,6 +770,6 @@
   bindInputs();
   bindActions();
   assignDraftToForm();
-  loadStrategies();
+  loadStrategies(new URLSearchParams(window.location.search).get('strategy'));
   loadLiveStatus();
 })();

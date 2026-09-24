@@ -17,7 +17,9 @@ test('simulator page exposes fast run, replay, metrics, trades, and replay chart
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
   assert.match(html, /Simulator only/i);
-  assert.match(html, /does not enable LIVE trading/i);
+  assert.doesNotMatch(html, /STAGE 2|LIVE trading remains OFF/);
+  assert.match(html, /id="emptyState"/);
+  assert.match(html, /strategy-studio.css/);
   assert.match(html, /Fast Backtest/);
   assert.match(html, /Bar Replay/);
 });
@@ -59,7 +61,7 @@ test('strategy studio simulator button navigates only to a selected saved strate
 test('controller aggregates five-year backtest chunks and reports progress', () => {
   const source = read('strategy-simulator/strategy-simulator.js');
   assert.match(source, /Model\.aggregateSimulationResults/);
-  assert.match(source, /Backtesting chunk/);
+  assert.match(source, /Period \$\{current\} of \$\{total\}/);
   assert.match(source, /refreshHistoryCoverage/);
   assert.match(source, /useFullFiveYearHistory/);
 });

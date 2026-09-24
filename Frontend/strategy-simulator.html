@@ -1,92 +1,557 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07101f">
-  <title>NathauxFX — Strategy Simulator</title>
-  <link rel="stylesheet" href="/strategy-simulator/strategy-simulator.css?v=4">
-</head>
-<body>
-  <div class="sim-shell">
-    <header class="sim-topbar">
-      <a class="brand" href="/strategy-studio.html"><span class="brand-mark">N</span><span><strong>NathauxFX</strong><small>Strategy Simulator</small></span></a>
-      <div><span class="eyebrow">STAGE 2 • SIMULATOR ONLY</span><h1>Backtest a saved strategy</h1><p>Fast Backtest and Bar Replay use the same evaluator and static closed-candle history.</p></div>
-      <div class="safety-badge">LIVE trading remains OFF</div>
-    </header>
-
-    <div id="simNotice" class="notice hidden" role="status"></div>
-
-    <section class="panel controls-panel">
-      <div class="panel-title"><div><span class="eyebrow">TEST SETUP</span><h2 id="strategyTitle">Loading strategy…</h2></div><a class="button ghost" href="/strategy-studio.html">Back to Studio</a></div>
-      <p id="strategyMeta" class="muted">Simulator only. Running a test does not enable LIVE trading or modify V3B.</p>
-      <div class="control-grid">
-        <label><span>Symbol</span><select id="symbolSelect"></select></label>
-        <label class="date-field"><span>Start</span><div class="date-input-row"><select id="startYear" class="date-year-jump" aria-label="Start year" title="Jump directly to a year"></select><input id="startDate" type="datetime-local"></div></label>
-        <label class="date-field"><span>End</span><div class="date-input-row"><select id="endYear" class="date-year-jump" aria-label="End year" title="Jump directly to a year"></select><input id="endDate" type="datetime-local"></div></label>
-        <label class="risk-toggle"><span>Temporary Risk Override</span><input id="riskOverrideEnabled" type="checkbox"></label>
-        <label id="riskMethodField" class="hidden"><span>Override Method</span><select id="riskMethod"><option value="PERCENT_BALANCE">% Balance</option><option value="FIXED_DOLLARS">Fixed $</option></select></label>
-        <label id="riskValueField" class="hidden"><span>Override Value</span><input id="riskValue" type="number" min="0.0001" step="0.01" value="1"></label>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>NathauxFX — Strategy Simulator</title>
+    <script>
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem('nathauxfx_studio_theme') ||
+          (matchMedia('(prefers-color-scheme: light)').matches
+            ? 'light'
+            : 'dark');
+      } catch (e) {}
+    </script>
+    <link rel="stylesheet" href="/strategy-studio.css?v=20260924-executable" />
+    <link
+      rel="stylesheet"
+      href="/strategy-simulator/strategy-simulator.css?v=8"
+    />
+  </head>
+  <body class="simulator-page">
+    <a class="skip-link" href="#simWorkspace">Skip to simulator</a>
+    <aside class="app-sidebar">
+      <a class="brand" href="/app.html"
+        ><svg
+          aria-hidden="true"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.7"
+          viewBox="0 0 24 24"
+        >
+          <path d="M2 13h3l3-9 4 16 4-13 2 6h4"></path></svg
+        ><strong>Nathaux<span>FX</span></strong></a
+      >
+      <nav aria-label="Main navigation">
+        <a href="/app.html"
+          ><svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.7"
+            viewBox="0 0 24 24"
+          >
+            <rect height="7" rx="1" width="7" x="3" y="3"></rect>
+            <rect height="7" rx="1" width="7" x="14" y="3"></rect>
+            <rect height="7" rx="1" width="7" x="3" y="14"></rect>
+            <rect height="7" rx="1" width="7" x="14" y="14"></rect></svg
+          ><span>Dashboard</span></a
+        ><a href="/app.html?desktop=1&amp;open=menuPaperBtn"
+          ><svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.7"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M7 12h3l2-5 2 10 2-5h2"
+            ></path></svg
+          ><span>Live Trading</span></a
+        ><a id="studioNavLink" href="/strategy-studio.html"
+          ><svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.7"
+            viewBox="0 0 24 24"
+          >
+            <path d="M2 13h3l3-9 4 16 4-13 2 6h4"></path></svg
+          ><span>Strategy Studio</span></a
+        ><a aria-current="page" class="active" href="/strategy-simulator.html"
+          ><svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.7"
+            viewBox="0 0 24 24"
+          >
+            <path d="M3 11a9 9 0 1 1 2 7M3 5v6h6m2-4v10l6-5z"></path></svg
+          ><span>Simulator</span></a
+        ><a href="/app.html?desktop=1&amp;open=menuHistoryBtn"
+          ><svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.7"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 6v6l4 3"></path></svg
+          ><span>History</span></a
+        ><a href="/app.html?desktop=1&amp;open=menuStatsBtn"
+          ><svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.7"
+            viewBox="0 0 24 24"
+          >
+            <path d="M4 20V10m5 10V4m5 16v-7m5 7V7"></path></svg
+          ><span>Analytics</span></a
+        ><a href="/app.html?desktop=1&amp;open=menuGeneralSettingsBtn"
+          ><svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.7"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="m10 3-1 3-3 1-3 4 2 2-1 4 4 2 3-1 3 3 4-2-1-4 3-3-2-4-4-1-1-3z"
+            ></path>
+            <circle cx="12" cy="12" r="3"></circle></svg
+          ><span>Settings</span></a
+        >
+      </nav>
+      <div class="sidebar-footer">
+        <div class="promo-card">
+          <svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.7"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="m3 8 4-5h10l4 5-9 13zM3 8h18M7 3l5 18 5-18M7 8l5-5 5 5"
+            ></path></svg
+          ><strong>Trade Smarter.<br />Build. Test. Execute.</strong>
+          <p>Professional tools<br />for serious traders.</p>
+        </div>
+        <small>NATHAUXFX · STRATEGY WORKSPACE</small>
       </div>
-      <div class="range-tools">
-        <button id="fiveYearRangeBtn" class="button ghost" type="button">Use Full 5Y History</button>
-        <span id="historyCoverage" class="muted">Checking available history…</span>
+    </aside>
+    <main class="studio-shell sim-shell" id="simWorkspace">
+      <header class="studio-topbar">
+        <div>
+          <h1>Strategy Simulator</h1>
+          <p>Test your strategy. Understand every result.</p>
+        </div>
+        <span class="toolbar-spacer"></span
+        ><span class="sim-only">Simulator Only</span
+        ><button
+          aria-label="Switch to light theme"
+          class="theme-button"
+          id="themeToggle"
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.7"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="12" cy="12" r="4"></circle>
+            <path
+              d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"
+            ></path></svg
+          ><span class="theme-track"></span>
+        </button>
+        <details class="user-menu">
+          <summary aria-label="User menu">
+            <span class="avatar">N</span
+            ><svg
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.7"
+              viewBox="0 0 24 24"
+            >
+              <path d="m7 10 5 5 5-5"></path>
+            </svg>
+          </summary>
+          <div class="menu-popover">
+            <strong>NathauxFX</strong><a href="/app.html">Open dashboard</a
+            ><a href="/manual-replay">Manual Replay</a>
+          </div>
+        </details>
+      </header>
+      <div class="sim-toolbar">
+        <label class="strategy-picker"
+          ><span class="sr-only">Saved strategy</span
+          ><select id="strategySelect">
+            <option value="">Loading strategies…</option>
+          </select></label
+        ><label class="symbol-picker"
+          ><span class="sr-only">Symbol</span
+          ><select id="symbolSelect"></select></label
+        ><span class="status-pill" id="savedRisk">Risk —</span
+        ><span id="testStatus" class="muted">Choose a strategy</span
+        ><span class="toolbar-spacer"></span
+        ><a id="backToStudio" class="button ghost" href="/strategy-studio.html"
+          >Back to Studio</a
+        ><button id="fastRunBtn" class="button primary">Fast Backtest</button
+        ><button id="replayRunBtn" class="button secondary">Bar Replay</button>
       </div>
-      <div class="action-row"><button id="fastRunBtn" class="button primary" type="button">Fast Backtest</button><button id="replayRunBtn" class="button secondary" type="button">Bar Replay</button><span id="runState" class="muted"></span></div>
-    </section>
-
-    <section class="metric-grid">
-      <article class="metric-card"><span>Net P/L</span><strong id="metricNetPl">—</strong></article>
-      <article class="metric-card"><span>Ending Balance</span><strong id="metricEndingBalance">—</strong></article>
-      <article class="metric-card"><span>Win Rate</span><strong id="metricWinRate">—</strong></article>
-      <article class="metric-card"><span>Resolved Trades</span><strong id="metricTrades">—</strong></article>
-      <article class="metric-card"><span>Average R</span><strong id="metricAverageR">—</strong></article>
-      <article class="metric-card"><span>Max Drawdown</span><strong id="metricDrawdown">—</strong></article>
-      <article class="metric-card"><span>Profit Factor</span><strong id="metricProfitFactor">—</strong></article>
-      <article class="metric-card"><span>Ambiguous</span><strong id="metricAmbiguous">—</strong></article>
-    </section>
-
-    <section class="panel diagnostics-panel">
-      <div class="panel-title"><div><span class="eyebrow">BACKTEST EXPLANATION</span><h2>What the strategy actually did</h2></div></div>
-      <div id="diagnosticSummary" class="diagnostic-summary muted">Run Fast Backtest to see where setups passed, waited, or were blocked.</div>
-      <div class="diagnostic-kpis">
-        <article class="diagnostic-kpi"><span>Candles Checked</span><strong id="diagCandles">—</strong></article>
-        <article class="diagnostic-kpi"><span>Setups Detected</span><strong id="diagSetups">—</strong></article>
-        <article class="diagnostic-kpi"><span>Signals</span><strong id="diagSignals">—</strong></article>
-        <article class="diagnostic-kpi"><span>Trades Opened</span><strong id="diagTradesOpened">—</strong></article>
-      </div>
-      <div class="diagnostic-columns">
-        <div><h3>Evaluation Funnel</h3><div id="diagnosticFunnel" class="diagnostic-list"><div class="muted">No backtest diagnostics yet.</div></div></div>
-        <div><h3>Why Setups Stopped</h3><div id="diagnosticReasons" class="diagnostic-list"><div class="muted">No rejection reasons yet.</div></div></div>
-      </div>
-    </section>
-
-    <div class="results-grid">
-      <section class="panel chart-panel">
-        <div class="panel-title"><div><span class="eyebrow">EQUITY</span><h2>Equity Curve</h2></div></div>
-        <svg id="equityChart" viewBox="0 0 700 260" role="img" aria-label="Simulation equity curve"></svg>
+      <div id="simNotice" class="notice hidden" role="status"></div>
+      <section class="panel controls-panel">
+        <div class="range-heading">
+          <h2>Test Range</h2>
+          <span class="muted"
+            >Fast Backtest · up to 5 years &nbsp; / &nbsp; Bar Replay · up to 31
+            days</span
+          >
+        </div>
+        <div class="control-grid">
+          <label class="date-field"
+            ><span>Start</span>
+            <div class="date-input-row">
+              <select
+                aria-label="Start year"
+                class="date-year-jump"
+                id="startYear"
+                title="Jump directly to a year"
+              ></select
+              ><input id="startDate" type="datetime-local" /></div></label
+          ><label class="date-field"
+            ><span>End</span>
+            <div class="date-input-row">
+              <select
+                aria-label="End year"
+                class="date-year-jump"
+                id="endYear"
+                title="Jump directly to a year"
+              ></select
+              ><input id="endDate" type="datetime-local" /></div></label
+          ><label
+            ><span>Preset</span
+            ><select id="rangePreset">
+              <option value="30">30 Days</option>
+              <option value="90">3 Months</option>
+              <option value="365">1 Year</option>
+              <option value="5y">5 Years</option>
+              <option value="custom" selected>Custom</option>
+            </select></label
+          >
+        </div>
+        <div class="range-tools">
+          <span id="historyCoverage" class="muted"
+            >Checking available history…</span
+          ><button id="fiveYearRangeBtn" class="button ghost small">
+            Use Full 5Y History
+          </button>
+        </div>
+        <details class="advanced-options">
+          <summary>Advanced Test Options</summary>
+          <div class="advanced-grid">
+            <label class="risk-toggle"
+              ><span>Temporary Risk Override</span
+              ><input id="riskOverrideEnabled" type="checkbox" /></label
+            ><label class="hidden" id="riskMethodField"
+              ><span>Override Method</span
+              ><select id="riskMethod">
+                <option value="PERCENT_BALANCE">% Balance</option>
+                <option value="FIXED_DOLLARS">Fixed $</option>
+              </select></label
+            ><label class="hidden" id="riskValueField"
+              ><span>Override Value</span
+              ><input
+                id="riskValue"
+                min="0.0001"
+                step="0.01"
+                type="number"
+                value="1"
+            /></label>
+          </div>
+          <p class="muted">
+            Override applies to this test only. Your saved strategy stays
+            unchanged.
+          </p>
+        </details>
       </section>
-      <section class="panel assumptions-panel">
-        <div class="panel-title"><div><span class="eyebrow">ASSUMPTIONS</span><h2>Stage 2 Safety</h2></div></div>
-        <ul id="assumptionList"><li>Closed candles only</li><li>No spread, commission, or slippage in v1</li><li>Ambiguous intrabar outcomes are excluded</li><li>Simulator does not enable LIVE trading</li></ul>
+      <section class="panel strategy-used">
+        <div>
+          <span class="eyebrow">Strategy Used</span
+          ><strong id="strategyTitle">Choose a saved strategy</strong>
+        </div>
+        <div id="strategyMeta" class="strategy-chips"></div>
+        <a id="editInStudio" href="/strategy-studio.html"
+          >Edit in Strategy Studio ↗</a
+        >
       </section>
-    </div>
-
-    <section id="replayPanel" class="panel replay-panel hidden">
-      <div class="panel-title"><div><span class="eyebrow">REPLAY</span><h2>Bar-by-bar Replay</h2></div><span id="replayProgress" class="muted">0 / 0</span></div>
-      <svg id="replayChart" viewBox="0 0 900 360" role="img" aria-label="Replay candle chart"></svg>
-      <div class="replay-controls"><button id="replayPrevBtn" class="button ghost" type="button">Previous</button><input id="replaySlider" type="range" min="0" max="0" value="0"><button id="replayNextBtn" class="button ghost" type="button">Next</button></div>
-      <div id="replayFacts" class="replay-facts muted">Use Bar Replay to inspect evaluator decisions candle by candle.</div>
-    </section>
-
-    <section class="panel trades-panel">
-      <div class="panel-title"><div><span class="eyebrow">TRADES</span><h2>Virtual Trade Log</h2></div></div>
-      <div class="table-wrap"><table><thead><tr><th>Side</th><th>Entry Time</th><th>Entry</th><th>SL</th><th>TP1</th><th>TP2</th><th>Outcome</th><th>R</th><th>P/L</th></tr></thead><tbody id="tradeTableBody"><tr><td colspan="9" class="empty">Run a simulation to see trades.</td></tr></tbody></table></div>
-    </section>
-  </div>
-
-  <script src="/strategy-simulator/strategy-simulator-model.js?v=3"></script>
-  <script src="/strategy-simulator/strategy-simulator-api.js?v=20260924-executable"></script>
-  <script src="/strategy-simulator/strategy-simulator.js?v=7"></script>
-</body>
+      <section
+        id="runProgress"
+        class="panel run-progress hidden"
+        role="status"
+        aria-live="polite"
+      >
+        <div>
+          <strong id="runState">Running backtest…</strong
+          ><span id="progressLabel"></span>
+        </div>
+        <progress
+          id="progressBar"
+          max="100"
+          value="0"
+          aria-label="Backtest progress"
+        ></progress>
+      </section>
+      <section id="emptyState" class="panel empty-state">
+        <span class="empty-icon">↗</span>
+        <h2>No backtest yet</h2>
+        <p>Choose a period and run Fast Backtest to analyze this strategy.</p>
+      </section>
+      <div id="completedResults" class="hidden">
+        <div class="results-heading">
+          <h2>Results</h2>
+          <span id="resultContext" class="muted"></span>
+        </div>
+        <section class="metric-grid">
+          <article class="metric-card">
+            <span>Net P/L</span><strong id="metricNetPl">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Ending Balance</span
+            ><strong id="metricEndingBalance">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Win Rate</span><strong id="metricWinRate">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Resolved Trades</span><strong id="metricTrades">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Average R</span><strong id="metricAverageR">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Max Drawdown</span><strong id="metricDrawdown">—</strong>
+          </article>
+          <article class="metric-card">
+            <span>Profit Factor</span><strong id="metricProfitFactor">—</strong>
+          </article>
+        </section>
+        <div class="results-grid">
+          <section class="panel chart-panel">
+            <div class="panel-title">
+              <div>
+                <span class="eyebrow">EQUITY</span>
+                <h2>Equity Curve</h2>
+              </div>
+              <label class="chart-select"
+                ><span class="sr-only">Chart view</span
+                ><select id="equityView">
+                  <option>Balance</option>
+                  <option>Drawdown</option>
+                </select></label
+              >
+            </div>
+            <svg
+              aria-label="Simulation equity curve"
+              id="equityChart"
+              role="img"
+              viewBox="0 0 700 260"
+              viewBox="0 0 700 260"
+            ></svg>
+          </section>
+          <section class="panel run-summary">
+            <div class="panel-title"><h2>Run Summary</h2></div>
+            <dl id="runSummary"></dl>
+          </section>
+        </div>
+        <section class="panel replay-panel hidden" id="replayPanel">
+          <div class="panel-title">
+            <div>
+              <span class="eyebrow">REPLAY</span>
+              <h2>Bar-by-bar Replay</h2>
+            </div>
+            <span class="muted" id="replayProgress">0 / 0</span>
+          </div>
+          <svg
+            aria-label="Replay candle chart"
+            id="replayChart"
+            role="img"
+            viewBox="0 0 900 360"
+          ></svg>
+          <div class="replay-controls">
+            <button class="button ghost" id="replayPrevBtn" type="button">
+              Previous</button
+            ><input
+              id="replaySlider"
+              max="0"
+              min="0"
+              type="range"
+              value="0"
+            /><button class="button ghost" id="replayNextBtn" type="button">
+              Next
+            </button>
+          </div>
+          <div class="replay-facts muted" id="replayFacts">
+            Use Bar Replay to inspect evaluator decisions candle by candle.
+          </div>
+        </section>
+        <section class="panel diagnostics-panel">
+          <div class="panel-title">
+            <div>
+              <span class="eyebrow">BACKTEST EXPLANATION</span>
+              <h2>What the strategy actually did</h2>
+            </div>
+          </div>
+          <div class="diagnostic-summary muted" id="diagnosticSummary">
+            Run Fast Backtest to see where setups passed, waited, or were
+            blocked.
+          </div>
+          <div class="diagnostic-kpis">
+            <article class="diagnostic-kpi">
+              <span>Candles Checked</span><strong id="diagCandles">—</strong>
+            </article>
+            <article class="diagnostic-kpi">
+              <span>Setups Detected</span><strong id="diagSetups">—</strong>
+            </article>
+            <article class="diagnostic-kpi">
+              <span>Signals</span><strong id="diagSignals">—</strong>
+            </article>
+            <article class="diagnostic-kpi">
+              <span>Trades Opened</span><strong id="diagTradesOpened">—</strong>
+            </article>
+          </div>
+          <div class="diagnostic-columns">
+            <div>
+              <h3>Evaluation Funnel</h3>
+              <div class="diagnostic-list" id="diagnosticFunnel">
+                <div class="muted">No backtest diagnostics yet.</div>
+              </div>
+            </div>
+            <div>
+              <h3>Why Setups Stopped</h3>
+              <div class="diagnostic-list" id="diagnosticReasons">
+                <div class="muted">No rejection reasons yet.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div class="breakdown-grid">
+          <section class="panel breakdown-panel">
+            <div class="panel-title"><h2>Yearly Performance</h2></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Year (UTC)</th>
+                    <th>P/L</th>
+                    <th>Trades</th>
+                    <th>Win Rate</th>
+                    <th>Average R</th>
+                  </tr>
+                </thead>
+                <tbody id="yearlyBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="panel breakdown-panel">
+            <div class="panel-title"><h2>Direction Performance</h2></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Side</th>
+                    <th>P/L</th>
+                    <th>Trades</th>
+                    <th>Win Rate</th>
+                    <th>Average R</th>
+                  </tr>
+                </thead>
+                <tbody id="directionBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <p class="breakdown-note muted">
+          Breakdowns use resolved trades only, grouped by exit year in UTC.
+          Ambiguous and open trades remain in the trade log.
+        </p>
+        <section class="panel trades-panel">
+          <div class="panel-title">
+            <div>
+              <span class="eyebrow">TRADES</span>
+              <h2>Trade Log</h2>
+            </div>
+            <label class="chart-select"
+              ><span class="sr-only">Filter trades</span
+              ><select id="tradeFilter">
+                <option>All</option>
+                <option>Winners</option>
+                <option>Losses</option>
+                <option>TP2</option>
+                <option>Protected SL</option>
+                <option>SL</option>
+              </select></label
+            >
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Side</th>
+                  <th>Entry Time</th>
+                  <th>Entry</th>
+                  <th>SL</th>
+                  <th>TP1</th>
+                  <th>TP2</th>
+                  <th>Outcome</th>
+                  <th>R</th>
+                  <th>P/L</th>
+                </tr>
+              </thead>
+              <tbody id="tradeTableBody">
+                <tr>
+                  <td class="empty" colspan="9">
+                    Run a simulation to see trades.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="panel assumptions-panel">
+          <div class="panel-title">
+            <h2>Backtest Execution Model</h2>
+            <span class="muted">Read-only</span>
+          </div>
+          <dl id="assumptionList"></dl>
+          <p class="muted">
+            Ambiguous trades: <span id="metricAmbiguous">—</span>
+          </p>
+        </section>
+      </div>
+    </main>
+    <script src="/strategy-simulator/strategy-simulator-model.js?v=3"></script>
+    <script src="/strategy-simulator/strategy-simulator-api.js?v=9"></script>
+    <script src="/strategy-simulator/strategy-simulator-presentation.js?v=1"></script>
+    <script src="/strategy-simulator/strategy-simulator.js?v=9"></script>
+  </body>
 </html>

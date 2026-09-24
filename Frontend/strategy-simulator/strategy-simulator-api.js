@@ -361,6 +361,7 @@
   }
 
   return {
+    listStrategies: () => request('/strategy-studio/strategies'),
     getStrategy,
     runSimulation,
     loadStatic5m,

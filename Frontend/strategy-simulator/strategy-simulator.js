@@ -3,10 +3,11 @@
 
   const Model = window.StrategySimulatorModel;
   const Api = window.StrategySimulatorApi;
+  const Presentation = window.StrategySimulatorPresentation;
   if (!Model || !Api) return;
 
   const $ = (id) => document.getElementById(id);
-  const state = { strategy: null, result: null, replayIndex: 0, busy: false, coverage: null };
+  const state = { strategy: null, result: null, replayIndex: 0, busy: false, coverage: null, strategies: [], resultContext: null };
 
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, (char) => ({
@@ -153,9 +154,11 @@
   async function refreshHistoryCoverage() {
     const symbol = $('symbolSelect').value;
     if (!symbol) return;
+    state.coverage = null;
     $('historyCoverage').textContent = 'Checking available history…';
     try {
       const coverage = await Api.historyCoverage(symbol);
+      if ($('symbolSelect').value !== symbol) return;
       state.coverage = coverage;
       syncAllYearJumps();
       clampSimulationRange();
@@ -165,13 +168,14 @@
       }
       const backfill = coverage.backfill;
       const backfillText = backfill?.complete && Number(backfill?.requested_years || 0) >= 5
-        ? ' • 5Y backfill complete'
+        ? ' • 5Y history complete'
         : backfill?.complete === false
           ? ' • 5Y backfill in progress'
           : '';
       $('historyCoverage').textContent =
         `Available: ${coverageDate(coverage.earliest)} → ${coverageDate(coverage.latest)}${backfillText}`;
     } catch (error) {
+      if ($('symbolSelect').value !== symbol) return;
       state.coverage = null;
       $('historyCoverage').textContent = error.message || 'History coverage unavailable.';
     }
@@ -201,7 +205,9 @@
     $('startDate').value = toLocalInput(start);
     $('endDate').value = toLocalInput(end);
     syncAllYearJumps();
+    $('rangePreset').value = '5y';
     notice('');
+    syncUrl();
   }
 
   function setDefaultDates() {
@@ -217,6 +223,11 @@
     $('fastRunBtn').disabled = state.busy || !state.strategy;
     $('replayRunBtn').disabled = state.busy || !state.strategy;
     $('runState').textContent = label;
+    $('runProgress').classList.toggle('hidden', !state.busy);
+    $('fastRunBtn').textContent = state.busy ? 'Running…' : 'Fast Backtest';
+    $('testStatus').textContent = state.busy ? 'Running…' : state.strategy ? 'Ready to test' : 'Choose a strategy';
+    for (const id of ['strategySelect','symbolSelect','startDate','endDate','startYear','endYear','rangePreset','fiveYearRangeBtn','riskOverrideEnabled','riskMethod','riskValue']) $(id).disabled = state.busy;
+    if (!state.busy) { $('progressBar').value = 0; $('progressLabel').textContent = ''; }
   }
 
   function riskOverride() {
@@ -235,6 +246,9 @@
     $('metricDrawdown').textContent = `${Model.formatMetric(metrics.max_drawdown_dollars, 'money')} • ${Model.formatMetric(metrics.max_drawdown_percent, 'percent')}`;
     $('metricProfitFactor').textContent = Model.formatMetric(metrics.profit_factor);
     $('metricAmbiguous').textContent = Model.formatMetric(metrics.ambiguous_trades);
+    $('metricNetPl').className = signClass(metrics.net_pl);
+    $('metricAverageR').className = signClass(metrics.average_r);
+    $('metricDrawdown').className = Number(metrics.max_drawdown_dollars) > 0 ? 'negative' : '';
   }
 
   const DIAGNOSTIC_STAGES = [
@@ -268,6 +282,9 @@
     RETEST_PENDING: 'Retest never completed in the tested range',
     CONFIRMATION_BODY_TOO_SMALL: 'Confirmation candle body was too small',
     ENTRY_UNAVAILABLE: 'Entry price was unavailable',
+    SL_DISTANCE_BELOW_MINIMUM: 'SL distance below minimum',
+    SL_DISTANCE_ABOVE_MAXIMUM: 'SL distance above maximum',
+    SETUP_EXPIRED: 'Setup expired',
     STOP_LOSS_UNAVAILABLE: 'Stop loss could not be built',
     TP2_OPPOSITE_SWING_UNAVAILABLE: 'Opposite-swing TP2 was unavailable',
     RISK_BUDGET_INVALID: 'Risk budget was invalid',
@@ -333,7 +350,7 @@
       $('diagnosticReasons').innerHTML = '<div class="diagnostic-good">No blocked or unfinished setups in this run.</div>';
     } else {
       $('diagnosticReasons').innerHTML = reasonRows.map(([reason, count]) => `<div class="diagnostic-reason">
-        <span>${escapeHtml(diagnosticReasonLabel(reason))}</span><strong>${Number(count).toLocaleString()}</strong>
+        <span title="${escapeHtml(reason)}">${escapeHtml(diagnosticReasonLabel(reason))}</span><strong>${Number(count).toLocaleString()}</strong>
       </div>`).join('');
       if (rejectionEntries.length && noSetupEntries.length) {
         const noSetupCount = noSetupEntries.reduce((sum, [, count]) => sum + Number(count || 0), 0);
@@ -344,22 +361,15 @@
 
   function renderEquity(curve = []) {
     const svg = $('equityChart');
-    const points = Model.equityPoints(curve, 700, 260, 24);
-    if (!points.length) {
-      svg.innerHTML = '<text x="350" y="135" text-anchor="middle" fill="#8ea1bc">No equity data yet</text>';
-      return;
-    }
-    if (points.length === 1) {
-      const balance = curve[0]?.balance;
-      const label = Number.isFinite(Number(balance))
-        ? `No resolved trades — equity stayed at ${Model.formatMetric(balance, 'money')}`
-        : 'No resolved trades — equity did not change';
-      svg.innerHTML = `<text x="350" y="135" text-anchor="middle" fill="#8ea1bc">${escapeHtml(label)}</text>`;
-      return;
-    }
-    const grid = [55, 105, 155, 205].map((y) => `<line class="grid-line" x1="24" y1="${y}" x2="676" y2="${y}"/>`).join('');
-    const path = points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
-    svg.innerHTML = `${grid}<polyline class="equity-line" points="${path}"/>`;
+    const drawdown = $('equityView').value === 'Drawdown';
+    const rows = drawdown ? Presentation.drawdownCurve(curve) : curve;
+    const points = Model.equityPoints(rows,700,260,40);
+    if (!points.length) { svg.innerHTML = '<text class="chart-label" x="350" y="130" text-anchor="middle">No equity data returned</text>'; return; }
+    const values = rows.map(r=>Number(r.balance)), low=Math.min(...values), high=Math.max(...values);
+    const grid=[0,.25,.5,.75,1].map(f=>{const y=40+f*180;return `<line class="grid-line" x1="40" y1="${y}" x2="660" y2="${y}"/><text class="chart-label" x="44" y="${y-6}">${escapeHtml(Model.formatMetric(high-f*(high-low),'money'))}</text>`;}).join('');
+    const path=points.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    svg.innerHTML=grid+`<polygon class="equity-area" points="40,220 ${path} 660,220"/><polyline class="equity-line ${drawdown?'drawdown-line':''}" points="${path}"/><text class="chart-label" x="40" y="250">Start</text><text class="chart-label" x="660" y="250" text-anchor="end">${rows.length-1} trade outcomes</text>`;
+    if(points.length===1) svg.innerHTML+=`<circle cx="${points[0].x}" cy="${points[0].y}" r="4" fill="var(--positive)"/>`;
   }
 
   function price(value) {
@@ -370,15 +380,16 @@
 
   function renderTrades(trades = []) {
     const body = $('tradeTableBody');
+    trades = Presentation.filterTrades(trades, $('tradeFilter').value);
     if (!trades.length) {
-      body.innerHTML = '<tr><td colspan="9" class="empty">No virtual trades were produced in this range.</td></tr>';
+      body.innerHTML = '<tr><td colspan="9" class="empty">No trades match this view.</td></tr>';
       return;
     }
     body.innerHTML = trades.map((trade) => {
       const pnl = Number(trade.pnl_dollars || 0);
       const pnlClass = trade.resolved ? (pnl >= 0 ? 'trade-positive' : 'trade-negative') : '';
       return `<tr>
-        <td>${escapeHtml(trade.side)}</td>
+        <td><span class="side-pill ${trade.side==='BUY'?'buy':'sell'}">${escapeHtml(trade.side)}</span></td>
         <td>${escapeHtml(trade.entry_time || '—')}</td>
         <td>${price(trade.entry)}</td><td>${price(trade.sl)}</td><td>${price(trade.tp1)}</td><td>${price(trade.tp2)}</td>
         <td>${escapeHtml(trade.outcome || '—')}</td>
@@ -389,15 +400,8 @@
   }
 
   function renderAssumptions(assumptions = {}) {
-    const rows = [
-      ['Closed candles only', assumptions.closed_candles_only],
-      ['Spread modeled', assumptions.spread],
-      ['Commission modeled', assumptions.commission],
-      ['Slippage modeled', assumptions.slippage],
-      ['Ambiguous intrabar excluded', assumptions.ambiguous_intrabar_excluded],
-      ['LIVE trading enabled', assumptions.live_trading_enabled],
-    ];
-    $('assumptionList').innerHTML = rows.map(([label, value]) => `<li>${escapeHtml(label)}: <strong>${value ? 'YES' : 'NO'}</strong></li>`).join('');
+    const rows = [['Spread','spread'],['Commission','commission'],['Slippage','slippage'],['Ambiguous intrabar','ambiguous_intrabar_excluded']];
+    $('assumptionList').innerHTML=rows.map(([label,key])=>`<div><dt>${label}</dt><dd>${!(key in assumptions)?'Not reported':key==='ambiguous_intrabar_excluded'?(assumptions[key]?'Excluded':'Included'):(assumptions[key]?'Modeled':'Not modeled')}</dd></div>`).join('');
   }
 
   function renderReplay() {
@@ -445,6 +449,9 @@
 
   function renderResult(result) {
     state.result = result;
+    $('emptyState').classList.add('hidden');
+    $('completedResults').classList.remove('hidden');
+    renderAnalysis(result);
     renderMetrics(result.metrics || {});
     renderDiagnostics(result.diagnostics || {});
     renderEquity(result.equity_curve || []);
@@ -472,16 +479,23 @@
         start, end, mode,
         riskOverride: riskOverride(),
       });
+      const context = { name: state.strategy.name, symbol: payload.symbol, start, end, riskOverride: payload.risk_override };
+      syncUrl();
       setBusy(true, mode === 'REPLAY' ? 'Building replay…' : 'Running backtest…');
       const response = await Api.runSimulation(payload, {
         onProgress: ({ current, total }) => {
-          $('runState').textContent = `Backtesting chunk ${current} / ${total}…`;
+          $('runState').textContent = 'Running backtest…';
+          const percent = total > 0 ? Math.round(current / total * 100) : 0;
+          $('progressLabel').textContent = `Period ${current} of ${total} · ${percent}%`;
+          $('progressBar').value = percent;
         },
       });
       const result = Array.isArray(response?.batch_results)
         ? Model.aggregateSimulationResults(response.batch_results)
         : response;
+      state.resultContext = context;
       renderResult(result);
+      $('completedResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
       const chunkText = result.batch_chunks > 1 ? ` across ${result.batch_chunks} chunks` : '';
       notice(`${mode === 'REPLAY' ? 'Bar Replay' : 'Fast Backtest'} complete for ${result.symbol}${chunkText} using static candle data.`, 'success');
     } catch (error) {
@@ -491,8 +505,7 @@
     }
   }
 
-  async function loadStrategy() {
-    const strategyId = new URLSearchParams(window.location.search).get('strategy');
+  async function loadStrategy(strategyId = new URLSearchParams(window.location.search).get('strategy'), handoff = true) {
     if (!strategyId) {
       notice('Open Simulator from a saved Strategy Studio strategy.', 'error');
       setBusy(false);
@@ -509,7 +522,7 @@
       $('symbolSelect').innerHTML = symbols.map((symbol) => `<option value="${escapeHtml(symbol)}">${escapeHtml(symbol)}</option>`).join('');
       await refreshHistoryCoverage();
       // Studio Quick Test hands off the selected range; do not silently replace it.
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(handoff ? window.location.search : '');
       const requestedSymbol = params.get('symbol');
       if (symbols.includes(requestedSymbol) && $('symbolSelect').value !== requestedSymbol) {
         $('symbolSelect').value = requestedSymbol;
@@ -517,27 +530,81 @@
       }
       const requestedStart = params.get('start');
       const requestedEnd = params.get('end');
-      if (/^\d{4}-\d{2}-\d{2}$/.test(requestedStart || '') && /^\d{4}-\d{2}-\d{2}$/.test(requestedEnd || '') && Date.parse(requestedEnd) > Date.parse(requestedStart)) {
-        $('startDate').value = toLocalInput(new Date(requestedStart + 'T00:00:00Z'));
-        $('endDate').value = toLocalInput(new Date(requestedEnd + 'T00:00:00Z'));
+      if (requestedStart && requestedEnd && Date.parse(requestedEnd) > Date.parse(requestedStart)) {
+        $('startDate').value = toLocalInput(new Date(requestedStart));
+        $('endDate').value = toLocalInput(new Date(requestedEnd));
         syncAllYearJumps();
       }
       if (params.get('mode') === 'REPLAY') notice('Bar Replay range loaded from Strategy Studio. Select Run Bar Replay to begin.');
-      const risk = strategy.definition?.risk || {};
-      $('strategyMeta').textContent = `${symbols.join(' + ')} • ${strategy.definition?.trading_timeframe || '—'} • saved risk ${risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : `${risk.value || '—'}`} • Fast Backtest up to 5 years • Bar Replay up to 31 days • no Neon candle history reads • Simulator only.`;
+      $('strategySelect').value = strategy.strategy_id;
+      renderStrategyUsed();
+      syncUrl();
     } catch (error) {
+      $('strategySelect').value = state.strategy?.strategy_id || '';
       notice(error.message || 'Saved strategy could not be loaded.', 'error');
     } finally {
       setBusy(false, '');
     }
   }
 
-  $('symbolSelect').addEventListener('change', refreshHistoryCoverage);
+  function signClass(value) { return Number(value)>0?'positive':Number(value)<0?'negative':''; }
+  function renderAnalysis(result) {
+    const m=result.metrics||{}, c=state.resultContext;
+    $('resultContext').textContent=`${c.name} · ${c.symbol} · ${coverageDate(c.start)} → ${coverageDate(c.end)}${c.riskOverride?' · Temporary risk override':''}`;
+    const fmt=Model.formatMetric;
+    const rows=[['Start balance',fmt(m.starting_balance ?? result.starting_balance,'money')],['Ending balance',fmt(m.ending_balance,'money')],['Return',Number(m.starting_balance ?? result.starting_balance)>0?fmt(Number(m.net_pl)/(m.starting_balance ?? result.starting_balance)*100,'percent'):'—'],['Max drawdown',fmt(m.max_drawdown_dollars,'money')],['Profit factor',fmt(m.profit_factor)],['Total trades',String((result.trades||[]).length)],['Win rate',fmt(m.win_rate,'percent')],['Average R',fmt(m.average_r,'r')]];
+    $('runSummary').innerHTML=rows.map(([label,value])=>`<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')+`<div class="summary-context"><dt>Backtest period · Strategy · Symbol</dt><dd>${escapeHtml($('resultContext').textContent)}</dd></div>`;
+    const groups=Presentation.breakdowns(result.trades);
+    for(const [id,data] of [['yearlyBody',groups.years],['directionBody',groups.directions]]) {
+      $(id).innerHTML=data.length?data.map(r=>`<tr><td>${escapeHtml(r.key)}</td><td class="${signClass(r.net)}">${fmt(r.net,'money')}</td><td>${r.trades}</td><td>${fmt(r.winRate,'percent')}</td><td>${fmt(r.averageR,'r')}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No resolved trades.</td></tr>';
+    }
+  }
+  function renderStrategyUsed() {
+    const d=state.strategy?.definition||{},risk=d.risk||{},filter=d.stop_loss?.distance_filter;
+    const riskText=risk.method==='PERCENT_BALANCE'?`${risk.value}%`:`$${risk.value}`;
+    $('savedRisk').textContent=`Risk ${riskText}`;
+    const chips=[$('symbolSelect').value,`${d.trading_timeframe} Entry`,`${d.structure_timeframe||d.trading_timeframe} Structure`,`${riskText} Risk`, `SL: ${d.stop_loss?.method==='LAST_SWING'?'Last Swing':`${d.stop_loss?.fixed_distance} pips`}`,`TP2: ${d.tp2?.method==='FIXED_R'?`${d.tp2.value}R`:d.tp2?.method==='FIXED_DISTANCE'?`${d.tp2.value} pips`:'Opposite Swing'}`];
+    if(filter?.enabled)chips.push(`SL Filter: ${filter.minimum}–${filter.maximum}${filter.mode==='PERCENT_ENTRY'?'%':' pips'}`);
+    if(d.confirmation?.max_setup_age_bars!=null)chips.push(`Freshness: ${d.confirmation.max_setup_age_bars} bars`);
+    $('strategyMeta').innerHTML=chips.map(t=>`<span>${escapeHtml(t)}</span>`).join('');
+    for(const id of ['backToStudio','editInStudio'])$(id).href=`/strategy-studio.html?strategy=${encodeURIComponent(state.strategy.strategy_id)}`;
+    $('studioNavLink').setAttribute('href',$('backToStudio').getAttribute('href'));
+  }
+  function syncUrl() {
+    if(!state.strategy)return;
+    const q=new URLSearchParams(location.search);q.set('strategy',state.strategy.strategy_id);q.set('symbol',$('symbolSelect').value);
+    for(const key of ['start','end'])if($(key+'Date').value)q.set(key,new Date($(key+'Date').value).toISOString());
+    history.replaceState(null,'',`${location.pathname}?${q}`);
+  }
+  async function initialize() {
+    const requested=new URLSearchParams(location.search).get('strategy');
+    try { const list=await Api.listStrategies();state.strategies=list.strategies||[]; }
+    catch(error){ if(!requested){notice(error.message,'error');return;} }
+    if(requested&&!state.strategies.some(s=>s.strategy_id===requested))state.strategies.push({strategy_id:requested,name:'Selected strategy'});
+    $('strategySelect').innerHTML=state.strategies.length?state.strategies.map(s=>`<option value="${escapeHtml(s.strategy_id)}">${escapeHtml(s.name)}</option>`).join(''):'<option value="">No saved strategies</option>';
+    if(state.strategies.length)await loadStrategy(requested||state.strategies[0].strategy_id);
+  }
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme=theme;
+    $('themeToggle').setAttribute('aria-label',`Switch to ${theme==='dark'?'light':'dark'} theme`);
+  }
+  applyTheme(document.documentElement.dataset.theme);
+  $('themeToggle').addEventListener('click',()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(t);try{localStorage.setItem('nathauxfx_studio_theme',t);}catch(_){} });
+  window.addEventListener('storage',e=>{if(e.key==='nathauxfx_studio_theme'&&['light','dark'].includes(e.newValue))applyTheme(e.newValue);});
+  $('equityView').addEventListener('change',()=>renderEquity(state.result?.equity_curve));
+  $('tradeFilter').addEventListener('change',()=>renderTrades(state.result?.trades));
+  $('rangePreset').addEventListener('change',()=>{
+    const preset=$('rangePreset').value;if(preset==='custom')return;if(preset==='5y'){useFullFiveYearHistory();return;}
+    const end=new Date($('endDate').value||Date.now());$('startDate').value=toLocalInput(new Date(end.getTime()-Number(preset)*86400000));clampSimulationRange();syncUrl();
+  });
+
+  $('symbolSelect').addEventListener('change', async () => { await refreshHistoryCoverage(); renderStrategyUsed(); syncUrl(); });
+  $('strategySelect').addEventListener('change', () => loadStrategy($('strategySelect').value, false));
   $('fiveYearRangeBtn').addEventListener('click', useFullFiveYearHistory);
   $('startYear').addEventListener('change', () => applyYearJump('startDate', 'startYear'));
   $('endYear').addEventListener('change', () => applyYearJump('endDate', 'endYear'));
-  $('startDate').addEventListener('change', () => syncYearJump('startDate', 'startYear'));
-  $('endDate').addEventListener('change', () => syncYearJump('endDate', 'endYear'));
+  $('startDate').addEventListener('change', () => { syncYearJump('startDate','startYear'); $('rangePreset').value='custom'; syncUrl(); });
+  $('endDate').addEventListener('change', () => { syncYearJump('endDate','endYear'); $('rangePreset').value='custom'; syncUrl(); });
   $('riskOverrideEnabled').addEventListener('change', () => {
     const enabled = $('riskOverrideEnabled').checked;
     $('riskMethodField').classList.toggle('hidden', !enabled);
@@ -554,5 +621,5 @@
   renderDiagnostics();
   renderEquity();
   setBusy(false);
-  loadStrategy();
+  initialize();
 })();
