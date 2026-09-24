@@ -47,9 +47,13 @@ const definition = {
         { strategy_id: 'gold', name: 'Gold 832', definition },
       ];
       await page.route(
-        /\/strategy-studio\/(strategies|live-status)/,
+        /\/strategy-studio\/(strategies|validate|live-status)/,
         async (route) => {
           const url = new URL(route.request().url());
+          if (url.pathname.endsWith('/validate')) { await route.fulfill({json:{valid:true,normalized_definition:route.request().postDataJSON().definition}}); return; }
+          if (route.request().method() === 'PUT') {
+            Object.assign(strategies.find(s=>url.pathname.endsWith('/'+s.strategy_id)),route.request().postDataJSON());
+          }
           let payload = url.pathname.endsWith('/strategies')
             ? { strategies }
             : url.pathname.endsWith('/live-status')
@@ -85,6 +89,7 @@ const definition = {
               options.onProgress({ current: 14, total: 59 });
               await new Promise((resolve, reject) => {
                 window.finishRun = resolve;
+                window.failRunWith = reject;
                 window.failRun = () =>
                   reject(new Error('Fixture network failure'));
               });
@@ -207,7 +212,7 @@ const definition = {
       assert.equal(
         await page
           .locator('#startDate')
-          .evaluate((n) => new Date(n.value).toISOString()),
+          .evaluate((n) => new Date(n.value + 'Z').toISOString()),
         '2025-01-01T00:00:00.000Z',
       );
       assert.equal(await page.locator('#emptyState').isVisible(), true);
@@ -352,9 +357,60 @@ const definition = {
         await page.evaluate(() => document.documentElement.dataset.theme),
         'dark',
       );
+      // Studio saves executable edits before navigating; exact date-only values stay UTC.
+      await page.locator('#riskValue').fill('1.5');
+      await page.locator('#quickStart').fill('2021-09-25');
+      await page.locator('#quickEnd').fill('2026-09-24');
+      await page.locator('#quickSymbol').selectOption('XAUUSD');
+      await page.locator('#runBacktestBtn').click();
+      await page.waitForURL(/strategy-simulator.html/);
+      await page.waitForFunction(() => window.runs?.length === 1);
+      const auto = await page.evaluate(() => window.runs[0]);
+      assert.equal(auto.strategy_id,'a'); assert.equal(auto.symbol,'XAUUSD');
+      assert.equal(auto.start,'2021-09-25T00:00:00.000Z'); assert.equal(auto.end,'2026-09-24T00:00:00.000Z');
+      assert.equal(strategies[0].definition.risk.value,1.5);
+      assert.equal(await page.locator('#startDate').inputValue(),'2021-09-25T00:00');
+      assert.equal(new URL(page.url()).searchParams.get('autostart'),'1');
+      assert.equal(await page.locator('#fastRunBtn').isDisabled(),true);
+      await page.evaluate(()=>window.finishRun());
+      await page.waitForFunction(()=>!document.querySelector('#fastRunBtn').disabled);
+      await page.locator('#themeToggle').click();
+      assert.equal(await page.evaluate(()=>window.runs.length),1);
+      await page.locator('#fastRunBtn').click();
+      await page.waitForFunction(()=>window.runs.length===2);
+      await page.evaluate(()=>{ const e=new Error('Request timed out after 120000ms'); e.name='TimeoutError'; window.failRunWith(e); });
+      await page.waitForFunction(()=>document.querySelector('#simNotice').textContent.includes('No completed result was changed'));
+      assert.equal(await page.locator('#metricNetPl').textContent(),'$150.00');
+      for (const suffix of ['', '?strategy=a&mode=FAST', '?strategy=a&mode=REPLAY&autostart=1']) {
+        await page.goto(base+'/strategy-simulator.html'+suffix);
+        await page.waitForFunction(()=>!document.querySelector('#fastRunBtn').disabled);
+        assert.equal(await page.evaluate(()=>window.runs?.length||0),0);
+      }
+      await page.goto(base+'/strategy-studio.html?strategy=a');
+      await page.waitForFunction(()=>!document.querySelector('#runBacktestBtn').disabled);
+      await page.locator('#riskValue').fill('2');
+      await page.route('**/strategy-studio/strategies/a',route=>route.fulfill({status:500,json:{detail:'Save rejected'}}));
+      await page.locator('#runBacktestBtn').click();
+      await page.waitForFunction(()=>document.querySelector('#quickTestState').textContent.includes('not saved'));
+      assert.match(page.url(),/strategy-studio.html/);
+      await page.unroute('**/strategy-studio/strategies/a');
+      await page.locator('#setting_notes').fill('Keep these unsaved notes');
+      await page.evaluate(() => {
+        const original = Storage.prototype.setItem;
+        Storage.prototype.setItem = function(key,value) {
+          if(key==='nathauxfx_studio_config_v1:a') throw new DOMException('Storage full');
+          return original.call(this,key,value);
+        };
+      });
+      await page.locator('#runBacktestBtn').click();
+      await page.waitForFunction(()=>document.querySelector('#quickTestState').textContent.includes('not saved'));
+      await page.locator('#runBacktestBtn').click();
+      await page.waitForFunction(()=>document.querySelector('#quickTestState').textContent.includes('storage is unavailable'));
+      assert.match(page.url(),/strategy-studio.html/);
+      assert.equal(await page.locator('#setting_notes').inputValue(),'Keep these unsaved notes');
       assert.deepEqual(errors, []);
       console.log(
-        `PASS ${name}: URL/theme handoff, 5Y request, progress, metrics, breakdowns, filters, retained failed results, replay, risk override, six viewport widths`,
+        `PASS ${name}: save-before-navigation, exact UTC handoff, once-only FAST autostart, idle normal/Replay visits, 120s timeout message, retained failed results, theme, metrics, filters, replay, six widths`,
       );
     } finally {
       await browser.close();

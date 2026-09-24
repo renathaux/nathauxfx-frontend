@@ -21,14 +21,14 @@ test('page has the approved three-column Strategy Studio shell and actions', () 
   assert.match(html, /id="strategySelect"/);
 });
 
-test('builder includes eight executable sections and empty real-result metrics', () => {
+test('builder includes eight executable sections and delegates results to Simulator', () => {
   const html = fs.readFileSync(htmlPath, 'utf8').replace(/\s+/g, ' ');
   for (const text of ['Symbols', 'Trading Timeframe', 'Trend Filter', 'Break Validation', 'Confirmation Rules', 'Entry Method', 'Stop Loss', 'TP1', 'TP2', 'Risk', 'Fundamental Filter']) {
     assert.match(html, new RegExp(text));
   }
-  for (const text of ['Strategy Basics', 'Market &amp; Timeframes', 'Confirmation Rules', 'Entry / Stop / Targets', 'Risk', 'Fundamentals', 'Backtest Execution Model', 'Notes / Version']) assert.ok(html.includes(text));
-  assert.match(html, /id="metricNetPl">\s*—/);
-  assert.match(html, /Run a backtest to see performance/);
+  for (const text of ['Strategy Basics', 'Market &amp; Timeframes', 'Confirmation Rules', 'Entry / Stop / Targets', 'Risk', 'Fundamentals', 'Notes / Version']) assert.ok(html.includes(text));
+  assert.doesNotMatch(html, /id="metricNetPl"|id="equityChart"/);
+  assert.match(html, /Test in Simulator/);
   assert.doesNotMatch(html, /draft-marker|data-settings-group="costs"/);
 });
 

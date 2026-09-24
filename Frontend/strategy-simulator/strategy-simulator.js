@@ -9,6 +9,8 @@
   const $ = (id) => document.getElementById(id);
   const state = { strategy: null, result: null, replayIndex: 0, busy: false, coverage: null, strategies: [], resultContext: null };
 
+  let autoStartConsumed = false;
+
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, (char) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
@@ -22,20 +24,21 @@
     node.classList.toggle('hidden', !message);
   }
 
-  function toLocalInput(date) {
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return local.toISOString().slice(0, 16);
+  function toUtcInput(date) {
+    return date.toISOString().slice(0, 16);
   }
+
+  function inputDate(value) { return new Date(value ? value + 'Z' : Date.now()); }
 
   function availableYearRange() {
     const earliest = state.coverage?.earliest ? new Date(state.coverage.earliest) : null;
     const latest = state.coverage?.latest ? new Date(state.coverage.latest) : null;
-    const current = new Date().getFullYear();
+    const current = new Date().getUTCFullYear();
     const first = earliest && !Number.isNaN(earliest.getTime())
-      ? earliest.getFullYear()
+      ? earliest.getUTCFullYear()
       : current - 5;
     const last = latest && !Number.isNaN(latest.getTime())
-      ? latest.getFullYear()
+      ? latest.getUTCFullYear()
       : current;
     const years = [];
     for (let year = first; year <= last; year += 1) years.push(year);
@@ -57,9 +60,9 @@
     const input = $(inputId);
     const select = $(selectId);
     if (!input || !select || !input.value) return;
-    const value = new Date(input.value);
+    const value = inputDate(input.value);
     if (!Number.isNaN(value.getTime())) {
-      const year = value.getFullYear();
+      const year = value.getUTCFullYear();
       if (![...select.options].some((option) => Number(option.value) === year)) {
         populateYearJump(selectId, year);
       }
@@ -68,8 +71,8 @@
   }
 
   function syncAllYearJumps() {
-    populateYearJump('startYear', new Date($('startDate').value || Date.now()).getFullYear());
-    populateYearJump('endYear', new Date($('endDate').value || Date.now()).getFullYear());
+    populateYearJump('startYear', inputDate($('startDate').value).getUTCFullYear());
+    populateYearJump('endYear', inputDate($('endDate').value).getUTCFullYear());
     syncYearJump('startDate', 'startYear');
     syncYearJump('endDate', 'endYear');
   }
@@ -79,8 +82,8 @@
     const endInput = $('endDate');
     if (!startInput?.value || !endInput?.value) return;
 
-    let start = new Date(startInput.value);
-    let end = new Date(endInput.value);
+    let start = inputDate(startInput.value);
+    let end = inputDate(endInput.value);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
 
     const coverageStart = state.coverage?.earliest ? new Date(state.coverage.earliest) : null;
@@ -101,7 +104,7 @@
     // predictable: choosing 2021 with a 2026 end date lands on the earliest
     // valid 2021 date instead of producing a >5Y error.
     const fiveYearsBeforeEnd = new Date(end);
-    fiveYearsBeforeEnd.setFullYear(fiveYearsBeforeEnd.getFullYear() - 5);
+    fiveYearsBeforeEnd.setUTCFullYear(fiveYearsBeforeEnd.getUTCFullYear() - 5);
     if (start < fiveYearsBeforeEnd) start = fiveYearsBeforeEnd;
 
     if (end <= start) {
@@ -109,8 +112,8 @@
       if (coverageEnd && end > coverageEnd) end = coverageEnd;
     }
 
-    startInput.value = toLocalInput(start);
-    endInput.value = toLocalInput(end);
+    startInput.value = toUtcInput(start);
+    endInput.value = toUtcInput(end);
     syncYearJump('startDate', 'startYear');
     syncYearJump('endDate', 'endYear');
   }
@@ -120,17 +123,17 @@
     const select = $(selectId);
     if (!input || !select || !input.value) return;
     const nextYear = Number(select.value);
-    const current = new Date(input.value);
+    const current = inputDate(input.value);
     if (!Number.isFinite(nextYear) || Number.isNaN(current.getTime())) return;
 
-    const month = current.getMonth();
-    const date = current.getDate();
-    current.setDate(1);
-    current.setFullYear(nextYear);
-    current.setMonth(month);
-    const lastDay = new Date(nextYear, month + 1, 0).getDate();
-    current.setDate(Math.min(date, lastDay));
-    input.value = toLocalInput(current);
+    const month = current.getUTCMonth();
+    const date = current.getUTCDate();
+    current.setUTCDate(1);
+    current.setUTCFullYear(nextYear);
+    current.setUTCMonth(month);
+    const lastDay = new Date(Date.UTC(nextYear, month + 1, 0)).getUTCDate();
+    current.setUTCDate(Math.min(date, lastDay));
+    input.value = toUtcInput(current);
     clampSimulationRange();
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
@@ -138,7 +141,7 @@
   function inputToIso(id) {
     const value = $(id).value;
     if (!value) throw new Error('Choose both a start and end date.');
-    const date = new Date(value);
+    const date = inputDate(value);
     if (Number.isNaN(date.getTime())) throw new Error('Invalid simulation date.');
     return date.toISOString();
   }
@@ -148,7 +151,7 @@
     const date = new Date(value);
     return Number.isNaN(date.getTime())
       ? '—'
-      : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
   }
 
   async function refreshHistoryCoverage() {
@@ -202,8 +205,8 @@
     fiveYearsAgo.setUTCFullYear(fiveYearsAgo.getUTCFullYear() - 5);
     const start = earliest > fiveYearsAgo ? earliest : fiveYearsAgo;
     const end = new Date(latest.getTime() + 5 * 60 * 1000);
-    $('startDate').value = toLocalInput(start);
-    $('endDate').value = toLocalInput(end);
+    $('startDate').value = toUtcInput(start);
+    $('endDate').value = toUtcInput(end);
     syncAllYearJumps();
     $('rangePreset').value = '5y';
     notice('');
@@ -213,8 +216,8 @@
   function setDefaultDates() {
     const end = new Date();
     const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
-    $('startDate').value = toLocalInput(start);
-    $('endDate').value = toLocalInput(end);
+    $('startDate').value = toUtcInput(start);
+    $('endDate').value = toUtcInput(end);
     syncAllYearJumps();
   }
 
@@ -467,7 +470,6 @@
     if (!state.strategy || state.busy) return;
     notice('');
     try {
-      if (mode === 'FAST') clampSimulationRange();
       const start = inputToIso('startDate');
       const end = inputToIso('endDate');
       if (new Date(end) <= new Date(start)) throw new Error('End must be after start.');
@@ -499,7 +501,7 @@
       const chunkText = result.batch_chunks > 1 ? ` across ${result.batch_chunks} chunks` : '';
       notice(`${mode === 'REPLAY' ? 'Bar Replay' : 'Fast Backtest'} complete for ${result.symbol}${chunkText} using static candle data.`, 'success');
     } catch (error) {
-      notice(error.message || 'Simulation failed.', 'error');
+      notice(error.name === 'TimeoutError' ? 'This backtest period took longer than expected. No completed result was changed.' : error.message || 'Simulation failed.', 'error');
     } finally {
       setBusy(false, '');
     }
@@ -531,14 +533,15 @@
       const requestedStart = params.get('start');
       const requestedEnd = params.get('end');
       if (requestedStart && requestedEnd && Date.parse(requestedEnd) > Date.parse(requestedStart)) {
-        $('startDate').value = toLocalInput(new Date(requestedStart));
-        $('endDate').value = toLocalInput(new Date(requestedEnd));
+        $('startDate').value = toUtcInput(new Date(requestedStart));
+        $('endDate').value = toUtcInput(new Date(requestedEnd));
         syncAllYearJumps();
       }
       if (params.get('mode') === 'REPLAY') notice('Bar Replay range loaded from Strategy Studio. Select Run Bar Replay to begin.');
       $('strategySelect').value = strategy.strategy_id;
       renderStrategyUsed();
       syncUrl();
+      return true;
     } catch (error) {
       $('strategySelect').value = state.strategy?.strategy_id || '';
       notice(error.message || 'Saved strategy could not be loaded.', 'error');
@@ -573,7 +576,7 @@
   function syncUrl() {
     if(!state.strategy)return;
     const q=new URLSearchParams(location.search);q.set('strategy',state.strategy.strategy_id);q.set('symbol',$('symbolSelect').value);
-    for(const key of ['start','end'])if($(key+'Date').value)q.set(key,new Date($(key+'Date').value).toISOString());
+    for(const key of ['start','end'])if($(key+'Date').value)q.set(key,inputToIso(key+'Date'));
     history.replaceState(null,'',`${location.pathname}?${q}`);
   }
   async function initialize() {
@@ -582,8 +585,15 @@
     catch(error){ if(!requested){notice(error.message,'error');return;} }
     if(requested&&!state.strategies.some(s=>s.strategy_id===requested))state.strategies.push({strategy_id:requested,name:'Selected strategy'});
     $('strategySelect').innerHTML=state.strategies.length?state.strategies.map(s=>`<option value="${escapeHtml(s.strategy_id)}">${escapeHtml(s.name)}</option>`).join(''):'<option value="">No saved strategies</option>';
-    if(state.strategies.length)await loadStrategy(requested||state.strategies[0].strategy_id);
+    const intent = new URLSearchParams(location.search);
+    const loaded = state.strategies.length && await loadStrategy(requested||state.strategies[0].strategy_id);
+    if (loaded && state.coverage && !autoStartConsumed && intent.get('autostart') === '1' && intent.get('mode') === 'FAST') {
+      autoStartConsumed = true;
+      await runFastBacktest();
+    }
   }
+  function runFastBacktest() { return run('FAST'); }
+
   function applyTheme(theme) {
     document.documentElement.dataset.theme=theme;
     $('themeToggle').setAttribute('aria-label',`Switch to ${theme==='dark'?'light':'dark'} theme`);
@@ -595,7 +605,7 @@
   $('tradeFilter').addEventListener('change',()=>renderTrades(state.result?.trades));
   $('rangePreset').addEventListener('change',()=>{
     const preset=$('rangePreset').value;if(preset==='custom')return;if(preset==='5y'){useFullFiveYearHistory();return;}
-    const end=new Date($('endDate').value||Date.now());$('startDate').value=toLocalInput(new Date(end.getTime()-Number(preset)*86400000));clampSimulationRange();syncUrl();
+    const end=inputDate($('endDate').value);$('startDate').value=toUtcInput(new Date(end.getTime()-Number(preset)*86400000));clampSimulationRange();syncUrl();
   });
 
   $('symbolSelect').addEventListener('change', async () => { await refreshHistoryCoverage(); renderStrategyUsed(); syncUrl(); });
@@ -610,7 +620,7 @@
     $('riskMethodField').classList.toggle('hidden', !enabled);
     $('riskValueField').classList.toggle('hidden', !enabled);
   });
-  $('fastRunBtn').addEventListener('click', () => run('FAST'));
+  $('fastRunBtn').addEventListener('click', runFastBacktest);
   $('replayRunBtn').addEventListener('click', () => run('REPLAY'));
   $('replayPrevBtn').addEventListener('click', () => { state.replayIndex -= 1; renderReplay(); });
   $('replayNextBtn').addEventListener('click', () => { state.replayIndex += 1; renderReplay(); });

@@ -27,11 +27,7 @@
   let snapshot = null,
     handlers = {},
     running = false,
-    result = null,
-    resultIdentity = '',
-    resultLabel = '',
     storageWarning = '';
-  const identity = (s) => JSON.stringify([s?.id, s?.name, s?.definition]);
   function fieldMarkup(f) {
     const id = `setting_${f.key}`;
     const label = `<span>${escape(f.label)}</span>`;
@@ -175,144 +171,6 @@
       )
       .join('');
   }
-  function money(value) {
-    return value == null || !Number.isFinite(Number(value))
-      ? '—'
-      : Number(value).toLocaleString('en-US', {
-          style: 'currency',
-          currency: 'USD',
-          maximumFractionDigits: 2,
-        });
-  }
-  function setMetric(id, value, type = 'number', signed = false) {
-    const n = $(id);
-    n.textContent =
-      type === 'money'
-        ? money(value)
-        : window.StrategySimulatorModel.formatMetric(value, type);
-    n.classList.remove('positive', 'negative');
-    if (
-      signed &&
-      value != null &&
-      Number.isFinite(Number(value)) &&
-      Number(value) !== 0
-    )
-      n.classList.add(Number(value) > 0 ? 'positive' : 'negative');
-  }
-  function drawCurve() {
-    const rows =
-      result?.equity_curve?.filter((r) => Number.isFinite(Number(r.balance))) ||
-      [];
-    if (!rows.length) {
-      $('equityChart').innerHTML =
-        '<div class="chart-empty"><strong>Your strategy, over time.</strong><span>Run a backtest to plot the balance curve.</span></div>';
-      return;
-    }
-    const drawdown = $('curveMode').value === 'drawdown';
-    let peak = Number(rows[0].balance);
-    const values = rows.map((r) => {
-      const balance = Number(r.balance);
-      peak = Math.max(peak, balance);
-      return drawdown ? balance - peak : balance;
-    });
-    const min = values.reduce((a, v) => Math.min(a, v), Infinity),
-      max = values.reduce((a, v) => Math.max(a, v), -Infinity),
-      span = max - min || Math.max(1, Math.abs(max) * 0.01);
-    const points = values.map((v, i) => [
-      42 + (i / Math.max(1, values.length - 1)) * 280,
-      15 + ((max - v) / span) * 124,
-    ]);
-    const color = drawdown ? 'var(--negative)' : 'var(--positive)';
-    const poly = points.map((p) => p.join(',')).join(' ');
-    const labels = [max, (max + min) / 2, min]
-      .map(
-        (v, i) =>
-          `<text x="3" y="${18 + i * 62}">${Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + 'K' : v.toFixed(0)}</text>`,
-      )
-      .join('');
-    $('equityChart').innerHTML =
-      `<svg viewBox="0 0 340 178" role="img" aria-label="${drawdown ? 'Drawdown' : 'Balance'} by trade from actual backtest"><defs><linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".25"/><stop offset="1" stop-color="${color}" stop-opacity=".01"/></linearGradient></defs>${labels}<polygon points="42,147 ${poly} 322,147" fill="url(#equityFill)"/><polyline points="${poly}" fill="none" stroke="${color}" stroke-width="1.6"/><text x="42" y="168">Start</text><text x="148" y="168">Closed trades</text><text x="310" y="168">${escape(rows.at(-1).trade ?? rows.length - 1)}</text></svg>`;
-  }
-  function renderResults() {
-    const m = result?.metrics || {};
-    setMetric('metricNetPl', m.net_pl, 'money', true);
-    setMetric('metricWinRate', m.win_rate, 'percent');
-    setMetric('metricTrades', m.total_resolved_trades);
-    setMetric('metricProfitFactor', m.profit_factor);
-    setMetric(
-      'metricDrawdown',
-      m.max_drawdown_dollars == null ? null : -Math.abs(m.max_drawdown_dollars),
-      'money',
-      true,
-    );
-    setMetric('metricAverageR', m.average_r, 'r', true);
-    setMetric(
-      'resultInitial',
-      m.starting_balance ?? result?.starting_balance,
-      'money',
-    );
-    setMetric('resultFinal', m.ending_balance, 'money');
-    setMetric(
-      'resultReturn',
-      Number(m.starting_balance) > 0
-        ? (Number(m.net_pl) / Number(m.starting_balance)) * 100
-        : null,
-      'percent',
-      true,
-    );
-    $('metricsCaption').textContent = result
-      ? resultLabel
-      : 'Run a backtest to see performance.';
-    $('actualAssumptions').classList.toggle('hidden', !result);
-    const actual = result?.assumptions || {};
-    $('actualAssumptionsList').innerHTML = summaryRows([
-      [
-        'Initial balance',
-        money(m.starting_balance ?? result?.starting_balance),
-      ],
-      ...Object.entries(actual).map(([k, v]) => [
-        k.replaceAll('_', ' '),
-        typeof v === 'boolean'
-          ? v
-            ? 'Yes'
-            : 'No'
-          : typeof v === 'object'
-            ? JSON.stringify(v)
-            : v,
-      ]),
-    ]);
-    if (result && !Object.keys(actual).length)
-      $('actualAssumptionsList').innerHTML +=
-        '<div><dt>Other assumptions</dt><dd>Not reported</dd></div>';
-    renderExecutionModel();
-    drawCurve();
-  }
-  function renderExecutionModel() {
-    const actual = result?.assumptions;
-    const modeled = (key) =>
-      actual
-        ? key in actual
-          ? actual[key]
-            ? 'Modeled'
-            : 'Not modeled'
-          : 'Not reported'
-        : 'Not modeled';
-    $('assumptionsSummary').innerHTML = summaryRows([
-      ['Spread', modeled('spread')],
-      ['Commission', modeled('commission')],
-      ['Slippage', modeled('slippage')],
-      [
-        'Ambiguous intrabar',
-        actual
-          ? 'ambiguous_intrabar_excluded' in actual
-            ? actual.ambiguous_intrabar_excluded
-              ? 'Excluded'
-              : 'Included'
-            : 'Not reported'
-          : 'Excluded',
-      ],
-    ]);
-  }
   function update(next) {
     snapshot = next;
     const values = read();
@@ -360,7 +218,10 @@
         .join('');
     if (select.innerHTML !== options) select.innerHTML = options;
     select.value = next.id || '';
-    select.disabled = next.busy;
+    select.disabled = next.busy || running;
+    $('strategyBuilder').inert = next.busy || running;
+    for (const id of ['quickStart','quickEnd','quickSymbol','quickPreset']) $(id).disabled = next.busy || running;
+    if (running) $('saveStrategyBtn').disabled = true;
     $('newStrategyBtn').disabled = $('newStrategyWideBtn').disabled = next.busy;
     const saved = savedAt(next.id) || next.current?.updated_at;
     $('lastSaved').textContent = storageWarning
@@ -385,13 +246,13 @@
     $('htfEnabled').checked = Boolean(next.definition.trend.timeframe);
     $('notesCount').textContent = `${values.notes.length} / 500`;
     $('saveVersionBtn').disabled = next.busy || !next.valid;
-    $('runBacktestBtn').disabled = $('fastTestBtn').disabled =
-      next.busy || running || !next.id || !next.valid || next.coreDirty;
+    $('runBacktestBtn').disabled = $('fastTestBtn').disabled = $('simulatorBtn').disabled =
+      next.busy || running || !next.valid;
     if (!running)
       $('quickTestState').textContent = next.coreDirty
-        ? 'Save your changes before testing.'
+        ? 'Changes will be saved before opening Simulator.'
         : next.id
-          ? 'Dates are UTC. Runs the saved strategy definition.'
+          ? 'Dates are UTC. Results open in Simulator.'
           : 'Save a strategy to run a backtest.';
     const symbolOptions = next.definition.symbols
       .map((s) => `<option>${escape(s)}</option>`)
@@ -402,12 +263,7 @@
       'hidden',
       next.definition.symbols.length < 2,
     );
-    const currentIdentity = identity(next);
-    if (result && resultIdentity !== currentIdentity) {
-      result = null;
-      renderResults();
-    }
-    renderExecutionModel();
+
   }
   function presetRange(days) {
     if (days === 'custom') return;
@@ -417,60 +273,43 @@
     $('quickEnd').value = end.toISOString().slice(0, 10);
     $('quickStart').value = start.toISOString().slice(0, 10);
   }
-  async function run() {
-    if (running || !snapshot?.id || snapshot.coreDirty || !snapshot.valid)
-      return;
-    const start = $('quickStart').value,
-      end = $('quickEnd').value;
+  async function run(mode = 'FAST') {
+    if (running || snapshot?.busy) return;
+    handlers.collect();
+    if (!snapshot?.valid) return;
+    const start = $('quickStart').value, end = $('quickEnd').value;
+    const symbol = $('quickSymbol').value || snapshot.definition.symbols[0];
+    const localSettingsAtLaunch = JSON.stringify(read());
     if (!start || !end || Date.parse(end) <= Date.parse(start)) {
-      $('quickTestState').textContent =
-        'Choose an end date after the start date.';
+      $('quickTestState').textContent = 'Choose an end date after the start date.';
       return;
     }
-    const selected = JSON.parse(JSON.stringify(snapshot));
-    const testIdentity = identity(selected);
-    const symbol = $('quickSymbol').value || selected.definition.symbols[0];
+    let failure = '';
+    running = true;
+    update(snapshot);
     try {
-      running = true;
-      update(snapshot);
-      $('quickTestState').textContent = 'Running backtest…';
-      const payload = window.StrategySimulatorModel.buildRunPayload({
-        strategyId: selected.id,
-        strategyName: selected.name,
-        strategyDefinition: selected.definition,
-        symbol,
-        start: start + 'T00:00:00.000Z',
-        end: end + 'T00:00:00.000Z',
-        mode: 'FAST',
-      });
-      const response = await window.StrategySimulatorApi.runSimulation(
-        payload,
-        {
-          onProgress: (p) => {
-            $('quickTestState').textContent =
-              `Backtesting period ${p.current} of ${p.total}…`;
-          },
-        },
-      );
-      if (identity(snapshot) !== testIdentity) return;
-      result = Array.isArray(response.batch_results)
-        ? window.StrategySimulatorModel.aggregateSimulationResults(
-            response.batch_results,
-          )
-        : response;
-      resultIdentity = testIdentity;
-      resultLabel = `${symbol} · ${start} → ${end} · saved rules`;
-      renderResults();
-      $('quickTestState').textContent =
-        'Backtest complete. Metrics use the engine’s actual assumptions.';
+      $('quickTestState').textContent = 'Preparing saved strategy…';
+      let id = snapshot.id;
+      if (!id || snapshot.coreDirty) {
+        id = await handlers.save();
+        if (!id) throw new Error('Strategy was not saved. Fix the highlighted settings or retry saving.');
+      } else {
+        if (snapshot.dirty && !save(id, read())) throw new Error(storageWarning);
+        const validation = await handlers.validate();
+        if (!validation.valid) throw new Error('Fix the strategy validation errors before testing.');
+      }
+      // Validation is asynchronous: never discard edits made while it was pending.
+      handlers.collect();
+      if (snapshot.id !== id || snapshot.coreDirty || JSON.stringify(read()) !== localSettingsAtLaunch) throw new Error('The strategy changed while preparing the test. Review your changes and run again.');
+      const query = new URLSearchParams({ strategy: id, symbol, start, end, mode });
+      if (mode === 'FAST') query.set('autostart', '1');
+      location.assign(`/strategy-simulator.html?${query}`);
     } catch (error) {
-      if (identity(snapshot) === testIdentity)
-        $('quickTestState').textContent =
-          error.message || 'Backtest failed. Please try again.';
+      failure = error.message || 'Could not prepare the backtest.';
     } finally {
       running = false;
-      $('runBacktestBtn').disabled = $('fastTestBtn').disabled =
-        snapshot.busy || !snapshot.id || !snapshot.valid || snapshot.coreDirty;
+      handlers.collect();
+      if (failure) $('quickTestState').textContent = failure;
     }
   }
   function setTheme(theme) {
@@ -624,9 +463,9 @@
         $('studioSearch').focus();
       }
     });
-    $('fastTestBtn').addEventListener('click', run);
-    $('runBacktestBtn').addEventListener('click', run);
-    $('curveMode').addEventListener('change', drawCurve);
+    $('fastTestBtn').addEventListener('click', () => run('FAST'));
+    $('runBacktestBtn').addEventListener('click', () => run('FAST'));
+    $('simulatorBtn').addEventListener('click', () => run('REPLAY'));
     $('quickPreset').addEventListener('change', () => {
       presetRange($('quickPreset').value);
       $('setting_testPreset').value = Object.keys(presetDays).find(
@@ -658,7 +497,6 @@
       document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
     );
     presetRange('30');
-    renderResults();
   }
   assign(Settings.defaults());
   window.StrategyStudioWorkspace = {

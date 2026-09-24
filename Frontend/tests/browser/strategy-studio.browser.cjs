@@ -303,97 +303,12 @@ function definition() {
       assert.equal(await page.locator('#libraryDialog').isVisible(), false);
       await page.keyboard.press('Escape');
       await page.locator('#studioSearch').fill('');
-      // Actual backtest API boundary is intercepted with a deterministic result; no trading requests.
-      await page.evaluate(() => {
-        window.__runs = [];
-        window.StrategySimulatorApi.runSimulation = async (payload) => {
-          window.__runs.push(payload);
-          return {
-            symbol: payload.symbol,
-            starting_balance: 10000,
-            metrics: {
-              starting_balance: 10000,
-              ending_balance: 9900,
-              net_pl: -100,
-              win_rate: 40,
-              total_resolved_trades: 5,
-              profit_factor: 0.8,
-              max_drawdown_dollars: 200,
-              average_r: -0.1,
-            },
-            equity_curve: [
-              { trade: 0, balance: 10000 },
-              { trade: 1, balance: 10100 },
-              { trade: 2, balance: 9900 },
-            ],
-            assumptions: {
-              spread: false,
-              commission: false,
-              slippage: false,
-              ambiguous_intrabar_excluded: true,
-            },
-          };
-        };
-      });
-      await page.locator('#fastTestBtn').click();
-      await page.waitForFunction(
-        () => document.querySelector('#metricNetPl').textContent === '-$100.00',
-      );
-      assert.match(
-        await page.locator('#metricNetPl').getAttribute('class'),
-        /negative/,
-      );
-      assert.equal(await page.locator('#equityChart svg').count(), 1);
-      assert.equal(
-        (await page.evaluate(() => window.__runs))[0].commission,
-        undefined,
-      );
-      assert.equal(
-        (await page.evaluate(() => window.__runs))[0].strategy_definition
-          .commission,
-        undefined,
-      );
-      assert.equal((await page.evaluate(() => window.__runs))[0].strategy_definition.stop_loss.distance_filter.minimum,0.4);
-      assert.match(await page.locator('#assumptionsSummary').textContent(),/Not modeled/);
-      await page.locator('#strategyName').fill('Edited after test');
-      assert.equal(await page.locator('#metricNetPl').textContent(), '—');
-      assert.equal(await page.locator('#fastTestBtn').isDisabled(), true);
-      await page.locator('#strategySelect').selectOption('test-2');
-      await page.locator('#strategySelect').selectOption('test-1');
+      // Backtest execution and result checks now live in strategy-simulator.browser.cjs.
+      assert.equal(await page.locator('#metricNetPl').count(), 0);
       await page.locator('#quickStart').fill('2026-09-25');
       await page.locator('#quickEnd').fill('2026-09-24');
       await page.locator('#fastTestBtn').click();
-      assert.match(
-        await page.locator('#quickTestState').textContent(),
-        /end date after/,
-      );
-      await page.locator('#quickPreset').selectOption('30');
-      await page.evaluate(() => {
-        window.StrategySimulatorApi.runSimulation = async () => {
-          throw new Error('Backend unavailable');
-        };
-      });
-      await page.locator('#fastTestBtn').click();
-      await page.waitForFunction(
-        () =>
-          document.querySelector('#quickTestState').textContent ===
-          'Backend unavailable',
-      );
-      assert.equal(await page.locator('#fastTestBtn').isDisabled(), false);
-      // Late results cannot be attributed to a different selected strategy.
-      await page.evaluate(() => {
-        window.StrategySimulatorApi.runSimulation = () =>
-          new Promise((resolve) => {
-            window.__finishRun = resolve;
-          });
-      });
-      await page.locator('#fastTestBtn').click();
-      await page.locator('#strategySelect').selectOption('test-2');
-      await page.evaluate(() =>
-        window.__finishRun({ metrics: { net_pl: 999 }, equity_curve: [] }),
-      );
-      assert.equal(await page.locator('#metricNetPl').textContent(), '—');
-      await page.locator('#strategySelect').selectOption('test-1');
+      assert.match(await page.locator('#quickTestState').textContent(), /end date after/);
       for (const width of [1920, 1440, 1280, 1024, 768, 390]) {
         await page.setViewportSize({ width, height: 900 });
         await page.evaluate(() => scrollTo(0, 0));
@@ -421,13 +336,13 @@ function definition() {
       await page.waitForFunction(() => {
         const value = document.querySelector('#startDate')?.value;
         return (
-          value && new Date(value).toISOString() === '2026-09-01T00:00:00.000Z'
+          value && new Date(value+'Z').toISOString() === '2026-09-01T00:00:00.000Z'
         );
       });
       assert.equal(
         await page
           .locator('#endDate')
-          .evaluate((node) => new Date(node.value).toISOString()),
+          .evaluate((node) => new Date(node.value+'Z').toISOString()),
         '2026-09-20T00:00:00.000Z',
       );
       await page.evaluate(() => localStorage.setItem('nathauxfx_studio_config_v1:test-1', JSON.stringify({settings:{notes:'Keep these notes',commission:7}})));
@@ -447,7 +362,7 @@ function definition() {
       console.log(
         'PASS ' +
           engine +
-          ': collapsible cards, canonical validation, save/reload/isolation, active locks, reset, version, search, real-result rendering, no unsupported payload fields, stale results, dates, responsive',
+          ': collapsible cards, canonical validation, save/reload/isolation, active locks, reset, version, search, Simulator navigation, no unsupported payload fields, dates, responsive',
       );
     } finally {
       await browser.close();

@@ -514,6 +514,7 @@
       await loadStrategies(saved.strategy_id);
       if (!localSaved) { Workspace.assign(localSettings); renderDraftState(); }
       notice(localSaved ? `Saved ${saved.name}. Description, tags and notes are stored in this browser.` : Workspace.storageWarning(), localSaved ? 'success' : 'error');
+      return localSaved ? saved.strategy_id : null;
     } catch (error) {
       notice(`Save failed: ${error.message}`, 'error');
     } finally {
@@ -766,7 +767,7 @@
     $('turnOffLiveStrategyBtn').addEventListener('click', turnOffLiveCurrent);
   }
 
-  Workspace.bind({ collect: collectDraft, open: openSaved, new: newStrategy, saveVersion: saveNewVersion });
+  Workspace.bind({ collect: collectDraft, open: openSaved, new: newStrategy, saveVersion: saveNewVersion, save: saveStrategy, validate: () => Api.validateStrategy(state.name.trim(), Model.normalizeForApi(state.draft)) });
   bindInputs();
   bindActions();
   assignDraftToForm();

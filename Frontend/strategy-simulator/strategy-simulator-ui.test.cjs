@@ -46,15 +46,12 @@ test('simulator api only reads saved strategy and posts to simulator endpoint', 
   }
 });
 
-test('strategy studio simulator button navigates only to a selected saved strategy', () => {
-  const apiSource = read('strategy-studio/strategy-studio-api.js');
-  const controllerSource = read('strategy-studio/strategy-studio.js');
-  assert.match(apiSource, /new URLSearchParams\(\{ strategy: id \}\)/);
-  assert.match(apiSource, /query\.set\('start', start\)/);
-  assert.match(apiSource, /query\.set\('mode', 'REPLAY'\)/);
-  assert.match(apiSource, /simulatorBtn/);
-  assert.match(apiSource, /strategy-card\.selected/);
-  assert.match(controllerSource, /data-strategy-id/);
+test('Studio routes saved strategy and exact range through one navigation flow', () => {
+ const source=read('strategy-studio/strategy-studio-workspace.js');
+ assert.match(source,/new URLSearchParams\(\{ strategy: id, symbol, start, end, mode \}\)/);
+ assert.match(source,/await handlers.save\(\)/);
+ assert.match(source,/run\('REPLAY'\)/);
+ assert.match(source,/query.set\('autostart', '1'\)/);
 });
 
 
@@ -84,8 +81,8 @@ test('simulator exposes direct year jump controls', () => {
 test('year jump clamps to the valid five-year coverage window', () => {
   const source = read('strategy-simulator/strategy-simulator.js');
   assert.match(source, /function clampSimulationRange/);
-  assert.match(source, /fiveYearsBeforeEnd\.setFullYear\(fiveYearsBeforeEnd\.getFullYear\(\) - 5\)/);
+  assert.match(source, /fiveYearsBeforeEnd\.setUTCFullYear\(fiveYearsBeforeEnd\.getUTCFullYear\(\) - 5\)/);
   assert.match(source, /if \(start < fiveYearsBeforeEnd\) start = fiveYearsBeforeEnd/);
-  assert.match(source, /if \(mode === 'FAST'\) clampSimulationRange\(\)/);
+  assert.doesNotMatch(source, /if \(mode === 'FAST'\) clampSimulationRange\(\)/);
   assert.match(source, /coverageLatest\.getTime\(\) \+ 5 \* 60 \* 1000/);
 });

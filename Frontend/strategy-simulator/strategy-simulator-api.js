@@ -8,6 +8,7 @@
   const DIRECT_BACKEND = 'https://api.nathauxfx.com';
   const LOCAL_BACKEND = 'http://127.0.0.1:8001';
   const COOKIE_SESSION_SENTINEL = '__flowsignal_cookie_session__';
+  const SIMULATION_REQUEST_TIMEOUT_MS = 120000;
   const STATIC_ROOT = '/replay-data';
   const STATIC_BASE_TIMEFRAME = '5m';
   const MAX_STATIC_RANGE_DAYS = 31;
@@ -296,6 +297,8 @@
     const candles = await loadStatic5m(payload);
     return request('/strategy-simulator/run', {
       method: 'POST',
+      timeoutMs: SIMULATION_REQUEST_TIMEOUT_MS,
+      suppressErrorPanel: true,
       body: {
         ...payload,
         candles_5m: candles,

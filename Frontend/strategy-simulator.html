@@ -229,7 +229,7 @@
         </div>
         <div class="control-grid">
           <label class="date-field"
-            ><span>Start</span>
+            ><span>Start (UTC)</span>
             <div class="date-input-row">
               <select
                 aria-label="Start year"
@@ -239,7 +239,7 @@
               ></select
               ><input id="startDate" type="datetime-local" /></div></label
           ><label class="date-field"
-            ><span>End</span>
+            ><span>End (UTC)</span>
             <div class="date-input-row">
               <select
                 aria-label="End year"
@@ -354,6 +354,7 @@
           <article class="metric-card">
             <span>Profit Factor</span><strong id="metricProfitFactor">—</strong>
           </article>
+          <article class="metric-card"><span>Ambiguous</span><strong id="metricAmbiguous">—</strong></article>
         </section>
         <div class="results-grid">
           <section class="panel chart-panel">
@@ -544,14 +545,14 @@
           </div>
           <dl id="assumptionList"></dl>
           <p class="muted">
-            Ambiguous trades: <span id="metricAmbiguous">—</span>
+            Ambiguous trades are excluded from resolved performance.
           </p>
         </section>
       </div>
     </main>
     <script src="/strategy-simulator/strategy-simulator-model.js?v=3"></script>
-    <script src="/strategy-simulator/strategy-simulator-api.js?v=9"></script>
+    <script src="/strategy-simulator/strategy-simulator-api.js?v=10"></script>
     <script src="/strategy-simulator/strategy-simulator-presentation.js?v=1"></script>
-    <script src="/strategy-simulator/strategy-simulator.js?v=9"></script>
+    <script src="/strategy-simulator/strategy-simulator.js?v=10"></script>
   </body>
 </html>

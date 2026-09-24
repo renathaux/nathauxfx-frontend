@@ -73,49 +73,6 @@
     return payload || {};
   }
 
-  function bindSimulatorNavigation() {
-    const document = root?.document;
-    if (!document) return;
-    const button = document.getElementById('simulatorBtn');
-    const list = document.getElementById('savedStrategiesList');
-    if (!button || !list) return;
-    const help = document.querySelector('.simulator-help');
-
-    const selectedCard = () => document.querySelector('.strategy-card.selected[data-strategy-id]');
-    const sync = () => {
-      const selected = selectedCard();
-      button.disabled = !selected;
-      button.title = selected ? 'Backtest this saved strategy' : 'Select a saved strategy first';
-      if (help) help.textContent = selected
-        ? 'Run Fast Backtest or bar-by-bar Replay. Simulator does not enable LIVE trading.'
-        : 'Select a saved strategy to open Simulator.';
-    };
-
-    button.addEventListener('click', () => {
-      const selected = selectedCard();
-      const id = selected?.dataset?.strategyId;
-      if (!id) return;
-      const query = new URLSearchParams({ strategy: id });
-      const start = document.getElementById('quickStart')?.value;
-      const end = document.getElementById('quickEnd')?.value;
-      const symbol = document.getElementById('quickSymbol')?.value;
-      if (start && end) { query.set('start', start); query.set('end', end); }
-      if (symbol) query.set('symbol', symbol);
-      query.set('mode', 'REPLAY');
-      root.location.assign(`/strategy-simulator.html?${query}`);
-    });
-
-    if (typeof root.MutationObserver === 'function') {
-      new root.MutationObserver(sync).observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-    }
-    sync();
-  }
-
-  if (root?.document) {
-    if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', bindSimulatorNavigation);
-    else root.setTimeout(bindSimulatorNavigation, 0);
-  }
-
   const listStrategies = () => request('/strategy-studio/strategies');
   const validateStrategy = (name, definition) => request('/strategy-studio/validate', {
     method: 'POST', body: { name, definition },
