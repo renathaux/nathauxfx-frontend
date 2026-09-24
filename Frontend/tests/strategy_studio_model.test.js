@@ -216,3 +216,30 @@ test('legacy entry defaults remember BOS off', () => {
   const normalized = StudioModel.normalizeForApi(value);
   assert.equal(normalized.entry.remember_bos_on_confirmation_failure, false);
 });
+
+test('old canonical definitions default new execution gates to neutral', () => {
+  const old = validDraft();
+  delete old.structure_timeframe;
+  delete old.confirmation.max_setup_age_bars;
+  delete old.stop_loss.distance_filter;
+  const value = StudioModel.normalizeForApi(old);
+  assert.equal(value.structure_timeframe,old.trading_timeframe);
+  assert.equal(value.confirmation.max_setup_age_bars,null);
+  assert.equal(value.stop_loss.distance_filter.enabled,false);
+});
+test('canonical filter and freshness are preserved in API payload and validated', () => {
+  const value = validDraft();
+  value.structure_timeframe='15m';
+  value.confirmation.max_setup_age_bars=12;
+  value.stop_loss.distance_filter={enabled:true,mode:'PERCENT_ENTRY',minimum:0.4,maximum:0.6};
+  const saved=StudioModel.normalizeForApi(value);
+  assert.deepEqual(saved.stop_loss.distance_filter,value.stop_loss.distance_filter);
+  assert.deepEqual(StudioModel.clientValidation(saved),{});
+  value.stop_loss.distance_filter.maximum=0.3;
+  value.confirmation.max_setup_age_bars=1.5;
+  value.trading_timeframe='1h';
+  const errors=StudioModel.clientValidation(value);
+  assert.ok(errors['stop_loss.distance_filter.maximum']);
+  assert.ok(errors['confirmation.max_setup_age_bars']);
+  assert.ok(errors.structure_timeframe);
+});

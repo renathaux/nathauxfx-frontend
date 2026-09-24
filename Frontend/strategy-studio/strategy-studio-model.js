@@ -17,6 +17,7 @@
       schema_version: 1,
       symbols: [],
       trading_timeframe: null,
+      structure_timeframe: null,
       trend: { timeframe: null, methods: [] },
       structure: {
         trigger: 'BOS_CHOCH',
@@ -24,9 +25,9 @@
         minimum_body_percent: null,
         minimum_distance_pips: null,
       },
-      confirmation: { rules: [], minimum_body_percent: null },
+      confirmation: { rules: [], minimum_body_percent: null, max_setup_age_bars: null },
       entry: { method: null, remember_bos_on_confirmation_failure: false },
-      stop_loss: { method: null, buffer_pips: null, fixed_distance: null },
+      stop_loss: { method: null, buffer_pips: null, fixed_distance: null, distance_filter: { enabled: false, mode: "PERCENT_ENTRY", minimum: null, maximum: null } },
       tp1: {
         enabled: false,
         target_r: null,
@@ -77,6 +78,12 @@
   function normalizeForApi(definition) {
     const value = deepClone(definition || blankStrategy());
     value.schema_version = 1;
+    value.structure_timeframe = value.structure_timeframe || value.trading_timeframe;
+    if (value.confirmation) value.confirmation.max_setup_age_bars ??= null;
+    if (value.stop_loss) value.stop_loss.distance_filter = {
+      enabled: false, mode: 'PERCENT_ENTRY', minimum: null, maximum: null,
+      ...value.stop_loss.distance_filter,
+    };
 
     if (!value.trend) value.trend = { timeframe: null, methods: [] };
     if (!value.trend.timeframe) value.trend.methods = [];
@@ -160,6 +167,19 @@
       errors.trading_timeframe = 'Choose a trading timeframe';
     }
 
+    const ranks = { '5m': 5, '15m': 15, '1h': 60 };
+    if (!ranks[value.structure_timeframe] || ranks[value.structure_timeframe] < ranks[value.trading_timeframe])
+      errors.structure_timeframe = 'Structure timeframe must be equal to or higher than trading timeframe';
+    const age = value.confirmation?.max_setup_age_bars;
+    if (age != null && (!Number.isInteger(age) || age < 1))
+      errors['confirmation.max_setup_age_bars'] = 'Use a whole number of bars greater than zero';
+    const filter = value.stop_loss?.distance_filter;
+    if (filter?.enabled) {
+      if (!['PERCENT_ENTRY', 'PIPS'].includes(filter.mode)) errors['stop_loss.distance_filter.mode'] = 'Choose Percent of Entry or Pips';
+      for (const key of ['minimum', 'maximum'])
+        if (!finiteNumber(filter[key]) || filter[key] < 0) errors[`stop_loss.distance_filter.${key}`] = 'Enter a number zero or greater';
+      if (filter.maximum < filter.minimum) errors['stop_loss.distance_filter.maximum'] = 'Maximum must be at least the minimum';
+    }
     const trend = value.trend || { timeframe: null, methods: [] };
     if (trend.methods.length && !trend.timeframe) {
       errors['trend.timeframe'] = 'Choose a higher trend timeframe';
@@ -319,7 +339,7 @@
       parts.push(`${trend.timeframe || 'higher TF'} trend ${methods}`);
     }
 
-    parts.push(`${tf || 'Trading TF'} BOS/CHOCH`);
+    parts.push(`${value.structure_timeframe || tf || 'Structure TF'} BOS/CHOCH`);
 
     const structure = value.structure || {};
     const breakLabels = [];
@@ -346,6 +366,8 @@
     }
     if (confirmLabels.length) parts.push(confirmLabels.join(' + '));
 
+    if (confirmation.max_setup_age_bars != null) parts.push(`setup valid ${confirmation.max_setup_age_bars} ${tf} bars from original event`);
+
     const entryLabels = {
       BOS_CHOCH_CLOSE: 'BOS/CHOCH close',
       CONFIRMATION_CLOSE: 'confirmation close',
@@ -361,13 +383,17 @@
 
     const stop = value.stop_loss || {};
     if (stop.method === 'LAST_SWING') {
-      let text = `${tf || 'Trading TF'} swing SL`;
+      let text = `${value.structure_timeframe || tf || 'Structure TF'} swing SL`;
       if (stop.buffer_pips != null) text += ` + ${fmt(stop.buffer_pips)} pip buffer`;
       parts.push(text);
     } else if (stop.method === 'FIXED_DISTANCE') {
       parts.push(stop.fixed_distance == null ? 'fixed SL distance' : `SL ${fmt(stop.fixed_distance)} pips/points`);
     }
 
+    if (stop.distance_filter?.enabled) {
+      const f = stop.distance_filter;
+      parts.push(`SL distance ${f.minimum}–${f.maximum} ${f.mode === 'PERCENT_ENTRY' ? '% of entry' : 'pips'}`);
+    }
     const tp1 = value.tp1 || {};
     if (tp1.enabled) {
       const basisLabel = tp1.target_basis === 'TP2_DISTANCE' ? 'TP2 path' : 'SL';

@@ -1810,3 +1810,12 @@ dialog > p {
   font-size: 10px;
   color: var(--muted);
 }
+
+.execution-filter { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.execution-filter .field-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media(max-width: 600px) { .execution-filter .field-grid { grid-template-columns: 1fr; } }
+.execution-filter { grid-column: 1 / -1; }
+@media (min-width: 1001px) {
+  #section2 .section-content { grid-template-columns: 2fr 1fr 2fr; }
+  #section2 .section-content > .field .field-hint { max-width: 230px; }
+}

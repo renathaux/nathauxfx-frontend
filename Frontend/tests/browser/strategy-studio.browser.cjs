@@ -74,6 +74,7 @@ function definition() {
         {
           settings: {
             ...Settings.defaults(),
+            commission: 7, slFilter:true, slMin:0.4, structureTimeframe:'1h', freshness:5,
             description:
               'ICT-based strategy using structure, liquidity and confirmation.',
             tags: 'Smart Money, Structure, Liquidity',
@@ -127,7 +128,7 @@ function definition() {
         () => document.querySelector('#strategyName').value === 'Gold 831',
       );
       assert.deepEqual(errors, []);
-      assert.equal(await page.locator('.builder-section').count(), 9);
+      assert.equal(await page.locator('.builder-section').count(), 8);
       await page.locator('#themeToggle').click();
       await page.evaluate(
         () => (document.documentElement.dataset.theme = 'light'),
@@ -164,19 +165,30 @@ function definition() {
         savedTheme,
       );
 
+      assert.equal(await page.locator('#slDistanceEnabled').isChecked(),false);
+      assert.equal(await page.locator('#setupFreshnessEnabled').isChecked(),false);
+      assert.equal(await page.locator('#structureTimeframe').inputValue(),'5m');
+      const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('nathauxfx_studio_config_v1:test-1')).settings);
+      assert.equal(stored.slFilter,undefined);
+      assert.equal(stored.commission,undefined);
+      assert.equal(await page.locator('.draft-marker').count(),0);
       await page.locator('#section1>summary').click();
       assert.equal(await page.locator('#strategyName').isVisible(), false);
       await page.locator('#section1>summary').click();
       await page.locator('#setting_description').fill('A revised description');
-      await page.locator('#setting_slFilter').check();
-      await page.locator('#setting_slMin').fill('300');
+      await page.locator('#slDistanceEnabled').check();
+      await page.locator('#slDistanceMax').fill('0.3');
+      await page.locator('#slDistanceMin').fill('0.4');
       assert.equal(await page.locator('#saveStrategyBtn').isDisabled(), true);
       assert.match(
-        await page.locator('[data-error-for="settings.slMax"]').textContent(),
+        await page.locator('[data-error-for="stop_loss.distance_filter.maximum"]').textContent(),
         /minimum/,
       );
-      await page.locator('#setting_slMax').fill('350');
-      await page.locator('#setting_commission').fill('7');
+      await page.locator('#slDistanceMax').fill('0.6');
+      await page.locator('#structureTimeframe').selectOption('15m');
+      await page.locator('#setupFreshnessEnabled').check();
+      await page.locator('#setupMaxAge').fill('12');
+      await page.locator('#setting_tags').fill('7');
       await page.locator('#saveStrategyBtn').click();
       await page.waitForFunction(() =>
         document
@@ -186,24 +198,27 @@ function definition() {
       assert.equal(writes.length, 1);
       assert.equal(writes[0].definition.commission, undefined);
       assert.equal(writes[0].definition.slFilter, undefined);
+      assert.deepEqual(writes[0].definition.stop_loss.distance_filter, {enabled:true,mode:'PERCENT_ENTRY',minimum:0.4,maximum:0.6});
+      assert.equal(writes[0].definition.structure_timeframe,'15m');
+      assert.equal(writes[0].definition.confirmation.max_setup_age_bars,12);
       await page.reload();
       await page.waitForFunction(
         () => document.querySelector('#strategyName').value === 'Gold 831',
       );
-      assert.equal(await page.locator('#setting_commission').inputValue(), '7');
+      assert.equal(await page.locator('#setting_tags').inputValue(), '7');
       await page.locator('#strategySelect').selectOption('test-2');
-      assert.equal(await page.locator('#setting_commission').inputValue(), '0');
+      assert.equal(await page.locator('#setting_tags').inputValue(), '');
       assert.equal(await page.locator('#strategyName').isDisabled(), true);
       assert.equal(
-        await page.locator('#setting_commission').isDisabled(),
+        await page.locator('#setting_tags').isDisabled(),
         true,
       );
       assert.equal(await page.locator('#saveStrategyBtn').isDisabled(), true);
       await page.locator('#strategySelect').selectOption('test-1');
-      await page.locator('#setting_commission').fill('9');
+      await page.locator('#setting_tags').fill('9');
       await page.locator('#resetDraftBtn').click();
       await page.locator('#confirmAccept').click();
-      assert.equal(await page.locator('#setting_commission').inputValue(), '7');
+      assert.equal(await page.locator('#setting_tags').inputValue(), '7');
       // A failed local save must keep editable draft values available for retry.
       await page.locator('#setting_notes').fill('Important unsaved notes');
       await page.evaluate(() => {
@@ -276,7 +291,7 @@ function definition() {
       await page.waitForFunction(() =>
         document.querySelector('#strategyName').value.includes('v1.0.1'),
       );
-      assert.equal(await page.locator('#setting_commission').inputValue(), '7');
+      assert.equal(await page.locator('#setting_tags').inputValue(), '7');
       assert.equal(strategies[0].name, 'Gold 831');
       await page.locator('#strategySelect').selectOption('test-1');
       await page.locator('#studioSearch').fill('EUR Momentum');
@@ -338,6 +353,8 @@ function definition() {
           .commission,
         undefined,
       );
+      assert.equal((await page.evaluate(() => window.__runs))[0].strategy_definition.stop_loss.distance_filter.minimum,0.4);
+      assert.match(await page.locator('#assumptionsSummary').textContent(),/Not modeled/);
       await page.locator('#strategyName').fill('Edited after test');
       assert.equal(await page.locator('#metricNetPl').textContent(), '—');
       assert.equal(await page.locator('#fastTestBtn').isDisabled(), true);
@@ -413,11 +430,24 @@ function definition() {
           .evaluate((node) => new Date(node.value).toISOString()),
         '2026-09-20T00:00:00.000Z',
       );
+      await page.evaluate(() => localStorage.setItem('nathauxfx_studio_config_v1:test-1', JSON.stringify({settings:{notes:'Keep these notes',commission:7}})));
+      await page.addInitScript(() => {
+        const original = Storage.prototype.setItem;
+        Storage.prototype.setItem = function(key,value) {
+          if (key.startsWith('nathauxfx_studio_config_v1:')) throw new DOMException('Quota exceeded');
+          return original.call(this,key,value);
+        };
+      });
+      await page.goto(base + '/strategy-studio.html');
+      await page.waitForFunction(() => document.querySelector('#strategyName').value === 'Gold 831');
+      assert.equal(await page.locator('#setting_notes').inputValue(),'Keep these notes');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('nathauxfx_studio_config_v1:test-1')).settings.notes),'Keep these notes');
+      assert.equal(await page.evaluate(() => window.StrategyStudioWorkspace.read().commission),undefined);
       assert.deepEqual(errors, []);
       console.log(
         'PASS ' +
           engine +
-          ': collapsible cards, draft validation, save/reload/isolation, active locks, reset, version, search, real-result rendering, no unsupported payload fields, stale results, dates, responsive',
+          ': collapsible cards, canonical validation, save/reload/isolation, active locks, reset, version, search, real-result rendering, no unsupported payload fields, stale results, dates, responsive',
       );
     } finally {
       await browser.close();

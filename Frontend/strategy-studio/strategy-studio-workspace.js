@@ -34,7 +34,7 @@
   const identity = (s) => JSON.stringify([s?.id, s?.name, s?.definition]);
   function fieldMarkup(f) {
     const id = `setting_${f.key}`;
-    const label = `<span>${escape(f.label)} ${f.draft ? '<span class="draft-marker" title="Saved locally; not applied to backtests or LIVE">DRAFT</span>' : ''}</span>`;
+    const label = `<span>${escape(f.label)}</span>`;
     let control;
     if (f.type === 'toggle')
       control = `<label class="toggle-control"><input id="${id}" type="checkbox" data-setting="${f.key}" aria-label="${escape(f.label)}"><i></i><span data-toggle-text="${f.key}">Off</span></label>`;
@@ -96,6 +96,28 @@
     } else presetRange(presetDays[value.testPreset]);
     return value;
   }
+  function purgeLegacyRules() {
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (!key.startsWith('nathauxfx_studio_config_v1:')) continue;
+        let record;
+        try { record = JSON.parse(localStorage.getItem(key)); }
+        catch (_) { localStorage.removeItem(key); continue; }
+        try {
+          localStorage.setItem(key, JSON.stringify({
+            settings: Settings.normalize(record?.settings),
+            savedAt: record?.savedAt || null,
+          }));
+        } catch (_) {
+          // Preserve valid notes when a quota/privacy restriction prevents the
+          // rewrite. load() still strips all obsolete rules in memory.
+        }
+      }
+    } catch (_) {
+      /* Storage restrictions do not block canonical strategy rules. */
+    }
+  }
+  purgeLegacyRules();
   function load(id) {
     if (!id) return Settings.defaults();
     try {
@@ -119,7 +141,7 @@
       return true;
     } catch (_) {
       storageWarning =
-        'Browser storage is unavailable. Your strategy rules were saved, but the local draft settings could not be saved.';
+        'Browser storage is unavailable. Your strategy rules were saved, but the presentation metadata could not be saved.';
       return false;
     }
   }
@@ -262,7 +284,34 @@
     if (result && !Object.keys(actual).length)
       $('actualAssumptionsList').innerHTML +=
         '<div><dt>Other assumptions</dt><dd>Not reported</dd></div>';
+    renderExecutionModel();
     drawCurve();
+  }
+  function renderExecutionModel() {
+    const actual = result?.assumptions;
+    const modeled = (key) =>
+      actual
+        ? key in actual
+          ? actual[key]
+            ? 'Modeled'
+            : 'Not modeled'
+          : 'Not reported'
+        : 'Not modeled';
+    $('assumptionsSummary').innerHTML = summaryRows([
+      ['Spread', modeled('spread')],
+      ['Commission', modeled('commission')],
+      ['Slippage', modeled('slippage')],
+      [
+        'Ambiguous intrabar',
+        actual
+          ? 'ambiguous_intrabar_excluded' in actual
+            ? actual.ambiguous_intrabar_excluded
+              ? 'Excluded'
+              : 'Included'
+            : 'Not reported'
+          : 'Excluded',
+      ],
+    ]);
   }
   function update(next) {
     snapshot = next;
@@ -342,7 +391,7 @@
       $('quickTestState').textContent = next.coreDirty
         ? 'Save your changes before testing.'
         : next.id
-          ? 'Dates are UTC. Runs saved rules; draft settings are not applied.'
+          ? 'Dates are UTC. Runs the saved strategy definition.'
           : 'Save a strategy to run a backtest.';
     const symbolOptions = next.definition.symbols
       .map((s) => `<option>${escape(s)}</option>`)
@@ -358,20 +407,7 @@
       result = null;
       renderResults();
     }
-    $('assumptionsSummary').innerHTML = summaryRows([
-      ['Initial balance', money(values.initialBalance)],
-      ['Spread mode', values.spreadMode],
-      ['Commission', money(values.commission) + '/lot'],
-      [
-        'Slippage',
-        values.slippageModel === 'None' ? 'None' : values.slippage + ' pips',
-      ],
-      ['Intrabar', values.intrabar],
-      ['Close on opposite', values.closeOpposite ? 'Yes' : 'No'],
-      ['One per symbol', values.onePerSymbol ? 'Yes' : 'No'],
-      ['Data quality', values.dataQuality ? 'Yes' : 'No'],
-      ['Minimum bars', values.minBars],
-    ]);
+    renderExecutionModel();
   }
   function presetRange(days) {
     if (days === 'custom') return;
@@ -542,9 +578,6 @@
         .forEach((n) => n.classList.remove('hidden'));
       $('libraryDialog').showModal();
     });
-    $('integrationInfoBtn').addEventListener('click', () =>
-      $('integrationDialog').showModal(),
-    );
     document
       .querySelectorAll('[data-close-dialog]')
       .forEach((b) =>

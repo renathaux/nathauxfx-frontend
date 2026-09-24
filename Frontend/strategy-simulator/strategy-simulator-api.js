@@ -106,7 +106,7 @@
     const methods = Array.isArray(trend.methods) ? trend.methods : [];
 
     // Seed the structure engine even when no optional trend filter is selected.
-    let requiredMinutes = 100 * (TIMEFRAME_MINUTES[tradingTf] || 5);
+    let requiredMinutes = 100 * Math.max(TIMEFRAME_MINUTES[tradingTf] || 5, TIMEFRAME_MINUTES[value.structure_timeframe] || 5);
     let trendBars = methods.length ? 100 : 0;
     if (methods.includes('EMA_50')) trendBars = Math.max(trendBars, 70);
     if (methods.includes('EMA_200')) trendBars = Math.max(trendBars, 220);

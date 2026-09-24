@@ -124,6 +124,7 @@
     state.name = $('strategyName').value;
     draft.symbols = checkedValues('symbolChoices');
     draft.trading_timeframe = document.querySelector('input[name="tradingTf"]:checked')?.value || null;
+    draft.structure_timeframe = $('structureTimeframe').value || draft.trading_timeframe;
     draft.trend.methods = checkedValues('trendMethodChoices');
     draft.trend.timeframe = $('trendTimeframe').value || null;
     draft.structure.break_validation = checkedValues('breakValidationChoices');
@@ -131,6 +132,7 @@
     draft.structure.minimum_distance_pips = toNumber('breakDistance');
     draft.confirmation.rules = checkedValues('confirmationChoices');
     draft.confirmation.minimum_body_percent = toNumber('confirmationBody');
+    draft.confirmation.max_setup_age_bars = $('setupFreshnessEnabled').checked ? (toNumber('setupMaxAge') ?? 0) : null;
     draft.entry.method = $('entryMethod').value || null;
     const rememberBosAllowed = (
       draft.entry.method === 'CONFIRMATION_CLOSE'
@@ -139,6 +141,7 @@
     draft.entry.remember_bos_on_confirmation_failure = Boolean(
       rememberBosAllowed && $('rememberBosEntry').checked
     );
+    draft.stop_loss.distance_filter = { enabled: $('slDistanceEnabled').checked, mode: $('slDistanceMode').value, minimum: toNumber('slDistanceMin'), maximum: toNumber('slDistanceMax') };
     draft.stop_loss.method = $('stopMethod').value || null;
     draft.stop_loss.buffer_pips = toNumber('stopBuffer');
     draft.stop_loss.fixed_distance = toNumber('fixedStopDistance');
@@ -175,6 +178,7 @@
     document.querySelectorAll('input[name="tradingTf"]').forEach((input) => {
       input.checked = input.value === value.trading_timeframe;
     });
+    $('structureTimeframe').value = value.structure_timeframe || value.trading_timeframe || '5m';
     setCheckedValues('trendMethodChoices', value.trend.methods);
     populateTrendTimeframes(value.trading_timeframe, value.trend.timeframe);
     setCheckedValues('breakValidationChoices', value.structure.break_validation);
@@ -182,6 +186,12 @@
     $('breakDistance').value = value.structure.minimum_distance_pips ?? '';
     setCheckedValues('confirmationChoices', value.confirmation.rules);
     $('confirmationBody').value = value.confirmation.minimum_body_percent ?? '';
+    $('setupFreshnessEnabled').checked = value.confirmation.max_setup_age_bars != null;
+    $('setupMaxAge').value = value.confirmation.max_setup_age_bars ?? 12;
+    $('slDistanceEnabled').checked = Boolean(value.stop_loss.distance_filter?.enabled);
+    $('slDistanceMode').value = value.stop_loss.distance_filter?.mode || 'PERCENT_ENTRY';
+    $('slDistanceMin').value = value.stop_loss.distance_filter?.minimum ?? '';
+    $('slDistanceMax').value = value.stop_loss.distance_filter?.maximum ?? '';
     $('entryMethod').value = value.entry.method || '';
     $('rememberBosEntry').checked = Boolean(value.entry.remember_bos_on_confirmation_failure);
     $('stopMethod').value = value.stop_loss.method || '';
@@ -225,6 +235,11 @@
 
   function renderConditionalFields() {
     const visible = Model.visibleFields(state.draft);
+    const ranks = { '5m': 5, '15m': 15, '1h': 60 };
+    for (const option of $('structureTimeframe').options)
+      option.disabled = ranks[option.value] < ranks[state.draft.trading_timeframe];
+    $('setupMaxAge').disabled = !$('setupFreshnessEnabled').checked;
+    for (const id of ['slDistanceMode','slDistanceMin','slDistanceMax']) $(id).disabled = !$('slDistanceEnabled').checked;
     $('trendTimeframeField').classList.remove('hidden');
     $('breakBodyField').classList.toggle('hidden', !visible.breakBody);
     $('breakDistanceField').classList.toggle('hidden', !visible.breakDistance);
@@ -498,7 +513,7 @@
       const localSaved = Workspace.save(saved.strategy_id, localSettings);
       await loadStrategies(saved.strategy_id);
       if (!localSaved) { Workspace.assign(localSettings); renderDraftState(); }
-      notice(localSaved ? `Saved ${saved.name}. Draft settings are stored in this browser.` : Workspace.storageWarning(), localSaved ? 'success' : 'error');
+      notice(localSaved ? `Saved ${saved.name}. Description, tags and notes are stored in this browser.` : Workspace.storageWarning(), localSaved ? 'success' : 'error');
     } catch (error) {
       notice(`Save failed: ${error.message}`, 'error');
     } finally {
@@ -701,6 +716,11 @@
       const previousTf = state.draft.trading_timeframe;
       collectDraft();
       if (previousTf !== state.draft.trading_timeframe) {
+        const ranks = { '5m':5, '15m':15, '1h':60 };
+        if (ranks[state.draft.structure_timeframe] < ranks[state.draft.trading_timeframe]) {
+          state.draft.structure_timeframe = state.draft.trading_timeframe;
+          $('structureTimeframe').value = state.draft.structure_timeframe;
+        }
         populateTrendTimeframes(state.draft.trading_timeframe, state.draft.trend.timeframe);
         state.draft.trend.timeframe = $('trendTimeframe').value || null;
         renderDraftState();
@@ -727,8 +747,8 @@
       }
       collectDraft();
     });
-    ['entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
-    ['breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp1Step1Trigger', 'tp1Step1Secure', 'tp1Step2Trigger', 'tp1Step2Secure', 'tp1Step3Trigger', 'tp1Step3Secure', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
+    ['structureTimeframe', 'slDistanceMode', 'slDistanceEnabled', 'setupFreshnessEnabled', 'entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
+    ['setupMaxAge', 'slDistanceMin', 'slDistanceMax', 'breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp1Step1Trigger', 'tp1Step1Secure', 'tp1Step2Trigger', 'tp1Step2Secure', 'tp1Step3Trigger', 'tp1Step3Secure', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
     $('tp1Enabled').addEventListener('change', collectDraft);
     $('rememberBosEntry').addEventListener('change', collectDraft);
   }

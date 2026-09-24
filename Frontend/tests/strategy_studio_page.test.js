@@ -16,20 +16,20 @@ test('page has the approved three-column Strategy Studio shell and actions', () 
   assert.match(html, /id="savedStrategiesPanel"/);
   assert.match(html, /id="strategyBuilder"/);
   assert.match(html, /id="strategySummaryPanel"/);
-  assert.equal((html.match(/class="builder-section"/g) || []).length, 9);
+  assert.equal((html.match(/class="builder-section"/g) || []).length, 8);
   assert.match(html, /id="themeToggle"/);
   assert.match(html, /id="strategySelect"/);
 });
 
-test('builder includes nine redesigned sections and empty real-result metrics', () => {
+test('builder includes eight executable sections and empty real-result metrics', () => {
   const html = fs.readFileSync(htmlPath, 'utf8').replace(/\s+/g, ' ');
   for (const text of ['Symbols', 'Trading Timeframe', 'Trend Filter', 'Break Validation', 'Confirmation Rules', 'Entry Method', 'Stop Loss', 'TP1', 'TP2', 'Risk', 'Fundamental Filter']) {
     assert.match(html, new RegExp(text));
   }
-  for (const text of ['Strategy Basics', 'Market &amp; Timeframes', 'Confirmation Rules', 'Entry &amp; Exit Logic', 'Risk &amp; Trade Management', 'Advanced Filters', 'Cost Modeling / Backtest Assumptions', 'Notes / Versioning']) assert.ok(html.includes(text));
+  for (const text of ['Strategy Basics', 'Market &amp; Timeframes', 'Confirmation Rules', 'Entry / Stop / Targets', 'Risk', 'Fundamentals', 'Backtest Execution Model', 'Notes / Version']) assert.ok(html.includes(text));
   assert.match(html, /id="metricNetPl">\s*—/);
   assert.match(html, /Run a backtest to see performance/);
-  assert.match(html, /not applied by the current backtest or LIVE engine/);
+  assert.doesNotMatch(html, /draft-marker|data-settings-group="costs"/);
 });
 
 test('controller validates before save, renders inline errors and confirms sensitive actions', () => {
