@@ -95,7 +95,14 @@
       const selected = selectedCard();
       const id = selected?.dataset?.strategyId;
       if (!id) return;
-      root.location.assign(`/strategy-simulator.html?strategy=${encodeURIComponent(id)}`);
+      const query = new URLSearchParams({ strategy: id });
+      const start = document.getElementById('quickStart')?.value;
+      const end = document.getElementById('quickEnd')?.value;
+      const symbol = document.getElementById('quickSymbol')?.value;
+      if (start && end) { query.set('start', start); query.set('end', end); }
+      if (symbol) query.set('symbol', symbol);
+      query.set('mode', 'REPLAY');
+      root.location.assign(`/strategy-simulator.html?${query}`);
     });
 
     if (typeof root.MutationObserver === 'function') {

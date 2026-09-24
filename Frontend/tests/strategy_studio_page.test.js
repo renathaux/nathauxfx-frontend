@@ -9,23 +9,27 @@ const cssPath = path.join(root, 'strategy-studio.css');
 const controllerPath = path.join(root, 'strategy-studio', 'strategy-studio.js');
 
 test('page has the approved three-column Strategy Studio shell and actions', () => {
-  const html = fs.readFileSync(htmlPath, 'utf8');
+  const html = fs.readFileSync(htmlPath, 'utf8').replace(/\s+/g, ' ');
   for (const text of ['Saved Strategies', 'Strategy Builder', 'Strategy Summary', 'Save Strategy', 'Clone', 'Activate', 'Delete']) {
     assert.match(html, new RegExp(text));
   }
   assert.match(html, /id="savedStrategiesPanel"/);
   assert.match(html, /id="strategyBuilder"/);
   assert.match(html, /id="strategySummaryPanel"/);
-  assert.doesNotMatch(html, /Session Filter/);
-  assert.doesNotMatch(html, /Extra Filters/);
+  assert.equal((html.match(/class="builder-section"/g) || []).length, 9);
+  assert.match(html, /id="themeToggle"/);
+  assert.match(html, /id="strategySelect"/);
 });
 
-test('builder includes all approved sections and no fake metrics', () => {
-  const html = fs.readFileSync(htmlPath, 'utf8');
-  for (const text of ['Symbols', 'Trading Timeframe', 'Trend Filter', 'Break Validation', 'Entry Confirmation', 'Entry Method', 'Stop Loss', 'TP1', 'TP2', 'Risk', 'Fundamental Filter']) {
+test('builder includes nine redesigned sections and empty real-result metrics', () => {
+  const html = fs.readFileSync(htmlPath, 'utf8').replace(/\s+/g, ' ');
+  for (const text of ['Symbols', 'Trading Timeframe', 'Trend Filter', 'Break Validation', 'Confirmation Rules', 'Entry Method', 'Stop Loss', 'TP1', 'TP2', 'Risk', 'Fundamental Filter']) {
     assert.match(html, new RegExp(text));
   }
-  assert.doesNotMatch(html, /Win Rate|Profit Factor|Net Profit|Max Drawdown/);
+  for (const text of ['Strategy Basics', 'Market &amp; Timeframes', 'Confirmation Rules', 'Entry &amp; Exit Logic', 'Risk &amp; Trade Management', 'Advanced Filters', 'Cost Modeling / Backtest Assumptions', 'Notes / Versioning']) assert.ok(html.includes(text));
+  assert.match(html, /id="metricNetPl">\s*—/);
+  assert.match(html, /Run a backtest to see performance/);
+  assert.match(html, /not applied by the current backtest or LIVE engine/);
 });
 
 test('controller validates before save, renders inline errors and confirms sensitive actions', () => {
@@ -35,7 +39,7 @@ test('controller validates before save, renders inline errors and confirms sensi
   assert.match(source, /showConfirmation/);
   assert.match(source, /does not change LIVE/);
   assert.match(source, /permanent/i);
-  assert.match(source, /Simulator becomes available after the shared evaluator is installed\./);
+  assert.match(source, /Workspace\.update/);
 });
 
 test('premium layout has responsive three-column grid and sticky summary', () => {
@@ -56,7 +60,7 @@ test('save captures the selected strategy identity before async validation', () 
 
 
 test('fundamental LIVE policy exposes both supported modes', () => {
-  const html = fs.readFileSync(htmlPath, 'utf8');
+  const html = fs.readFileSync(htmlPath, 'utf8').replace(/\s+/g, ' ');
   assert.match(html, /id="fundamentalMode"/);
   assert.match(html, /BLOCK_OPPOSITE/);
   assert.match(html, /REQUIRE_ALIGNMENT/);
@@ -65,7 +69,7 @@ test('fundamental LIVE policy exposes both supported modes', () => {
 
 
 test('TP1 controls support SL or TP2 percentage bases and a step ladder', () => {
-  const html = fs.readFileSync(htmlPath, 'utf8');
+  const html = fs.readFileSync(htmlPath, 'utf8').replace(/\s+/g, ' ');
   const source = fs.readFileSync(controllerPath, 'utf8');
   assert.match(html, /id="tp1TargetBasis"/);
   assert.match(html, /Stop Loss Distance/);
@@ -83,7 +87,7 @@ test('TP1 controls support SL or TP2 percentage bases and a step ladder', () => 
 
 
 test('higher timeframe selector exposes None and clears trend filters', () => {
-  const html = fs.readFileSync(htmlPath, 'utf8');
+  const html = fs.readFileSync(htmlPath, 'utf8').replace(/\s+/g, ' ');
   const source = fs.readFileSync(controllerPath, 'utf8');
   assert.match(html, /Higher Timeframe/);
   assert.match(html, /None — no higher timeframe filter/);
@@ -94,7 +98,7 @@ test('higher timeframe selector exposes None and clears trend filters', () => {
 
 
 test('builder exposes remember BOS and LIVE off controls', () => {
-  const html = fs.readFileSync(htmlPath, 'utf8');
+  const html = fs.readFileSync(htmlPath, 'utf8').replace(/\s+/g, ' ');
   const source = fs.readFileSync(controllerPath, 'utf8');
   assert.match(html, /id="rememberBosEntry"/);
   assert.match(html, /Remember BOS if confirmation fails/);

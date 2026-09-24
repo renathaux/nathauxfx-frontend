@@ -508,6 +508,21 @@
       const symbols = strategy.definition?.symbols || [];
       $('symbolSelect').innerHTML = symbols.map((symbol) => `<option value="${escapeHtml(symbol)}">${escapeHtml(symbol)}</option>`).join('');
       await refreshHistoryCoverage();
+      // Studio Quick Test hands off the selected range; do not silently replace it.
+      const params = new URLSearchParams(window.location.search);
+      const requestedSymbol = params.get('symbol');
+      if (symbols.includes(requestedSymbol) && $('symbolSelect').value !== requestedSymbol) {
+        $('symbolSelect').value = requestedSymbol;
+        await refreshHistoryCoverage();
+      }
+      const requestedStart = params.get('start');
+      const requestedEnd = params.get('end');
+      if (/^\d{4}-\d{2}-\d{2}$/.test(requestedStart || '') && /^\d{4}-\d{2}-\d{2}$/.test(requestedEnd || '') && Date.parse(requestedEnd) > Date.parse(requestedStart)) {
+        $('startDate').value = toLocalInput(new Date(requestedStart + 'T00:00:00Z'));
+        $('endDate').value = toLocalInput(new Date(requestedEnd + 'T00:00:00Z'));
+        syncAllYearJumps();
+      }
+      if (params.get('mode') === 'REPLAY') notice('Bar Replay range loaded from Strategy Studio. Select Run Bar Replay to begin.');
       const risk = strategy.definition?.risk || {};
       $('strategyMeta').textContent = `${symbols.join(' + ')} • ${strategy.definition?.trading_timeframe || '—'} • saved risk ${risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : `${risk.value || '—'}`} • Fast Backtest up to 5 years • Bar Replay up to 31 days • no Neon candle history reads • Simulator only.`;
     } catch (error) {

@@ -3,6 +3,7 @@
 
   const Model = window.StrategyStudioModel;
   const Api = window.StrategyStudioApi;
+  const Workspace = window.StrategyStudioWorkspace;
   if (!Model || !Api) return;
 
   const state = {
@@ -12,6 +13,7 @@
     baseline: Model.blankStrategy(),
     name: '',
     baselineName: '',
+    baselineSettings: window.StrategyStudioSettings.defaults(),
     serverErrors: {},
     busy: false,
     liveStatus: { enabled: false, parity_status: 'REQUIRES_VERIFICATION' },
@@ -20,7 +22,6 @@
   const $ = (id) => document.getElementById(id);
   const builderFields = $('builderFields');
   const saveButton = $('saveStrategyBtn');
-  const simulatorUnavailableText = 'Simulator becomes available after the shared evaluator is installed.';
 
   function copy(value) {
     return JSON.parse(JSON.stringify(value));
@@ -287,7 +288,7 @@
     const errors = Model.clientValidation(state.draft);
     if (!state.name.trim()) errors.name = 'Strategy name is required';
     if (state.name.trim().length > 120) errors.name = 'Strategy name must be 120 characters or fewer';
-    return { ...errors, ...state.serverErrors };
+    return { ...errors, ...Workspace.validate(), ...state.serverErrors };
   }
 
   function renderErrors() {
@@ -346,6 +347,13 @@
     const errors = renderErrors();
     renderSummary(errors);
     renderActionState(errors);
+    const definition = Model.normalizeForApi(state.draft);
+    const coreDirty = state.name !== state.baselineName || JSON.stringify(definition) !== JSON.stringify(Model.normalizeForApi(state.baseline));
+    Workspace.update({ id: state.currentId, name: state.name, definition,
+      current: currentStrategy(), strategies: state.strategies, busy: state.busy,
+      valid: Object.keys(errors).length === 0, coreDirty,
+      dirty: coreDirty || JSON.stringify(Workspace.read()) !== JSON.stringify(state.baselineSettings),
+    });
   }
 
   function renderSavedStrategies() {
@@ -361,13 +369,14 @@
       const riskText = risk.method === 'PERCENT_BALANCE' ? `${risk.value}% balance` : risk.method === 'FIXED_DOLLARS' ? `${risk.value}` : 'Risk —';
       const fundamentalMode = item.definition?.fundamentals?.mode || 'BLOCK_OPPOSITE';
       const fundamentalText = fundamentalMode === 'REQUIRE_ALIGNMENT' ? 'Fundamental alignment required' : 'Fundamentals block opposite';
-      return `<article class="strategy-card ${item.strategy_id === state.currentId ? 'selected' : ''} ${item.state === 'ACTIVE' ? 'active' : ''}" data-strategy-id="${item.strategy_id}">
+      return `<article role="button" tabindex="0" class="strategy-card ${item.strategy_id === state.currentId ? 'selected' : ''} ${item.state === 'ACTIVE' ? 'active' : ''}" data-strategy-id="${item.strategy_id}">
         <div class="strategy-card-top"><strong>${escapeHtml(item.name)}</strong><span class="mini-status ${item.state === 'ACTIVE' ? 'active' : ''}">${item.state}</span></div>
         <small>${symbols} • ${tf}<br>${riskText}<br>${fundamentalText}</small>
       </article>`;
     }).join('');
     list.querySelectorAll('[data-strategy-id]').forEach((card) => {
       card.addEventListener('click', () => openSaved(card.dataset.strategyId));
+      card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openSaved(card.dataset.strategyId); } });
     });
   }
 
@@ -383,9 +392,11 @@
     state.baselineName = '';
     state.draft = Model.blankStrategy();
     state.baseline = copy(state.draft);
+    state.baselineSettings = Workspace.assign();
     state.serverErrors = {};
     renderSavedStrategies();
     assignDraftToForm();
+    Workspace.closeLibrary();
     notice('');
   }
 
@@ -397,9 +408,11 @@
     state.baselineName = strategy.name;
     state.draft = Model.normalizeForApi(copy(strategy.definition));
     state.baseline = copy(state.draft);
+    state.baselineSettings = Workspace.assign(Workspace.load(id));
     state.serverErrors = {};
     renderSavedStrategies();
     assignDraftToForm();
+    Workspace.closeLibrary();
     notice(strategy.locked
       ? 'This strategy is locked while its Studio-managed position is open. Edit, delete, and deactivate are blocked; Clone remains available.'
       : strategy.state === 'ACTIVE'
@@ -414,7 +427,7 @@
       const payload = await Api.listStrategies();
       state.strategies = Array.isArray(payload.strategies) ? payload.strategies : [];
       renderSavedStrategies();
-      const target = state.strategies.find((item) => item.strategy_id === selectId);
+      const target = state.strategies.find((item) => item.strategy_id === selectId) || (!state.currentId ? state.strategies[0] : null);
       if (target) openSaved(target.strategy_id);
       else if (!state.currentId) newStrategy();
     } catch (error) {
@@ -435,27 +448,38 @@
       $('confirmMessage').textContent = message;
       accept.textContent = confirmLabel;
       accept.classList.toggle('danger-soft', danger);
+      const previousFocus = document.activeElement;
       modal.classList.remove('hidden');
+      cancel.focus();
 
       const finish = (value) => {
         modal.classList.add('hidden');
         accept.removeEventListener('click', onAccept);
         cancel.removeEventListener('click', onCancel);
+        modal.removeEventListener('keydown', onKey);
+        previousFocus?.focus?.();
         resolve(value);
       };
       const onAccept = () => finish(true);
       const onCancel = () => finish(false);
+      const onKey = event => {
+        if (event.key === 'Escape') { event.preventDefault(); onCancel(); }
+        if (event.key === 'Tab') { event.preventDefault(); (document.activeElement === cancel ? accept : cancel).focus(); }
+      };
+      modal.addEventListener('keydown', onKey);
       accept.addEventListener('click', onAccept);
       cancel.addEventListener('click', onCancel);
     });
   }
 
   async function saveStrategy() {
+    if (state.busy || currentStrategy()?.locked || currentStrategy()?.state === 'ACTIVE') return;
     collectDraft();
     const localErrors = combinedErrors();
     if (Object.keys(localErrors).length) return;
     const saveTargetId = state.currentId;
     const saveName = state.name.trim();
+    const localSettings = copy(Workspace.read());
     const definition = Model.normalizeForApi(state.draft);
     state.busy = true;
     renderDraftState();
@@ -471,8 +495,10 @@
         ? await Api.updateStrategy(saveTargetId, saveName, validation.normalized_definition)
         : await Api.createStrategy(saveName, validation.normalized_definition);
       const saved = response.strategy;
-      notice(`Saved ${saved.name}.`, 'success');
+      const localSaved = Workspace.save(saved.strategy_id, localSettings);
       await loadStrategies(saved.strategy_id);
+      if (!localSaved) { Workspace.assign(localSettings); renderDraftState(); }
+      notice(localSaved ? `Saved ${saved.name}. Draft settings are stored in this browser.` : Workspace.storageWarning(), localSaved ? 'success' : 'error');
     } catch (error) {
       notice(`Save failed: ${error.message}`, 'error');
     } finally {
@@ -486,12 +512,15 @@
     if (!current) return;
     const proposed = window.prompt('Name the cloned strategy:', `${current.name} Copy`);
     if (!proposed?.trim()) return;
+    const localSettings = copy(Workspace.read());
     state.busy = true;
     renderDraftState();
     try {
       const response = await Api.cloneStrategy(current.strategy_id, proposed.trim());
-      notice('Strategy cloned. The copy is inactive and editable.', 'success');
+      const localSaved = Workspace.save(response.strategy.strategy_id, localSettings);
       await loadStrategies(response.strategy.strategy_id);
+      if (!localSaved) { Workspace.assign(localSettings); renderDraftState(); }
+      notice(localSaved ? 'Strategy cloned. The copy is inactive and editable.' : Workspace.storageWarning(), localSaved ? 'success' : 'error');
     } catch (error) {
       notice(`Clone failed: ${error.message}`, 'error');
     } finally {
@@ -618,6 +647,7 @@
     if (!ok) return;
     state.name = state.baselineName;
     state.draft = copy(state.baseline);
+    Workspace.assign(state.baselineSettings);
     state.serverErrors = {};
     assignDraftToForm();
     notice('Draft reset.');
@@ -630,7 +660,7 @@
       const response = await action();
       notice(successMessage, 'success');
       const id = clearSelection ? null : response.strategy?.strategy_id || state.currentId;
-      if (clearSelection) newStrategy();
+      if (clearSelection) { Workspace.remove(state.currentId); newStrategy(); }
       await loadStrategies(id);
     } catch (error) {
       notice(error.message, 'error');
@@ -638,6 +668,31 @@
       state.busy = false;
       renderDraftState();
     }
+  }
+
+  async function saveNewVersion() {
+    if (state.busy) return;
+    collectDraft();
+    if (Object.keys(combinedErrors()).length) return;
+    const localSettings = copy(Workspace.read());
+    const versionParts = String(localSettings.version || '1.0.0').split('.');
+    localSettings.version = versionParts.length === 3 && versionParts.every(p => /^\d+$/.test(p))
+      ? `${versionParts[0]}.${versionParts[1]}.${Number(versionParts[2]) + 1}`
+      : `${localSettings.version}-next`.slice(0, 24);
+    const name = `${state.name.trim().replace(/ · v[^ ]+$/, '').slice(0, 85)} · v${localSettings.version}`;
+    const definition = Model.normalizeForApi(state.draft);
+    state.busy = true;
+    renderDraftState();
+    try {
+      const validation = await Api.validateStrategy(name, definition);
+      if (!validation.valid) { state.serverErrors = validation.errors || {}; notice('Fix the highlighted settings before saving a version.', 'error'); return; }
+      const response = await Api.createStrategy(name, validation.normalized_definition);
+      const localSaved = Workspace.save(response.strategy.strategy_id, localSettings);
+      await loadStrategies(response.strategy.strategy_id);
+      if (!localSaved) { Workspace.assign(localSettings); renderDraftState(); }
+      notice(localSaved ? `Saved version ${localSettings.version} as a new inactive strategy.` : Workspace.storageWarning(), localSaved ? 'success' : 'error');
+    } catch (error) { notice(`Version save failed: ${error.message}`, 'error'); }
+    finally { state.busy = false; renderDraftState(); }
   }
 
   function bindInputs() {
@@ -689,9 +744,9 @@
     $('resetDraftBtn').addEventListener('click', resetDraft);
     $('goLiveStrategyBtn').addEventListener('click', goLiveCurrent);
     $('turnOffLiveStrategyBtn').addEventListener('click', turnOffLiveCurrent);
-    $('simulatorBtn').title = simulatorUnavailableText;
   }
 
+  Workspace.bind({ collect: collectDraft, open: openSaved, new: newStrategy, saveVersion: saveNewVersion });
   bindInputs();
   bindActions();
   assignDraftToForm();
