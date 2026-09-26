@@ -423,12 +423,22 @@
     } else {
       $('quickLot').value = draft && Number.isFinite(draft.lot) ? draft.lot.toFixed(2) : '';
     }
+
+    $('confirmPositionBtn').disabled = !draft || Boolean(state.openTrade);
   }
 
   function setSide(side) {
     state.side = side;
-    $('ticketLong').classList.toggle('active',side === 'LONG');
-    $('ticketShort').classList.toggle('active',side === 'SHORT');
+    const long = side === 'LONG';
+    $('ticketLong').classList.toggle('active',long);
+    $('ticketShort').classList.toggle('active',!long);
+    $('quickLong').classList.toggle('selected',long);
+    $('quickShort').classList.toggle('selected',!long);
+
+    const confirm = $('confirmPositionBtn');
+    confirm.textContent = long ? '↑ Buy Position' : '↓ Sell Position';
+    confirm.classList.toggle('action-long',long);
+    confirm.classList.toggle('action-short',!long);
     updateDraft();
   }
 
@@ -493,6 +503,7 @@
     renderOpenTrade();
     renderMetrics();
     renderHistory();
+    updateDraft();
   }
 
   function closeTradeNow() {
@@ -669,14 +680,13 @@
   $('playBtn').onclick = () => setPlaying(!state.timer);
   $('speed').onchange = () => { if (state.timer) setPlaying(true); };
 
-  $('quickShort').onclick = () => openTrade('SHORT');
-  $('quickLong').onclick = () => openTrade('LONG');
+  $('quickShort').onclick = () => openTradeDrawer('SHORT');
+  $('quickLong').onclick = () => openTradeDrawer('LONG');
   $('ticketLong').onclick = () => setSide('LONG');
   $('ticketShort').onclick = () => setSide('SHORT');
   $('autoRiskMode').onclick = () => setSizingMode('AUTO_RISK');
   $('manualLotMode').onclick = () => setSizingMode('MANUAL_LOT');
-  $('openLongBtn').onclick = () => openTrade('LONG');
-  $('openShortBtn').onclick = () => openTrade('SHORT');
+  $('confirmPositionBtn').onclick = () => openTrade(state.side);
   $('closeTradeBtn').onclick = closeTradeNow;
 
   $('lotMinus').onclick = () => syncLot(manualLot()-0.01);
