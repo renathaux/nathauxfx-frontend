@@ -6,6 +6,12 @@
   const FIVE_MINUTES = 5 * 60 * 1000;
   const MARKET_NAMES = { EURUSD:'Euro vs US Dollar', XAUUSD:'Gold vs US Dollar' };
 
+  let replayManifestCache = null;
+  const replayMonthCache = new Map();
+  let candleCalendarMonthKey = null;
+  let candleCalendarSelectedDay = null;
+  let candleCalendarDayRows = [];
+
   const state = {
     symbol:'EURUSD',
     timeframe:'5m',
@@ -69,24 +75,39 @@
     return out;
   }
 
-  async function loadHistory(symbol,timeframe,start,end) {
-    const manifestResponse = await fetch(ROOT + '/manifest.json', {cache:'no-cache'});
-    if (!manifestResponse.ok) throw new Error('Replay history is unavailable.');
-    const manifest = await manifestResponse.json();
+  async function loadReplayManifest() {
+    if (replayManifestCache) return replayManifestCache;
+    const response = await fetch(ROOT + '/manifest.json', {cache:'no-cache'});
+    if (!response.ok) throw new Error('Replay history is unavailable.');
+    replayManifestCache = await response.json();
+    return replayManifestCache;
+  }
+
+  async function loadReplayMonth(symbol,month) {
+    const cacheKey = symbol + ':' + month;
+    if (replayMonthCache.has(cacheKey)) return replayMonthCache.get(cacheKey);
+    const response = await fetch(ROOT + '/' + symbol + '/' + month + '.json', {
+      cache:month === monthKey(new Date()) ? 'no-cache' : 'force-cache'
+    });
+    if (!response.ok) throw new Error('Replay file ' + month + ' is unavailable.');
+    const payload = await response.json();
+    replayMonthCache.set(cacheKey,payload);
+    return payload;
+  }
+
+  async function loadHistory(symbol,timeframe,start,end,options={}) {
+    const manifest = await loadReplayManifest();
     const available = new Set((manifest && manifest.symbols && manifest.symbols[symbol] && manifest.symbols[symbol].months) || []);
-    const months = monthKeys(start, new Date(end.getTime()-1));
-
-    for (const month of months) {
-      if (!available.has(month)) throw new Error('Replay data for ' + symbol + ' ' + month + ' is unavailable.');
+    const requestedMonths = monthKeys(start, new Date(end.getTime()-1));
+    const allowPartial = Boolean(options && options.allowPartial);
+    const missing = requestedMonths.filter(month => !available.has(month));
+    if (missing.length && !allowPartial) {
+      throw new Error('Replay data for ' + symbol + ' ' + missing[0] + ' is unavailable.');
     }
+    const months = requestedMonths.filter(month => available.has(month));
+    if (!months.length) throw new Error('No downloaded candles are available for this date.');
 
-    const payloads = await Promise.all(months.map(async month => {
-      const response = await fetch(ROOT + '/' + symbol + '/' + month + '.json', {
-        cache:month === monthKey(new Date()) ? 'no-cache' : 'force-cache'
-      });
-      if (!response.ok) throw new Error('Replay file ' + month + ' is unavailable.');
-      return response.json();
-    }));
+    const payloads = await Promise.all(months.map(month => loadReplayMonth(symbol,month)));
 
     const startMs = start.getTime();
     const endMs = end.getTime();
@@ -695,31 +716,215 @@
     $('toolPalette').classList.toggle('hidden');
   }
 
-  function formatJumpRangeDate(timestamp) {
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) return '—';
-    return date.toLocaleString([], {
-      year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'
-    });
+  function localDateKey(date) {
+    const pad = value => String(value).padStart(2,'0');
+    return date.getFullYear() + '-' + pad(date.getMonth()+1) + '-' + pad(date.getDate());
   }
 
-  function openCandleJump() {
+  function calendarMonthLabel(monthIndex) {
+    return new Intl.DateTimeFormat(undefined,{month:'long'}).format(new Date(2024,monthIndex,1));
+  }
+
+  function calendarAvailableMonths() {
+    const manifest = replayManifestCache;
+    return ((manifest && manifest.symbols && manifest.symbols[state.symbol] && manifest.symbols[state.symbol].months) || [])
+      .map(String)
+      .sort();
+  }
+
+  function setCalendarStatus(message,kind='') {
+    const node = $('candleCalendarStatus');
+    node.textContent = message || '';
+    node.className = 'calendar-status' + (kind ? ' ' + kind : '');
+  }
+
+  function calendarMonthParts(key) {
+    const match = String(key || '').match(/^(\d{4})-(\d{2})$/);
+    if (!match) return null;
+    return {year:Number(match[1]),month:Number(match[2])-1};
+  }
+
+  function populateCalendarYearMonthControls(targetKey) {
+    const months = calendarAvailableMonths();
+    if (!months.length) throw new Error('No downloaded candle history is available for ' + state.symbol + '.');
+
+    const years = [...new Set(months.map(key => key.slice(0,4)))].sort();
+    const yearSelect = $('candleCalendarYear');
+    yearSelect.replaceChildren(...years.map(value => new Option(value,value)));
+
+    let key = months.includes(targetKey) ? targetKey : months[months.length-1];
+    const targetYear = key.slice(0,4);
+    yearSelect.value = targetYear;
+
+    const monthSelect = $('candleCalendarMonth');
+    const monthsForYear = months.filter(value => value.startsWith(targetYear + '-'));
+    monthSelect.replaceChildren(...monthsForYear.map(value => {
+      const monthIndex = Number(value.slice(5,7))-1;
+      return new Option(calendarMonthLabel(monthIndex),value);
+    }));
+    monthSelect.value = key;
+    candleCalendarMonthKey = key;
+    updateCalendarNavigationButtons();
+  }
+
+  function updateCalendarMonthOptionsForYear(preferredKey=null) {
+    const year = $('candleCalendarYear').value;
+    const months = calendarAvailableMonths().filter(value => value.startsWith(year + '-'));
+    const monthSelect = $('candleCalendarMonth');
+    monthSelect.replaceChildren(...months.map(value => {
+      const monthIndex = Number(value.slice(5,7))-1;
+      return new Option(calendarMonthLabel(monthIndex),value);
+    }));
+    const nextKey = months.includes(preferredKey) ? preferredKey : (months[0] || null);
+    if (nextKey) monthSelect.value = nextKey;
+    candleCalendarMonthKey = nextKey;
+    updateCalendarNavigationButtons();
+  }
+
+  function updateCalendarNavigationButtons() {
+    const months = calendarAvailableMonths();
+    const index = months.indexOf(candleCalendarMonthKey);
+    $('candleCalendarPrevious').disabled = index <= 0;
+    $('candleCalendarNext').disabled = index < 0 || index >= months.length-1;
+  }
+
+  async function calendarRowsForMonth(key) {
+    const available = new Set(calendarAvailableMonths());
+    const parts = calendarMonthParts(key);
+    if (!parts) return [];
+    const keys = [];
+    for (const delta of [-1,0,1]) {
+      const d = new Date(Date.UTC(parts.year,parts.month+delta,1));
+      const candidate = monthKey(d);
+      if (available.has(candidate)) keys.push(candidate);
+    }
+    const payloads = await Promise.all(keys.map(k => loadReplayMonth(state.symbol,k)));
+    return payloads.flatMap(payload => Array.isArray(payload && payload.candles) ? payload.candles : []);
+  }
+
+  async function populateCalendarTimes(year,month,day,preferredTimestamp=null) {
+    const select = $('candleJumpTime');
+    const jump = $('jumpToCandleBtn');
+    select.replaceChildren();
+    select.disabled = true;
+    jump.disabled = true;
+    candleCalendarDayRows = [];
+    setCalendarStatus('Loading actual ' + state.timeframe.toUpperCase() + ' candles…');
+
+    const dayStart = new Date(year,month,day,0,0,0,0);
+    const dayEnd = new Date(year,month,day+1,0,0,0,0);
+    try {
+      const rows = await loadHistory(state.symbol,state.timeframe,dayStart,dayEnd,{allowPartial:true});
+      candleCalendarDayRows = rows;
+      if (!rows.length) throw new Error('No candles for this day.');
+
+      const formatter = new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'});
+      select.replaceChildren(...rows.map(candle => {
+        const date = new Date(candle.timestamp);
+        return new Option(formatter.format(date),candle.timestamp);
+      }));
+
+      if (preferredTimestamp) {
+        const preferredMs = Date.parse(preferredTimestamp);
+        let best = rows[0];
+        let bestDiff = Math.abs(Date.parse(best.timestamp)-preferredMs);
+        for (const row of rows) {
+          const diff = Math.abs(Date.parse(row.timestamp)-preferredMs);
+          if (diff < bestDiff) { best=row; bestDiff=diff; }
+        }
+        select.value = best.timestamp;
+      }
+
+      select.disabled = false;
+      jump.disabled = false;
+      const label = new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric'}).format(dayStart);
+      setCalendarStatus(rows.length + ' actual ' + state.timeframe.toUpperCase() + ' candles available on ' + label + '.','success');
+    } catch (error) {
+      select.replaceChildren(new Option('No candles available',''));
+      setCalendarStatus(error.message || 'No candles are available for this day.','error');
+    }
+  }
+
+  async function renderCandleCalendarMonth(preferredDay=null,preferredTimestamp=null) {
+    const key = candleCalendarMonthKey;
+    const parts = calendarMonthParts(key);
+    if (!parts) return;
+    const grid = $('candleCalendarDays');
+    grid.replaceChildren();
+    $('candleJumpTime').replaceChildren();
+    $('candleJumpTime').disabled = true;
+    $('jumpToCandleBtn').disabled = true;
+    setCalendarStatus('Loading candle dates…');
+
+    try {
+      const rows = await calendarRowsForMonth(key);
+      const daysWithData = new Set();
+      for (const candle of rows) {
+        const date = new Date(candle && candle.timestamp);
+        if (Number.isNaN(date.getTime())) continue;
+        if (date.getFullYear() === parts.year && date.getMonth() === parts.month) {
+          daysWithData.add(date.getDate());
+        }
+      }
+
+      const daysInMonth = new Date(parts.year,parts.month+1,0).getDate();
+      const firstWeekday = new Date(parts.year,parts.month,1).getDay();
+      for (let offset=0;offset<firstWeekday;offset+=1) grid.appendChild(document.createElement('span'));
+
+      const requested = Number(preferredDay);
+      let selected = daysWithData.has(requested) ? requested : null;
+      if (selected == null && daysWithData.size) selected = [...daysWithData].sort((a,b)=>a-b)[0];
+      candleCalendarSelectedDay = selected;
+
+      for (let day=1;day<=daysInMonth;day+=1) {
+        const button = document.createElement('button');
+        const available = daysWithData.has(day);
+        button.type = 'button';
+        button.textContent = String(day);
+        button.disabled = !available;
+        button.classList.toggle('available',available);
+        button.dataset.day = String(day);
+        button.setAttribute('aria-pressed',String(day === selected));
+        if (available) {
+          button.addEventListener('click',async () => {
+            candleCalendarSelectedDay = day;
+            for (const item of grid.querySelectorAll('button')) {
+              item.setAttribute('aria-pressed',String(Number(item.dataset.day)===day));
+            }
+            await populateCalendarTimes(parts.year,parts.month,day,null);
+          });
+        }
+        grid.appendChild(button);
+      }
+
+      if (selected != null) {
+        await populateCalendarTimes(parts.year,parts.month,selected,preferredTimestamp);
+      } else {
+        setCalendarStatus('No downloaded candles are available in this month.','error');
+      }
+    } catch (error) {
+      setCalendarStatus(error.message || 'Could not load candle dates.','error');
+    }
+  }
+
+  async function openCandleJump() {
     if (!state.candles.length) return;
     setPlaying(false);
-    const candle = current() || state.candles[0];
-    const input = $('candleJumpTime');
-    const first = state.candles[0];
-    const last = state.candles[state.candles.length-1];
-
-    input.value = toInput(new Date(candle.timestamp));
-    input.min = toInput(new Date(first.timestamp));
-    input.max = toInput(new Date(last.timestamp));
-    $('candleJumpRange').textContent =
-      formatJumpRangeDate(first.timestamp) + ' — ' + formatJumpRangeDate(last.timestamp);
-
     $('candleJumpBackdrop').classList.remove('hidden');
     $('candleJumpPanel').classList.remove('hidden');
-    setTimeout(() => input.focus(),0);
+    setCalendarStatus('Loading candle history…');
+    $('jumpToCandleBtn').disabled = true;
+
+    try {
+      await loadReplayManifest();
+      const candle = current() || state.candles[0];
+      const anchor = new Date(candle.timestamp);
+      const anchorKey = monthKey(anchor);
+      populateCalendarYearMonthControls(anchorKey);
+      await renderCandleCalendarMonth(anchor.getDate(),candle.timestamp);
+    } catch (error) {
+      setCalendarStatus(error.message || 'Could not load candle history.','error');
+    }
   }
 
   function closeCandleJump() {
@@ -731,35 +936,70 @@
     if (!state.candles.length || !Number.isFinite(targetMs)) return -1;
     let low = 0;
     let high = state.candles.length - 1;
-
     while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
+      const mid = Math.floor((low+high)/2);
       const time = Date.parse(state.candles[mid].timestamp);
       if (time === targetMs) return mid;
-      if (time < targetMs) low = mid + 1;
-      else high = mid - 1;
+      if (time < targetMs) low = mid+1;
+      else high = mid-1;
     }
-
-    if (low >= state.candles.length) return state.candles.length - 1;
+    if (low >= state.candles.length) return state.candles.length-1;
     if (high < 0) return 0;
-    const lowDiff = Math.abs(Date.parse(state.candles[low].timestamp) - targetMs);
-    const highDiff = Math.abs(Date.parse(state.candles[high].timestamp) - targetMs);
-    return lowDiff < highDiff ? low : high;
+    return Math.abs(Date.parse(state.candles[low].timestamp)-targetMs) <
+      Math.abs(Date.parse(state.candles[high].timestamp)-targetMs) ? low : high;
   }
 
-  function jumpToSelectedCandle() {
-    const input = $('candleJumpTime');
-    const target = new Date(input.value);
-    if (Number.isNaN(target.getTime())) return;
+  async function jumpToSelectedCandle() {
+    const value = $('candleJumpTime').value;
+    const targetMs = Date.parse(value);
+    if (!Number.isFinite(targetMs)) return;
+    if (state.openTrade) {
+      setCalendarStatus('Close the open trade before jumping to another date.','error');
+      return;
+    }
 
-    const index = nearestCandleIndex(target.getTime());
-    if (index < 0) return;
+    const firstMs = state.candles.length ? Date.parse(state.candles[0].timestamp) : NaN;
+    const lastMs = state.candles.length ? Date.parse(state.candles[state.candles.length-1].timestamp) : NaN;
+    const insideCurrent = Number.isFinite(firstMs) && Number.isFinite(lastMs) && targetMs >= firstMs && targetMs <= lastMs;
 
-    state.index = index;
-    state.pricePanOffset = 0;
-    state.chart.timeScale().scrollToRealTime();
-    renderAll();
-    closeCandleJump();
+    try {
+      if (!insideCurrent) {
+        setCalendarStatus('Loading candles around the selected date…');
+        const target = new Date(targetMs);
+        const start = new Date(targetMs - 3*86400000);
+        const end = new Date(targetMs + 11*86400000);
+        const candles = await loadHistory(state.symbol,state.timeframe,start,end,{allowPartial:true});
+        state.candles = candles;
+        $('startDate').value = toInput(start);
+        $('endDate').value = toInput(end);
+      }
+
+      state.index = nearestCandleIndex(targetMs);
+      state.positionDraft = null;
+      state.positionDrag = null;
+      state.positionDragPointerId = null;
+      state.pricePanOffset = 0;
+      renderAll();
+      state.chart.timeScale().scrollToRealTime();
+      closeCandleJump();
+    } catch (error) {
+      setCalendarStatus(error.message || 'Could not load the selected candle.','error');
+    }
+  }
+
+  async function moveCandleCalendarMonth(delta) {
+    const months = calendarAvailableMonths();
+    const index = months.indexOf(candleCalendarMonthKey);
+    const next = months[index+delta];
+    if (!next) return;
+    candleCalendarMonthKey = next;
+    const year = next.slice(0,4);
+    $('candleCalendarYear').value = year;
+    updateCalendarMonthOptionsForYear(next);
+    $('candleCalendarMonth').value = next;
+    candleCalendarMonthKey = next;
+    updateCalendarNavigationButtons();
+    await renderCandleCalendarMonth(null,null);
   }
 
   function chartPoint(event) {
@@ -1014,9 +1254,17 @@
   $('closeCandleJump').onclick = closeCandleJump;
   $('candleJumpBackdrop').onclick = closeCandleJump;
   $('jumpToCandleBtn').onclick = jumpToSelectedCandle;
-  $('candleJumpTime').addEventListener('keydown',event => {
-    if (event.key === 'Enter') jumpToSelectedCandle();
-  });
+  $('candleCalendarPrevious').onclick = () => moveCandleCalendarMonth(-1);
+  $('candleCalendarNext').onclick = () => moveCandleCalendarMonth(1);
+  $('candleCalendarYear').onchange = async () => {
+    updateCalendarMonthOptionsForYear();
+    await renderCandleCalendarMonth(null,null);
+  };
+  $('candleCalendarMonth').onchange = async () => {
+    candleCalendarMonthKey = $('candleCalendarMonth').value;
+    updateCalendarNavigationButtons();
+    await renderCandleCalendarMonth(null,null);
+  };
 
   $('toolsBtn').onclick = toggleTools;
   $('calendarBtn').onclick = openCandleJump;
