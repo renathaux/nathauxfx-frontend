@@ -20,6 +20,9 @@
     startBalance:10000,
     trades:[],
     openTrade:null,
+    positionDraft:null,
+    positionDrag:null,
+    positionDragPointerId:null,
     drawMode:null,
     drawStart:null,
     drawings:[],
@@ -193,7 +196,8 @@
     const candle = current();
     if (candle) {
       $('ohlc').textContent = 'O ' + fmt(candle.open) + '   H ' + fmt(candle.high) + '   L ' + fmt(candle.low) + '   C ' + fmt(candle.close);
-      $('entryPrice').value = fmt(candle.close);
+      const position = state.positionDraft || state.openTrade;
+      $('entryPrice').value = fmt(position ? position.entry : candle.close);
       $('shortPrice').textContent = fmt(candle.close);
       $('longPrice').textContent = fmt(candle.close);
     }
@@ -304,6 +308,9 @@
       state.balance = state.startBalance;
       state.trades = [];
       state.openTrade = null;
+      state.positionDraft = null;
+      state.positionDrag = null;
+      state.positionDragPointerId = null;
       state.drawings = [];
 
       const start = new Date($('startDate').value);
@@ -362,13 +369,70 @@
     updateDraft();
   }
 
-  function draftFor(side) {
-    const candle = current();
-    if (!candle) return null;
-    const entry = Number(candle.close);
-    const sl = Number($('slPrice').value);
-    const tp = Number($('tpPrice').value);
+  function minimumPriceDistance() {
+    return state.symbol === 'XAUUSD' ? 0.01 : 0.0001;
+  }
 
+  function createPositionDraft(side) {
+    if (state.openTrade) {
+      alert('Close the current replay trade first.');
+      return false;
+    }
+    const candle = current();
+    if (!candle) return false;
+
+    const normalizedSide = side === 'SHORT' ? 'SHORT' : 'LONG';
+    const rows = state.candles.slice(Math.max(0,state.index-119),state.index+1);
+    const lows = rows.map(row => Number(row.low)).filter(Number.isFinite);
+    const highs = rows.map(row => Number(row.high)).filter(Number.isFinite);
+    const entry = Number(candle.close);
+    const low = lows.length ? Math.min(...lows) : entry;
+    const high = highs.length ? Math.max(...highs) : entry;
+    const range = Math.max(high-low,minimumPriceDistance()*10);
+    const distance = Math.max(range*0.20,minimumPriceDistance()*4);
+
+    state.side = normalizedSide;
+    state.positionDraft = normalizedSide === 'LONG'
+      ? {side:'LONG',entry,sl:entry-distance,tp:entry+distance*2,entryIndex:state.index,entryTime:candle.timestamp}
+      : {side:'SHORT',entry,sl:entry+distance,tp:entry-distance*2,entryIndex:state.index,entryTime:candle.timestamp};
+
+    $('entryPrice').value = fmt(entry);
+    $('slPrice').value = fmt(state.positionDraft.sl);
+    $('tpPrice').value = fmt(state.positionDraft.tp);
+    updateDraft();
+    renderDrawings();
+    return true;
+  }
+
+  function setDraftLevel(field,rawValue) {
+    const draft = state.positionDraft;
+    if (!draft || !['sl','tp'].includes(field)) return false;
+    const value = Number(rawValue);
+    if (!Number.isFinite(value)) return false;
+
+    const gap = minimumPriceDistance();
+    const entry = Number(draft.entry);
+    let next = value;
+    if (field === 'sl') {
+      next = draft.side === 'LONG' ? Math.min(value,entry-gap) : Math.max(value,entry+gap);
+    } else {
+      next = draft.side === 'LONG' ? Math.max(value,entry+gap) : Math.min(value,entry-gap);
+    }
+
+    draft[field] = next;
+    $(field === 'sl' ? 'slPrice' : 'tpPrice').value = fmt(next);
+    updateDraft();
+    renderDrawings();
+    return true;
+  }
+
+  function draftFor(side) {
+    const position = state.positionDraft;
+    if (!position || position.side !== side) return null;
+
+    const entry = Number(position.entry);
+    const sl = Number(position.sl);
+    const tp = Number(position.tp);
     if (![entry,sl,tp].every(Number.isFinite) || sl <= 0 || tp <= 0) return null;
 
     const valid = side === 'LONG' ? (sl < entry && tp > entry) : (sl > entry && tp < entry);
@@ -404,6 +468,21 @@
     };
   }
 
+  function updateQuickEntryButtons() {
+    const draft = state.positionDraft;
+    const shortArmed = Boolean(draft && draft.side === 'SHORT');
+    const longArmed = Boolean(draft && draft.side === 'LONG');
+
+    $('quickShortLabel').textContent = shortArmed ? 'SELL' : 'SHORT POSITION';
+    $('quickLongLabel').textContent = longArmed ? 'BUY' : 'LONG POSITION';
+    $('quickShort').classList.toggle('selected',shortArmed);
+    $('quickLong').classList.toggle('selected',longArmed);
+
+    if (draft) $('ticketDirection').textContent = draft.side + ' DRAFT';
+    else if (state.openTrade) $('ticketDirection').textContent = state.openTrade.side + ' ACTIVE';
+    else $('ticketDirection').textContent = 'No draft';
+  }
+
   function updateDraft() {
     const draft = draftFor(state.side);
     $('draftLot').textContent = draft ? draft.lot.toFixed(2) : '—';
@@ -423,23 +502,24 @@
     } else {
       $('quickLot').value = draft && Number.isFinite(draft.lot) ? draft.lot.toFixed(2) : '';
     }
-
-    $('confirmPositionBtn').disabled = !draft || Boolean(state.openTrade);
+    updateQuickEntryButtons();
   }
 
   function setSide(side) {
-    state.side = side;
-    const long = side === 'LONG';
-    $('ticketLong').classList.toggle('active',long);
-    $('ticketShort').classList.toggle('active',!long);
-    $('quickLong').classList.toggle('selected',long);
-    $('quickShort').classList.toggle('selected',!long);
-
-    const confirm = $('confirmPositionBtn');
-    confirm.textContent = long ? '↑ Buy Position' : '↓ Sell Position';
-    confirm.classList.toggle('action-long',long);
-    confirm.classList.toggle('action-short',!long);
+    state.side = side === 'SHORT' ? 'SHORT' : 'LONG';
     updateDraft();
+  }
+
+  function handleQuickPosition(side) {
+    const normalizedSide = side === 'SHORT' ? 'SHORT' : 'LONG';
+    if (state.openTrade) {
+      alert('Close the current replay trade first.');
+      return false;
+    }
+    if (state.positionDraft && state.positionDraft.side === normalizedSide) {
+      return openTrade(normalizedSide);
+    }
+    return createPositionDraft(normalizedSide);
   }
 
   function openTrade(side) {
@@ -448,22 +528,22 @@
       return false;
     }
 
-    setSide(side);
     const draft = draftFor(side);
-    if (!draft) {
-      openTradeDrawer(side);
-      return false;
-    }
+    if (!draft) return false;
 
     state.openTrade = Object.assign({},draft,{
       symbol:state.symbol,
-      openedAt:current().timestamp,
+      openedAt:state.positionDraft.entryTime || current().timestamp,
       openedIndex:state.index,
       floating:0
     });
+    state.positionDraft = null;
+    state.positionDrag = null;
+    state.positionDragPointerId = null;
     renderOpenTrade();
     renderMetrics();
-    closeDrawers();
+    updateDraft();
+    renderDrawings();
     return true;
   }
 
