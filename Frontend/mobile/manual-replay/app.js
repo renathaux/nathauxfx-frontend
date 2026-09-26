@@ -462,26 +462,76 @@
     return true;
   }
 
-  function setDraftLevel(field,rawValue) {
+  function syncPositionDraftToCurrent() {
     const draft = state.positionDraft;
-    if (!draft || !['sl','tp'].includes(field)) return false;
+    const candle = current();
+    if (!draft || !candle || state.openTrade) return false;
+
+    const nextEntry = Number(candle.close);
+    if (!Number.isFinite(nextEntry)) return false;
+    const oldEntry = Number(draft.entry);
+    const delta = nextEntry - oldEntry;
+    if (!Number.isFinite(delta)) return false;
+
+    if (Math.abs(delta) > 0) {
+      draft.entry = nextEntry;
+      draft.sl = Number(draft.sl) + delta;
+      draft.tp = Number(draft.tp) + delta;
+    }
+    draft.entryIndex = state.index;
+    draft.entryTime = candle.timestamp;
+
+    $('entryPrice').value = fmt(draft.entry);
+    $('slPrice').value = fmt(draft.sl);
+    $('tpPrice').value = fmt(draft.tp);
+    return true;
+  }
+
+  function setPositionLevel(field,rawValue) {
+    if (!['sl','tp'].includes(field)) return false;
     const value = Number(rawValue);
     if (!Number.isFinite(value)) return false;
 
     const gap = minimumPriceDistance();
-    const entry = Number(draft.entry);
-    let next = value;
-    if (field === 'sl') {
-      next = draft.side === 'LONG' ? Math.min(value,entry-gap) : Math.max(value,entry+gap);
-    } else {
-      next = draft.side === 'LONG' ? Math.max(value,entry+gap) : Math.min(value,entry-gap);
+
+    if (state.positionDraft) {
+      const draft = state.positionDraft;
+      const entry = Number(draft.entry);
+      let next = value;
+      if (field === 'sl') {
+        next = draft.side === 'LONG' ? Math.min(value,entry-gap) : Math.max(value,entry+gap);
+      } else {
+        next = draft.side === 'LONG' ? Math.max(value,entry+gap) : Math.min(value,entry-gap);
+      }
+      draft[field] = next;
+      $(field === 'sl' ? 'slPrice' : 'tpPrice').value = fmt(next);
+      updateDraft();
+      renderDrawings();
+      return true;
     }
 
-    draft[field] = next;
-    $(field === 'sl' ? 'slPrice' : 'tpPrice').value = fmt(next);
-    updateDraft();
-    renderDrawings();
-    return true;
+    if (state.openTrade && state.openTradeEditing) {
+      const trade = state.openTrade;
+      const market = Number(current()?.close);
+      if (!Number.isFinite(market)) return false;
+      let next = value;
+      if (field === 'sl') {
+        next = trade.side === 'LONG' ? Math.min(value,market-gap) : Math.max(value,market+gap);
+      } else {
+        next = trade.side === 'LONG' ? Math.max(value,market+gap) : Math.min(value,market-gap);
+      }
+      trade[field] = next;
+      $(field === 'sl' ? 'slPrice' : 'tpPrice').value = fmt(next);
+      renderOpenTrade();
+      renderDrawings();
+      return true;
+    }
+
+    return false;
+  }
+
+  function setDraftLevel(field,rawValue) {
+    return setPositionLevel(field,rawValue);
   }
 
   function draftFor(side) {
