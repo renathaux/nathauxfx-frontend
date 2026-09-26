@@ -20,6 +20,8 @@
     timeframe:'5m',
     candles:[],
     index:0,
+    replayStartIndex:0,
+    replayEndIndex:0,
     timer:null,
     chart:null,
     series:null,
@@ -231,6 +233,20 @@
     return state.candles[state.index] || null;
   }
 
+  function replayBounds() {
+    const start = Math.max(0,Math.min(state.candles.length-1,Number(state.replayStartIndex)||0));
+    const end = Math.max(start,Math.min(state.candles.length-1,
+      Number.isFinite(Number(state.replayEndIndex)) ? Number(state.replayEndIndex) : state.candles.length-1));
+    return {start,end,total:state.candles.length ? end-start+1 : 0};
+  }
+
+  function replayProgress() {
+    if (!state.candles.length) return {current:0,total:0,pct:0};
+    const bounds = replayBounds();
+    const current = Math.max(1,Math.min(bounds.total,state.index-bounds.start+1));
+    return {current,total:bounds.total,pct:bounds.total ? current/bounds.total*100 : 0};
+  }
+
   function visibleCandles() {
     return state.candles.slice(0,state.index+1).map(candle => ({
       time:Math.floor(Date.parse(candle.timestamp)/1000),
@@ -255,7 +271,8 @@
       $('shortPrice').textContent = state.positionDraft?.side === 'SHORT' ? 'SELL' : fmt(candle.close);
       $('longPrice').textContent = state.positionDraft?.side === 'LONG' ? 'BUY' : fmt(candle.close);
     }
-    $('progress').textContent = (state.candles.length ? state.index+1 : 0) + ' / ' + state.candles.length;
+    const progress = replayProgress();
+    $('progress').textContent = progress.current + ' / ' + progress.total;
     state.series.applyOptions({autoscaleInfoProvider:autoScaleInfoProvider});
   }
 
@@ -265,7 +282,8 @@
     const floating = state.openTrade ? Number(state.openTrade.floating || 0) : 0;
     const equity = state.balance + floating;
     const net = state.balance - state.startBalance;
-    const pct = state.candles.length ? ((state.index+1)/state.candles.length)*100 : 0;
+    const replay = replayProgress();
+    const pct = replay.pct;
 
     $('metricBalance').textContent = '$' + state.balance.toFixed(2);
     $('metricEquity').textContent = '$' + equity.toFixed(2);
@@ -276,7 +294,7 @@
     $('metricTrades').textContent = String(completed);
     $('metricProgressPct').textContent = pct.toFixed(0) + '%';
     $('metricProgressBar').style.width = Math.max(0,Math.min(100,pct)) + '%';
-    $('metricProgressText').textContent = (state.candles.length ? state.index+1 : 0) + ' / ' + state.candles.length + ' candles';
+    $('metricProgressText').textContent = replay.current + ' / ' + replay.total + ' replay candles';
   }
 
   function renderHistory() {
@@ -336,7 +354,7 @@
     $('playBtn').textContent = on ? 'Ⅱ' : '▶';
     if (on) {
       state.timer = setInterval(() => {
-        if (state.index >= state.candles.length-1) {
+        if (state.index >= replayBounds().end) {
           setPlaying(false);
           return;
         }
@@ -347,7 +365,8 @@
 
   function step(delta) {
     if (!state.candles.length) return;
-    state.index = Math.max(0,Math.min(state.candles.length-1,state.index+delta));
+    const bounds = replayBounds();
+    state.index = Math.max(bounds.start,Math.min(bounds.end,state.index+delta));
     renderAll();
   }
 
@@ -380,7 +399,9 @@
       state.candles = await loadHistory(state.symbol,state.timeframe,start,end);
       if (state.candles.length < 2) throw new Error('Not enough candles in this replay range.');
 
-      state.index = Math.min(180,state.candles.length-1);
+      state.replayStartIndex = 0;
+      state.replayEndIndex = state.candles.length-1;
+      state.index = Math.min(180,state.replayEndIndex);
       $('chartSymbol').value = state.symbol;
       $('chartTf').value = state.timeframe;
       syncMarketHeader();
