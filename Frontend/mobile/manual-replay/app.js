@@ -353,9 +353,32 @@
     return Number(value).toFixed(d);
   }
 
+  function renderTradeHologram() {
+    const node = $('tradeHologram');
+    const trade = state.openTrade;
+    if (!trade) {
+      node.classList.add('hidden');
+      node.classList.remove('profit','loss','flat');
+      return;
+    }
+
+    const floating = Number(trade.floating || 0);
+    const candle = current();
+    const direction = trade.side === 'LONG' ? 1 : -1;
+    const pip = pipSize(trade.symbol);
+    const pips = candle ? ((Number(candle.close)-Number(trade.entry))*direction/pip) : 0;
+
+    node.classList.remove('hidden','profit','loss','flat');
+    node.classList.add(floating > 0 ? 'profit' : floating < 0 ? 'loss' : 'flat');
+    $('tradeHologramSide').textContent = trade.side + ' • ' + trade.lot.toFixed(2) + ' LOT';
+    $('tradeHologramMoney').textContent = money(floating);
+    $('tradeHologramPips').textContent = (pips >= 0 ? '+' : '') + pips.toFixed(1) + ' pips';
+  }
+
   function renderOpenTrade() {
     const trade = state.openTrade;
     $('openTradeCard').classList.toggle('hidden',!trade);
+    renderTradeHologram();
     if (!trade) return;
     $('openTradeSide').textContent = trade.side;
     $('openTradeSide').className = trade.side === 'LONG' ? 'side-long' : 'side-short';
