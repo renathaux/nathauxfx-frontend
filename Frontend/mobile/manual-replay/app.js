@@ -136,8 +136,21 @@
       autoSize:true,
       layout:{background:{color:'#03070a'},textColor:'#98a8b6',attributionLogo:false},
       grid:{vertLines:{color:'#14232f'},horzLines:{color:'#14232f'}},
-      rightPriceScale:{visible:false,borderVisible:false},
-      timeScale:{borderColor:'#233745',timeVisible:true,secondsVisible:false,rightOffset:0,fixRightEdge:true,barSpacing:8,minBarSpacing:3},
+      rightPriceScale:{
+        visible:false,
+        borderVisible:false,
+        autoScale:true,
+        scaleMargins:{top:0.16,bottom:0.16}
+      },
+      timeScale:{
+        borderColor:'#233745',
+        timeVisible:true,
+        secondsVisible:false,
+        rightOffset:3,
+        fixRightEdge:false,
+        barSpacing:8,
+        minBarSpacing:3
+      },
       handleScroll:true,
       handleScale:true,
       crosshair:{vertLine:{color:'#5b7180',width:1,style:3},horzLine:{color:'#5b7180',width:1,style:3}}
