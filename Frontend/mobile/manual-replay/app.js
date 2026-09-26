@@ -15,6 +15,7 @@
     chart:null,
     series:null,
     side:'LONG',
+    sizingMode:'AUTO_RISK',
     balance:10000,
     startBalance:10000,
     trades:[],
@@ -336,7 +337,28 @@
   function syncLot(value) {
     const normalized = Math.max(0.01,Math.round((Number(value) || 0.10)*100)/100);
     $('lotSize').value = normalized.toFixed(2);
-    $('quickLot').value = normalized.toFixed(2);
+    if (state.sizingMode === 'MANUAL_LOT') $('quickLot').value = normalized.toFixed(2);
+    updateDraft();
+  }
+
+  function riskTargetDollars() {
+    const value = Number($('riskValue').value);
+    if (!Number.isFinite(value) || value <= 0) return null;
+    return $('riskMethod').value === 'FIXED' ? value : state.balance * value / 100;
+  }
+
+  function setSizingMode(mode) {
+    state.sizingMode = mode === 'MANUAL_LOT' ? 'MANUAL_LOT' : 'AUTO_RISK';
+    const manual = state.sizingMode === 'MANUAL_LOT';
+    $('autoRiskMode').classList.toggle('active',!manual);
+    $('manualLotMode').classList.toggle('active',manual);
+    $('autoRiskFields').classList.toggle('hidden',manual);
+    $('manualLotField').classList.toggle('hidden',!manual);
+    $('quickLotLabel').textContent = manual ? 'MANUAL LOT' : 'AUTO LOT';
+    $('quickLot').readOnly = !manual;
+    $('lotMinus').disabled = !manual;
+    $('lotPlus').disabled = !manual;
+    if (manual) $('quickLot').value = manualLot().toFixed(2);
     updateDraft();
   }
 
@@ -346,30 +368,61 @@
     const entry = Number(candle.close);
     const sl = Number($('slPrice').value);
     const tp = Number($('tpPrice').value);
-    const lot = manualLot();
 
-    if (![entry,sl,tp,lot].every(Number.isFinite) || sl <= 0 || tp <= 0 || lot <= 0) return null;
+    if (![entry,sl,tp].every(Number.isFinite) || sl <= 0 || tp <= 0) return null;
 
     const valid = side === 'LONG' ? (sl < entry && tp > entry) : (sl > entry && tp < entry);
     if (!valid) return null;
 
     const pip = pipSize(state.symbol);
-    const pipValue = pipValuePerLot(state.symbol) * lot;
+    const perLot = pipValuePerLot(state.symbol);
     const slPips = Math.abs(entry-sl)/pip;
     const tpPips = Math.abs(tp-entry)/pip;
-    const risk = slPips * pipValue;
-    const reward = tpPips * pipValue;
+    if (!Number.isFinite(slPips) || slPips <= 0 || !Number.isFinite(tpPips)) return null;
+
+    let lot;
+    let risk;
+    if (state.sizingMode === 'MANUAL_LOT') {
+      lot = manualLot();
+      risk = slPips * perLot * lot;
+    } else {
+      risk = riskTargetDollars();
+      if (!Number.isFinite(risk) || risk <= 0) return null;
+      lot = risk / (slPips * perLot);
+    }
+
+    if (!Number.isFinite(lot) || lot <= 0) return null;
+
+    const reward = tpPips * perLot * lot;
     const rr = risk > 0 ? reward/risk : 0;
 
-    return {side,entry,sl,tp,lot,risk,reward,rr,slPips,tpPips};
+    return {
+      side,entry,sl,tp,lot,risk,reward,rr,slPips,tpPips,
+      sizingMode:state.sizingMode,
+      riskMethod:$('riskMethod').value,
+      riskValue:Number($('riskValue').value)
+    };
   }
 
   function updateDraft() {
     const draft = draftFor(state.side);
+    $('draftLot').textContent = draft ? draft.lot.toFixed(2) : '—';
     $('draftRisk').textContent = draft ? '$' + draft.risk.toFixed(2) : '—';
     $('draftReward').textContent = draft ? '$' + draft.reward.toFixed(2) : '—';
     $('draftRr').textContent = draft ? '1:' + draft.rr.toFixed(2) : '—';
     $('draftSlPips').textContent = draft ? draft.slPips.toFixed(1) : '—';
+    $('draftTpPips').textContent = draft ? draft.tpPips.toFixed(1) : '—';
+
+    const manual = state.sizingMode === 'MANUAL_LOT';
+    $('quickLotLabel').textContent = manual ? 'MANUAL LOT' : 'AUTO LOT';
+    $('quickLot').readOnly = !manual;
+    $('lotMinus').disabled = !manual;
+    $('lotPlus').disabled = !manual;
+    if (manual) {
+      $('quickLot').value = manualLot().toFixed(2);
+    } else {
+      $('quickLot').value = draft && Number.isFinite(draft.lot) ? draft.lot.toFixed(2) : '';
+    }
   }
 
   function setSide(side) {
@@ -600,6 +653,7 @@
   bindDrawing();
   bindSwipes();
   syncLot(0.10);
+  setSizingMode('AUTO_RISK');
 
   $('leftDrawerBtn').onclick = () => openTradeDrawer(state.side);
   $('leftEdgeHandle').onclick = () => openTradeDrawer(state.side);
@@ -619,14 +673,20 @@
   $('quickLong').onclick = () => openTrade('LONG');
   $('ticketLong').onclick = () => setSide('LONG');
   $('ticketShort').onclick = () => setSide('SHORT');
+  $('autoRiskMode').onclick = () => setSizingMode('AUTO_RISK');
+  $('manualLotMode').onclick = () => setSizingMode('MANUAL_LOT');
   $('openLongBtn').onclick = () => openTrade('LONG');
   $('openShortBtn').onclick = () => openTrade('SHORT');
   $('closeTradeBtn').onclick = closeTradeNow;
 
   $('lotMinus').onclick = () => syncLot(manualLot()-0.01);
   $('lotPlus').onclick = () => syncLot(manualLot()+0.01);
-  $('quickLot').addEventListener('input',() => syncLot($('quickLot').value));
+  $('quickLot').addEventListener('input',() => {
+    if (state.sizingMode === 'MANUAL_LOT') syncLot($('quickLot').value);
+  });
   $('lotSize').addEventListener('input',() => syncLot($('lotSize').value));
+  $('riskMethod').addEventListener('change',updateDraft);
+  $('riskValue').addEventListener('input',updateDraft);
   $('slPrice').addEventListener('input',updateDraft);
   $('tpPrice').addEventListener('input',updateDraft);
 
