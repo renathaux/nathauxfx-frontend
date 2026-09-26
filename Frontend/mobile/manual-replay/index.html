@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#05090d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NathauxFX">
   <meta http-equiv="Cache-Control" content="no-store,max-age=0">
   <title>NathauxFX — Mobile Manual Replay</title>
   <link rel="stylesheet" href="./styles.css?v=14">
@@ -13,7 +17,7 @@
   <div id="app" class="replay-app">
     <header class="topbar">
       <button id="leftDrawerBtn" class="top-icon" type="button" aria-label="Open trade ticket">☰</button>
-      <a class="brand" href="/mobile.html" aria-label="NathauxFX mobile dashboard">
+      <a id="mobileDashboardLink" class="brand" href="/mobile.html" aria-label="NathauxFX mobile dashboard">
         <span class="brand-mark">N</span>
         <span class="brand-name">Nathaux<span>FX</span></span>
       </a>
@@ -233,6 +237,16 @@
     <button id="jumpToCandleBtn" class="calendar-jump-action" type="button">Load Replay Range</button>
   </section>
 
+  <script>
+    (function(){
+      var dashboardLink=document.getElementById('mobileDashboardLink');
+      if(dashboardLink)dashboardLink.addEventListener('click',function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        window.location.assign('/mobile.html');
+      });
+    })();
+  </script>
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
   <script src="./app.js?v=16"></script>
   <script src="./layout-editor.js?v=1"></script>
