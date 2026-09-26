@@ -11,6 +11,9 @@
   let candleCalendarMonthKey = null;
   let candleCalendarSelectedDay = null;
   let candleCalendarDayRows = [];
+  let candleCalendarActivePoint = 'from';
+  let candleCalendarFromTs = null;
+  let candleCalendarToTs = null;
 
   const state = {
     symbol:'EURUSD',
@@ -26,6 +29,7 @@
     startBalance:10000,
     trades:[],
     openTrade:null,
+    openTradeEditing:false,
     positionDraft:null,
     positionDrag:null,
     positionDragPointerId:null,
