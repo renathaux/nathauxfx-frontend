@@ -3,62 +3,177 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-  <meta name="theme-color" content="#f5f8fd">
+  <meta name="theme-color" content="#05090d">
   <meta http-equiv="Cache-Control" content="no-store,max-age=0">
   <title>NathauxFX — Mobile Manual Replay</title>
-  <link rel="stylesheet" href="./styles.css?v=1">
+  <link rel="stylesheet" href="./styles.css?v=3">
 </head>
 <body>
-  <header class="app-header">
-    <a class="brand" href="/mobile.html" aria-label="Back to mobile dashboard"><span class="brand-mark">N</span><span><strong>NathauxFX</strong><small>Trade. Replay. Improve.</small></span></a>
-    <div class="header-actions"><button id="setupBtn" class="icon-btn" type="button" aria-label="Replay setup">⚙</button><a class="avatar" href="/mobile.html" aria-label="Dashboard">N</a></div>
-  </header>
-  <nav class="mode-tabs" aria-label="Replay navigation"><a class="active" href="/mobile/manual-replay/">Manual Replay</a><a href="/strategy-simulator.html">Simulator</a><a href="/strategy-studio.html">Studio</a></nav>
-  <main class="page">
-    <section id="setupCard" class="setup-card collapsed" aria-label="Replay setup">
-      <button id="setupToggle" class="setup-summary" type="button" aria-expanded="false"><span class="setup-icon">◷</span><span><strong>Replay Setup</strong><small id="setupSummaryText">EURUSD · 5m · $10,000</small></span><b>›</b></button>
-      <div class="setup-fields">
+  <div id="app" class="replay-app">
+    <header class="topbar">
+      <button id="leftDrawerBtn" class="top-icon" type="button" aria-label="Open trade ticket">☰</button>
+      <a class="brand" href="/mobile.html" aria-label="NathauxFX mobile dashboard">
+        <span class="brand-mark">N</span>
+        <span class="brand-name">Nathaux<span>FX</span></span>
+      </a>
+      <div class="top-actions">
+        <button id="toolsBtn" class="top-icon" type="button" aria-label="Chart tools">⌖</button>
+        <button id="fullscreenBtn" class="top-icon" type="button" aria-label="Fullscreen chart">⛶</button>
+      </div>
+    </header>
+
+    <section class="marketbar">
+      <div>
+        <select id="chartSymbol" class="bare-select" aria-label="Symbol">
+          <option>EURUSD</option>
+          <option>XAUUSD</option>
+        </select>
+        <small id="marketName">Euro vs US Dollar</small>
+      </div>
+      <select id="chartTf" class="tf-select" aria-label="Timeframe">
+        <option value="5m">M5</option>
+        <option value="15m">M15</option>
+        <option value="1h">H1</option>
+      </select>
+      <div class="replay-indicator"><i></i><span>Manual Replay</span></div>
+    </section>
+
+    <section id="chartShell" class="chart-shell">
+      <div id="ohlc" class="ohlc">O — H — L — C —</div>
+      <div class="chart-stage">
+        <div id="chart" class="chart" aria-label="Manual replay candlestick chart"></div>
+        <div class="drawing-overlay"><svg id="drawingSvg"></svg></div>
+        <div id="status" class="chart-status">Loading replay…</div>
+      </div>
+
+      <div id="toolPalette" class="tool-palette hidden" aria-label="Drawing tools">
+        <button id="cursorBtn" class="tool active" type="button">↖</button>
+        <button id="lineBtn" class="tool" type="button">╱</button>
+        <button id="rectBtn" class="tool" type="button">▭ S/R</button>
+        <button id="measureBtn" class="tool" type="button">⌁</button>
+        <button id="clearDrawingsBtn" class="tool" type="button">⌫</button>
+      </div>
+
+      <div class="replay-controls">
+        <button id="prevBtn" type="button">Ⅰ◀</button>
+        <button id="playBtn" class="play-control" type="button">▶</button>
+        <button id="nextBtn" type="button">▶Ⅰ</button>
+        <select id="speed" aria-label="Replay speed">
+          <option value="1">1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option>
+        </select>
+        <span id="progress">0 / 0</span>
+      </div>
+    </section>
+
+    <section class="trade-strip">
+      <button id="quickShort" class="position-btn short" type="button">
+        <small>SHORT POSITION</small><strong id="shortPrice">—</strong>
+      </button>
+      <div class="lot-control" aria-label="Manual lot size">
+        <small>MANUAL LOT</small>
+        <div><button id="lotMinus" type="button">−</button><input id="quickLot" type="number" min="0.01" step="0.01" value="0.10"><button id="lotPlus" type="button">+</button></div>
+      </div>
+      <button id="quickLong" class="position-btn long" type="button">
+        <small>LONG POSITION</small><strong id="longPrice">—</strong>
+      </button>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Manual replay navigation">
+      <button id="navReplay" class="active" type="button"><b>▶</b><span>Manual Replay</span></button>
+      <button id="navHistory" type="button"><b>◷</b><span>History</span></button>
+      <button id="navMetrics" type="button"><b>▥</b><span>Metrics</span></button>
+      <button id="navSettings" type="button"><b>⚙</b><span>Settings</span></button>
+    </nav>
+
+    <button id="leftEdgeHandle" class="edge-handle left" type="button" aria-label="Open trade ticket">›</button>
+    <button id="rightEdgeHandle" class="edge-handle right" type="button" aria-label="Open account metrics">‹</button>
+  </div>
+
+  <div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
+
+  <aside id="tradeDrawer" class="side-drawer left-drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <div><small>MANUAL REPLAY</small><h2>Trade Ticket</h2></div>
+      <button id="closeTradeDrawer" type="button" aria-label="Close trade ticket">×</button>
+    </div>
+    <p class="drawer-subtitle">Set the trade, then use Long or Short.</p>
+
+    <div class="side-select">
+      <button id="ticketLong" class="long active" type="button">↑ Long</button>
+      <button id="ticketShort" class="short" type="button">↓ Short</button>
+    </div>
+
+    <div class="ticket-fields">
+      <label>Entry Price<input id="entryPrice" type="text" value="—" readonly></label>
+      <label>Stop Loss<input id="slPrice" type="number" step="any" placeholder="Required"></label>
+      <label>Take Profit<input id="tpPrice" type="number" step="any" placeholder="Required"></label>
+      <label>Manual Lot<input id="lotSize" type="number" min="0.01" step="0.01" value="0.10"></label>
+    </div>
+
+    <div class="ticket-summary">
+      <div><span>Risk</span><strong id="draftRisk">—</strong></div>
+      <div><span>Reward</span><strong id="draftReward">—</strong></div>
+      <div><span>R:R</span><strong id="draftRr">—</strong></div>
+      <div><span>SL pips</span><strong id="draftSlPips">—</strong></div>
+    </div>
+
+    <div class="drawer-actions">
+      <button id="openLongBtn" class="action-long" type="button">↑ Open Long</button>
+      <button id="openShortBtn" class="action-short" type="button">↓ Open Short</button>
+    </div>
+
+    <section id="openTradeCard" class="open-trade hidden">
+      <div class="open-title"><span>OPEN POSITION</span><strong id="openTradeSide">—</strong></div>
+      <div><span>Entry</span><strong id="openTradeEntry">—</strong></div>
+      <div><span>SL / TP</span><strong id="openTradeLevels">—</strong></div>
+      <div><span>Floating P/L</span><strong id="openTradePnl">—</strong></div>
+      <button id="closeTradeBtn" type="button">Close at current price</button>
+    </section>
+  </aside>
+
+  <aside id="infoDrawer" class="side-drawer right-drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <div><small>NATHAUXFX</small><h2 id="infoDrawerTitle">Account & Analytics</h2></div>
+      <button id="closeInfoDrawer" type="button" aria-label="Close account panel">×</button>
+    </div>
+
+    <section id="metricsPanel" class="drawer-section">
+      <div class="metrics-grid">
+        <div><span>Balance</span><strong id="metricBalance">$10,000.00</strong></div>
+        <div><span>Equity</span><strong id="metricEquity">$10,000.00</strong></div>
+        <div><span>Open P/L</span><strong id="metricOpenPnl">$0.00</strong></div>
+        <div><span>Net P/L</span><strong id="metricPnl">$0.00</strong></div>
+      </div>
+      <div class="stat-card">
+        <div><span>Win Rate</span><strong id="metricWinRate">—</strong></div>
+        <small><span id="metricWins">0</span> wins / <span id="metricTrades">0</span> trades</small>
+      </div>
+      <div class="stat-card">
+        <div><span>Replay Progress</span><strong id="metricProgressPct">0%</strong></div>
+        <div class="progress-track"><i id="metricProgressBar"></i></div>
+        <small id="metricProgressText">0 / 0 candles</small>
+      </div>
+    </section>
+
+    <section id="historyPanel" class="drawer-section">
+      <div class="section-title"><h3>Manual Trade Log</h3><button id="clearHistoryBtn" type="button">Clear</button></div>
+      <div id="tradeHistoryList" class="history-list"><p class="empty-history">No completed trades yet.</p></div>
+    </section>
+
+    <section id="settingsPanel" class="drawer-section hidden">
+      <h3>Replay Setup</h3>
+      <div class="settings-grid">
         <label>Symbol<select id="symbol"><option>EURUSD</option><option>XAUUSD</option></select></label>
         <label>Timeframe<select id="timeframe"><option value="5m">5m</option><option value="15m">15m</option><option value="1h">1h</option></select></label>
         <label>Start<input id="startDate" type="datetime-local"></label>
         <label>End<input id="endDate" type="datetime-local"></label>
         <label>Starting Balance<input id="startingBalance" type="number" min="1" step="100" value="10000"></label>
-        <button id="loadBtn" class="primary-btn" type="button">▶ Load Replay</button>
+        <button id="loadBtn" type="button">▶ Load Replay</button>
       </div>
     </section>
-    <section id="chartShell" class="chart-shell">
-      <div class="chart-head"><select id="chartSymbol" aria-label="Chart symbol"><option>EURUSD</option><option>XAUUSD</option></select><select id="chartTf" aria-label="Chart timeframe"><option value="5m">5m</option><option value="15m">15m</option><option value="1h">1h</option></select><button id="fullscreenBtn" class="square-btn" type="button" aria-label="Fullscreen">⛶</button></div>
-      <div id="ohlc" class="ohlc">O — H — L — C —</div>
-      <div class="chart-stage"><div id="chart" class="chart" aria-label="Replay chart"></div><div class="drawing-overlay"><svg id="drawingSvg"></svg></div></div>
-      <div id="status" class="status">Loading replay…</div>
-      <div class="tool-row" aria-label="Drawing tools"><button id="cursorBtn" class="tool active" type="button">↖</button><button id="lineBtn" class="tool" type="button">╱</button><button id="rectBtn" class="tool" type="button">▭ S/R</button><button id="measureBtn" class="tool" type="button">⌁ Measure</button><button id="clearDrawingsBtn" class="tool" type="button">⌫</button></div>
-      <div class="playback-row"><button id="prevBtn" class="square-btn" type="button">Ⅰ◀</button><button id="playBtn" class="play-btn" type="button">▶ Play</button><button id="nextBtn" class="square-btn" type="button">▶Ⅰ</button><select id="speed"><option value="1">1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option></select></div>
-      <div class="quick-trade"><button id="quickLong" class="long-btn" type="button">↑ Long</button><button id="quickShort" class="short-btn" type="button">↓ Short</button></div>
-      <button id="ticketHandle" class="ticket-handle" type="button" aria-expanded="false"><span>▥</span><span><strong>Trade Ticket</strong><small>Place manual trades in the replay.</small></span><b>⌃</b></button>
-      <div class="chart-footer"><strong id="currentPrice">—</strong><span id="currentTime">No candle loaded</span><span id="progress">0 / 0</span></div>
-    </section>
-    <section class="session-strip" aria-label="Session metrics"><div><span>Balance</span><strong id="metricBalance">$10,000.00</strong></div><div><span>P/L</span><strong id="metricPnl">$0.00</strong></div><div><span>Trades</span><strong id="metricTrades">0</strong></div><div><span>Win rate</span><strong id="metricWinRate">—</strong></div></section>
-  </main>
-  <div id="backdrop" class="backdrop hidden"></div>
-  <aside id="ticketSheet" class="ticket-sheet hidden" aria-hidden="true">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title"><div><strong>▥ Trade Ticket</strong><small>Place manual trades in the replay.</small></div><button id="closeTicket" class="round-btn" type="button">⌃</button></div>
-    <div class="side-select"><button id="ticketLong" class="long-btn active" type="button">↑ Long</button><button id="ticketShort" class="short-btn" type="button">↓ Short</button></div>
-    <label>Entry Price<input id="entryPrice" type="text" readonly value="—"></label>
-    <div class="ticket-grid">
-      <label>Position Sizing<select id="sizingMode"><option value="AUTO">Auto Risk</option><option value="LOT">Manual Lot</option></select></label>
-      <label>Risk Method<select id="riskMethod"><option value="PERCENT">% Balance</option><option value="FIXED">Fixed $</option></select></label>
-      <label>Risk Value<input id="riskValue" type="number" value="1" min="0.01" step="0.01"></label>
-      <label id="lotField" class="hidden">Lot Size<input id="lotSize" type="number" value="0.10" min="0.01" step="0.01"></label>
-      <label>Stop Loss<input id="slPrice" type="number" step="any" placeholder="Required"></label>
-      <label>Take Profit<input id="tpPrice" type="number" step="any" placeholder="Required"></label>
-    </div>
-    <div class="draft-stats"><span>Risk <strong id="draftRisk">—</strong></span><span>Reward <strong id="draftReward">—</strong></span><span>R:R <strong id="draftRr">—</strong></span><span>Lot <strong id="draftLot">—</strong></span></div>
-    <div class="replay-note">ⓘ Manual replay only. No real broker order is sent.</div>
-    <div class="sheet-actions"><button id="openLongBtn" class="long-btn" type="button">↑ Buy (Long)</button><button id="openShortBtn" class="short-btn" type="button">↓ Sell (Short)</button></div>
-    <section id="openTradeCard" class="open-trade hidden"><div><span>Open trade</span><strong id="openTradeSide">—</strong></div><div><span>Entry</span><strong id="openTradeEntry">—</strong></div><div><span>SL / TP</span><strong id="openTradeLevels">—</strong></div><div><span>Floating</span><strong id="openTradePnl">—</strong></div><button id="closeTradeBtn" class="close-trade" type="button">Close at current price</button></section>
   </aside>
+
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-  <script src="./app.js?v=1"></script>
+  <script src="./app.js?v=3"></script>
 </body>
 </html>
