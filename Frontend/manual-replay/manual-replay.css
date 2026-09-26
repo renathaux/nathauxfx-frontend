@@ -165,8 +165,8 @@ body[data-chart-background="white"] .chart-plot { background: #fff; }
 /* The fullscreen frame contains the plot, trade overlay and usable drawing/playback tools. */
 .chart-wrap:fullscreen, .chart-wrap:-webkit-full-screen, body.manual-replay-fullscreen-fallback .chart-wrap { width: 100vw; height: 100dvh; padding: 8px; background: var(--surface); }
 .chart-wrap:fullscreen .chart-plot, .chart-wrap:-webkit-full-screen .chart-plot, body.manual-replay-fullscreen-fallback .chart-plot { flex: 1; height: auto; min-height: 0; }
-.chart-wrap:fullscreen .manual-replay-trade-layer { inset: 0; }
-.chart-wrap:fullscreen .chart-drawing-bar { display: flex; }
+.chart-wrap:fullscreen .manual-replay-trade-layer, body.manual-replay-fullscreen-fallback .manual-replay-trade-layer { inset: 0; }
+.chart-wrap:fullscreen .chart-drawing-bar, body.manual-replay-fullscreen-fallback .chart-drawing-bar { display: flex; }
 body.manual-replay-fullscreen-fallback { overflow: hidden; }
 body.manual-replay-fullscreen-fallback .chart-wrap { position: fixed; inset: 0; z-index: 90; }
 @media (max-width: 1350px) {
