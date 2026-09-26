@@ -99,10 +99,10 @@
     if (state.chart) return;
     state.chart = LightweightCharts.createChart($('chart'), {
       autoSize:true,
-      layout:{background:{color:'#ffffff'},textColor:'#536d94'},
+      layout:{background:{color:'#ffffff'},textColor:'#536d94',attributionLogo:false},
       grid:{vertLines:{color:'#edf2f8'},horzLines:{color:'#edf2f8'}},
-      rightPriceScale:{borderColor:'#d9e3f1'},
-      timeScale:{borderColor:'#d9e3f1',timeVisible:true,secondsVisible:false},
+      rightPriceScale:{borderColor:'#d9e3f1',scaleMargins:{top:.12,bottom:.16}},
+      timeScale:{borderColor:'#d9e3f1',timeVisible:true,secondsVisible:false,rightOffset:6,barSpacing:8,minBarSpacing:3},
       handleScroll:true,
       handleScale:true
     });
