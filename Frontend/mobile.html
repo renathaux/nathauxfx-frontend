@@ -18,6 +18,7 @@
       try{var a=JSON.parse(localStorage.getItem("flowsignal_access")||"null");var r=String(localStorage.getItem("flowsignal_role")||"").toLowerCase();if(!(a&&a.granted===true)&&r!=="admin"&&r!=="user")window.location.replace("index.html");}catch(e){window.location.replace("index.html");}
     })();
   </script>
+  <link rel="manifest" href="/nathauxfx.webmanifest" />
   <link rel="stylesheet" href="mobile.css?v=8" />
   <link rel="stylesheet" href="mobileSheet.css?v=7" />
   <link rel="stylesheet" href="mobileChartLayout.css?v=5" />
@@ -27,6 +28,9 @@
   <style>
     .mobile-only > .shared-mode-nav { position:fixed; left:9px; right:9px; bottom:max(8px,env(safe-area-inset-bottom)); height:62px; z-index:2100; }
     @media (max-height:820px) { .mobile-only > .shared-mode-nav { height:52px; } }
+    .manual-replay-shell{position:fixed;inset:0;z-index:10000;background:#000}
+    .manual-replay-shell.hidden{display:none}
+    .manual-replay-shell iframe{display:block;width:100%;height:100%;border:0;background:#000}
   </style>
 </head>
 <body class="mobile-only">
@@ -119,6 +123,10 @@
     </nav>
   </aside>
 
+  <div id="manualReplayShell" class="manual-replay-shell hidden" aria-hidden="true">
+    <iframe id="manualReplayFrame" title="Manual Replay" src="about:blank" allow="fullscreen"></iframe>
+  </div>
+
   <section id="mobileDetail" class="detail sheet hidden" aria-hidden="true">
     <div class="sheet-handle" aria-hidden="true"></div>
     <header><div><small id="mobileDetailEyebrow">DETAILS</small><strong id="mobileDetailTitle">Details</strong></div><button id="mobileDetailClose" type="button" aria-label="Close details">×</button></header>
@@ -148,14 +156,47 @@
       collapseSettings();
       if(settings)settings.addEventListener('toggle',syncLogout);
 
-      // iOS Home Screen / standalone mode can hand normal anchor navigation
-      // back to Safari. Force Manual Replay to navigate in this same web-app window.
       var manualReplayLink=document.getElementById('manualReplayMenuLink');
+      var manualReplayShell=document.getElementById('manualReplayShell');
+      var manualReplayFrame=document.getElementById('manualReplayFrame');
+
+      function closeMobileMenu(){
+        var back=document.getElementById('mobileBackdrop');
+        if(menu){menu.classList.add('hidden');menu.setAttribute('aria-hidden','true');}
+        if(back){back.classList.add('hidden');back.setAttribute('aria-hidden','true');}
+        document.body.classList.remove('sheet-open');
+      }
+
+      function openManualReplayInsideApp(){
+        collapseSettings();
+        closeMobileMenu();
+        if(!manualReplayShell||!manualReplayFrame)return;
+        if(!manualReplayFrame.src||manualReplayFrame.src==='about:blank'){
+          manualReplayFrame.src='/mobile/manual-replay/?embedded=1';
+        }
+        manualReplayShell.classList.remove('hidden');
+        manualReplayShell.setAttribute('aria-hidden','false');
+        document.body.style.overflow='hidden';
+      }
+
+      function closeManualReplayInsideApp(){
+        if(!manualReplayShell)return;
+        manualReplayShell.classList.add('hidden');
+        manualReplayShell.setAttribute('aria-hidden','true');
+        document.body.style.overflow='';
+      }
+
       if(manualReplayLink)manualReplayLink.addEventListener('click',function(event){
         event.preventDefault();
         event.stopPropagation();
-        collapseSettings();
-        window.location.assign('/mobile/manual-replay/');
+        openManualReplayInsideApp();
+      });
+
+      window.addEventListener('message',function(event){
+        if(event.origin!==window.location.origin)return;
+        if(event.data&&event.data.type==='nathauxfx-close-manual-replay'){
+          closeManualReplayInsideApp();
+        }
       });
 
       var menuButton=document.getElementById('mobileMenuBtn');
