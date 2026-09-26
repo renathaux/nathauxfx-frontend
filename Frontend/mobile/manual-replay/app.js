@@ -318,6 +318,7 @@
   }
 
   function renderAll() {
+    syncPositionDraftToCurrent();
     renderChart();
     updateOpenTrade(current());
     renderOpenTrade();
@@ -363,6 +364,7 @@
       state.balance = state.startBalance;
       state.trades = [];
       state.openTrade = null;
+      state.openTradeEditing = false;
       state.positionDraft = null;
       state.positionDrag = null;
       state.positionDragPointerId = null;
@@ -655,15 +657,18 @@
       return false;
     }
 
+    syncPositionDraftToCurrent();
     const draft = draftFor(side);
-    if (!draft) return false;
+    const candle = current();
+    if (!draft || !candle) return false;
 
     state.openTrade = Object.assign({},draft,{
       symbol:state.symbol,
-      openedAt:state.positionDraft.entryTime || current().timestamp,
+      openedAt:candle.timestamp,
       openedIndex:state.index,
       floating:0
     });
+    state.openTradeEditing = false;
     state.positionDraft = null;
     state.positionDrag = null;
     state.positionDragPointerId = null;
@@ -707,6 +712,7 @@
     state.balance += pnl;
     state.trades.push(Object.assign({},trade,{exit:price,closedAt:time,pnl}));
     state.openTrade = null;
+    state.openTradeEditing = false;
     renderOpenTrade();
     renderMetrics();
     renderHistory();
