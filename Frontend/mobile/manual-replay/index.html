@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#05090d">
   <meta http-equiv="Cache-Control" content="no-store,max-age=0">
   <title>NathauxFX — Mobile Manual Replay</title>
-  <link rel="stylesheet" href="./styles.css?v=9">
+  <link rel="stylesheet" href="./styles.css?v=10">
   <link rel="stylesheet" href="./user-layout.css?v=4">
 </head>
 <body>
@@ -19,7 +19,7 @@
       </a>
       <div class="top-actions">
         <button id="toolsBtn" class="top-icon" type="button" aria-label="Chart tools">⌖</button>
-        <button id="fullscreenBtn" class="top-icon" type="button" aria-label="Fullscreen chart">⛶</button>
+        <button id="calendarBtn" class="top-icon" type="button" aria-label="Jump to candle date and time">▣</button>
       </div>
     </header>
 
@@ -184,8 +184,28 @@
     </section>
   </aside>
 
+  <div id="candleJumpBackdrop" class="calendar-backdrop hidden"></div>
+  <section id="candleJumpPanel" class="calendar-panel hidden" role="dialog" aria-modal="true" aria-labelledby="candleJumpTitle">
+    <div class="calendar-panel-head">
+      <div>
+        <small>MANUAL REPLAY</small>
+        <h2 id="candleJumpTitle">Jump to Candle</h2>
+      </div>
+      <button id="closeCandleJump" type="button" aria-label="Close candle calendar">×</button>
+    </div>
+    <p>Choose the date and time you want to jump to in the loaded replay.</p>
+    <label class="calendar-field">Date &amp; Time
+      <input id="candleJumpTime" type="datetime-local" step="60">
+    </label>
+    <div class="calendar-range">
+      <span>Loaded range</span>
+      <strong id="candleJumpRange">—</strong>
+    </div>
+    <button id="jumpToCandleBtn" class="calendar-jump-action" type="button">Jump to Candle</button>
+  </section>
+
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-  <script src="./app.js?v=10"></script>
+  <script src="./app.js?v=11"></script>
   <script src="./layout-editor.js?v=1"></script>
 </body>
 </html>

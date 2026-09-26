@@ -695,9 +695,71 @@
     $('toolPalette').classList.toggle('hidden');
   }
 
-  function toggleFullscreen() {
-    document.body.classList.toggle('stream-fullscreen');
-    requestAnimationFrame(() => state.chart && state.chart.resize($('chart').clientWidth,$('chart').clientHeight));
+  function formatJumpRangeDate(timestamp) {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString([], {
+      year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'
+    });
+  }
+
+  function openCandleJump() {
+    if (!state.candles.length) return;
+    setPlaying(false);
+    const candle = current() || state.candles[0];
+    const input = $('candleJumpTime');
+    const first = state.candles[0];
+    const last = state.candles[state.candles.length-1];
+
+    input.value = toInput(new Date(candle.timestamp));
+    input.min = toInput(new Date(first.timestamp));
+    input.max = toInput(new Date(last.timestamp));
+    $('candleJumpRange').textContent =
+      formatJumpRangeDate(first.timestamp) + ' — ' + formatJumpRangeDate(last.timestamp);
+
+    $('candleJumpBackdrop').classList.remove('hidden');
+    $('candleJumpPanel').classList.remove('hidden');
+    setTimeout(() => input.focus(),0);
+  }
+
+  function closeCandleJump() {
+    $('candleJumpBackdrop').classList.add('hidden');
+    $('candleJumpPanel').classList.add('hidden');
+  }
+
+  function nearestCandleIndex(targetMs) {
+    if (!state.candles.length || !Number.isFinite(targetMs)) return -1;
+    let low = 0;
+    let high = state.candles.length - 1;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const time = Date.parse(state.candles[mid].timestamp);
+      if (time === targetMs) return mid;
+      if (time < targetMs) low = mid + 1;
+      else high = mid - 1;
+    }
+
+    if (low >= state.candles.length) return state.candles.length - 1;
+    if (high < 0) return 0;
+    const lowDiff = Math.abs(Date.parse(state.candles[low].timestamp) - targetMs);
+    const highDiff = Math.abs(Date.parse(state.candles[high].timestamp) - targetMs);
+    return lowDiff < highDiff ? low : high;
+  }
+
+  function jumpToSelectedCandle() {
+    const input = $('candleJumpTime');
+    const target = new Date(input.value);
+    if (Number.isNaN(target.getTime())) return;
+
+    const index = nearestCandleIndex(target.getTime());
+    if (index < 0) return;
+
+    state.index = index;
+    state.pricePanOffset = 0;
+    state.chart.timeScale().scrollToRealTime();
+    renderAll();
+    closeCandleJump();
   }
 
   function chartPoint(event) {
@@ -949,9 +1011,15 @@
   $('closeTradeDrawer').onclick = () => closeDrawers();
   $('closeInfoDrawer').onclick = () => closeDrawers();
   $('drawerBackdrop').onclick = () => closeDrawers();
+  $('closeCandleJump').onclick = closeCandleJump;
+  $('candleJumpBackdrop').onclick = closeCandleJump;
+  $('jumpToCandleBtn').onclick = jumpToSelectedCandle;
+  $('candleJumpTime').addEventListener('keydown',event => {
+    if (event.key === 'Enter') jumpToSelectedCandle();
+  });
 
   $('toolsBtn').onclick = toggleTools;
-  $('fullscreenBtn').onclick = toggleFullscreen;
+  $('calendarBtn').onclick = openCandleJump;
   $('prevBtn').onclick = () => step(-1);
   $('nextBtn').onclick = () => step(1);
   $('playBtn').onclick = () => setPlaying(!state.timer);
@@ -1002,13 +1070,13 @@
 
   window.addEventListener('keydown',event => {
     if (event.key !== 'Escape') return;
-    if (state.activeDrawer) closeDrawers();
+    if (!$('candleJumpPanel').classList.contains('hidden')) closeCandleJump();
+    else if (state.activeDrawer) closeDrawers();
     else if (state.positionDraft) {
       state.positionDraft = null;
       updateDraft();
       renderDrawings();
-    } else if (!document.body.classList.contains('stream-fullscreen')) return;
-    else toggleFullscreen();
+    }
   });
 
   loadReplay();
