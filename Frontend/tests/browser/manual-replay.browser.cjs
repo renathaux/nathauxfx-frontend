@@ -153,7 +153,8 @@ async function geometry(page, width) {
    }
    await page.locator('#chartSelectBtn').click();assert.equal((await state(page)).drawingMode,null);
    await page.locator('#fullscreenBtn').click();await page.waitForTimeout(200);
-   assert.ok(await page.evaluate(()=>!!document.fullscreenElement||!!document.webkitFullscreenElement||document.body.classList.contains('manual-replay-fullscreen-fallback')),'fullscreen active');
+   assert.equal(await page.evaluate(()=>document.body.classList.contains('manual-replay-fullscreen-fallback')),true,'stream-safe fullscreen active');
+   assert.equal(await page.evaluate(()=>!!document.fullscreenElement||!!document.webkitFullscreenElement),false,'native fullscreen is not used');
    assert.ok(await page.locator('#chartLineBtn').isVisible());
    assert.ok(await page.locator('#chartTitle').isVisible(), 'fullscreen pair is visible');
    assert.equal(await page.locator('#chartTitle').textContent(), await page.locator('#symbol').inputValue());
@@ -173,7 +174,7 @@ async function geometry(page, width) {
    await page.setViewportSize({width:1440,height:900});
    await page.waitForTimeout(150);
    await page.locator('#fullscreenBtn').click();await page.waitForTimeout(150);
-   assert.equal(await page.evaluate(()=>!!document.fullscreenElement||!!document.webkitFullscreenElement||document.body.classList.contains('manual-replay-fullscreen-fallback')),false);
+   assert.equal(await page.evaluate(()=>document.body.classList.contains('manual-replay-fullscreen-fallback')),false);
    await page.locator('.chart-plot').scrollIntoViewIfNeeded();
    const plot = await page.locator('.chart-plot').boundingBox();
    const revealed = (await state(page)).candles;
