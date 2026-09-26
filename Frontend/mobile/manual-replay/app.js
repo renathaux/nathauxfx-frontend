@@ -1067,6 +1067,25 @@
     return {x:event.clientX-rect.left,y:event.clientY-rect.top};
   }
 
+  function positionDisplayMetrics(position) {
+    if (!position) return null;
+    if (state.positionDraft === position) return draftFor(position.side);
+
+    const pip = pipSize(state.symbol);
+    const perLot = pipValuePerLot(state.symbol);
+    const lot = Number(position.lot);
+    const entry = Number(position.entry);
+    const sl = Number(position.sl);
+    const tp = Number(position.tp);
+    if (![lot,entry,sl,tp].every(Number.isFinite) || lot <= 0) return null;
+
+    const slPips = Math.abs(entry-sl)/pip;
+    const tpPips = Math.abs(tp-entry)/pip;
+    const risk = slPips*perLot*lot;
+    const reward = tpPips*perLot*lot;
+    return {slPips,tpPips,risk,reward,lot};
+  }
+
   function positionOverlaySvg(position,editable) {
     if (!position || !state.series) return '';
     const entryY = state.series.priceToCoordinate(Number(position.entry));
@@ -1075,13 +1094,16 @@
     if (![entryY,slY,tpY].every(Number.isFinite)) return '';
 
     const width = $('chart').clientWidth || 320;
-    const entryTime = position.entryTime ? Math.floor(Date.parse(position.entryTime)/1000) : null;
-    const candleX = entryTime && state.chart?.timeScale ? state.chart.timeScale().timeToCoordinate(entryTime) : null;
+    const entryTime = position.entryTime || position.openedAt;
+    const entrySeconds = entryTime ? Math.floor(Date.parse(entryTime)/1000) : null;
+    const candleX = entrySeconds && state.chart?.timeScale ? state.chart.timeScale().timeToCoordinate(entrySeconds) : null;
     const fallbackX = Math.round(width*0.52);
     const baseX = Number.isFinite(Number(candleX)) ? Number(candleX) : fallbackX;
     const cardWidth = Math.max(150,Math.min(250,width*0.42));
     const startX = Math.max(12,Math.min(width-cardWidth-12,baseX-22));
     const endX = Math.min(width-12,startX+cardWidth);
+    const minY = Math.min(entryY,slY,tpY);
+    const maxY = Math.max(entryY,slY,tpY);
 
     const rect = (a,b,klass) => '<rect class="position-zone ' + klass + '" x="' + startX + '" y="' + Math.min(a,b) + '" width="' + (endX-startX) + '" height="' + Math.abs(b-a) + '" rx="2"/>';
     const line = (field,value,y,klass) => {
@@ -1094,7 +1116,7 @@
         '<text class="position-price-label ' + klass + '" x="' + (endX-14) + '" y="' + Math.max(12,y-5) + '" text-anchor="end">' + field.toUpperCase() + ' ' + fmt(value) + '</text>';
     };
 
-    const metrics = editable ? draftFor(position.side) : position;
+    const metrics = positionDisplayMetrics(position);
     const riskText = metrics && Number.isFinite(Number(metrics.slPips)) && Number.isFinite(Number(metrics.risk))
       ? metrics.slPips.toFixed(1) + ' pips  -$' + metrics.risk.toFixed(2)
       : '';
@@ -1103,8 +1125,10 @@
       : '';
     const riskMid = (entryY+slY)/2;
     const rewardMid = (entryY+tpY)/2;
+    const editingClass = state.openTrade === position && state.openTradeEditing ? ' editing' : '';
 
-    return '<g class="position-overlay ' + (editable ? 'draft' : 'active') + '">' +
+    return '<g class="position-overlay ' + (editable ? 'draft' : 'active') + editingClass + '">' +
+      '<rect class="position-card-hit" data-position-card="1" x="' + startX + '" y="' + minY + '" width="' + (endX-startX) + '" height="' + Math.max(20,maxY-minY) + '"/>' +
       rect(entryY,tpY,'profit-zone') +
       rect(entryY,slY,'risk-zone') +
       line('entry',position.entry,entryY,'entry') +
@@ -1128,7 +1152,8 @@
       return '<line class="' + klass + '" x1="' + drawing.a.x + '" y1="' + drawing.a.y + '" x2="' + drawing.b.x + '" y2="' + drawing.b.y + '"/>';
     }).join('');
     const position = state.positionDraft || state.openTrade;
-    svg.innerHTML = drawings + positionOverlaySvg(position,Boolean(state.positionDraft));
+    const editable = Boolean(state.positionDraft || (state.openTrade && state.openTradeEditing));
+    svg.innerHTML = drawings + positionOverlaySvg(position,editable);
   }
 
   function setDrawMode(mode) {
