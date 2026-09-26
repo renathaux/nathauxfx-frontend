@@ -71,6 +71,8 @@
     top:var(--nfx-live-topbar-h)!important;
     height:calc(100vh - var(--nfx-live-topbar-h))!important;
   }
+  body.nfx-shared-live-topbar .app-sidebar>.brand{display:none!important;}
+  body.nfx-shared-live-topbar .app-sidebar>.sidebar-footer{display:none!important;}
   body.nfx-shared-live-topbar .studio-shell{
     min-height:calc(100vh - var(--nfx-live-topbar-h));
   }
