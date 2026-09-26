@@ -26,6 +26,9 @@
     chart:null,
     series:null,
     renderedCandleCount:0,
+    hologramPos:null,
+    hologramDrag:null,
+    hologramPointerId:null,
     side:'LONG',
     sizingMode:'AUTO_RISK',
     balance:10000,
@@ -353,6 +356,97 @@
     return Number(value).toFixed(d);
   }
 
+  function clamp(value,min,max) {
+    return Math.max(min,Math.min(max,value));
+  }
+
+  function ensureTradeHologramPosition() {
+    const node = $('tradeHologram');
+    const stage = node?.parentElement;
+    if (!node || !stage || node.classList.contains('hidden')) return;
+
+    const stageRect = stage.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    const pad = 8;
+
+    if (!state.hologramPos) {
+      state.hologramPos = {
+        x:Math.round((stageRect.width-nodeRect.width)/2),
+        y:Math.round(stageRect.height*0.11)
+      };
+    }
+
+    state.hologramPos.x = clamp(
+      Number(state.hologramPos.x)||0,
+      pad,
+      Math.max(pad,stageRect.width-nodeRect.width-pad)
+    );
+    state.hologramPos.y = clamp(
+      Number(state.hologramPos.y)||0,
+      pad,
+      Math.max(pad,stageRect.height-nodeRect.height-pad)
+    );
+
+    node.style.left = state.hologramPos.x + 'px';
+    node.style.top = state.hologramPos.y + 'px';
+  }
+
+  function bindTradeHologramDrag() {
+    const node = $('tradeHologram');
+    if (!node) return;
+
+    node.addEventListener('pointerdown',event => {
+      if (node.classList.contains('hidden')) return;
+      const nodeRect = node.getBoundingClientRect();
+      state.hologramPointerId = event.pointerId;
+      state.hologramDrag = {
+        dx:event.clientX-nodeRect.left,
+        dy:event.clientY-nodeRect.top
+      };
+      node.classList.add('dragging');
+      node.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    window.addEventListener('pointermove',event => {
+      if (state.hologramPointerId !== event.pointerId || !state.hologramDrag) return;
+      const stage = node.parentElement;
+      if (!stage) return;
+      const stageRect = stage.getBoundingClientRect();
+      const nodeRect = node.getBoundingClientRect();
+      const pad = 8;
+
+      state.hologramPos = {
+        x:clamp(
+          event.clientX-stageRect.left-state.hologramDrag.dx,
+          pad,
+          Math.max(pad,stageRect.width-nodeRect.width-pad)
+        ),
+        y:clamp(
+          event.clientY-stageRect.top-state.hologramDrag.dy,
+          pad,
+          Math.max(pad,stageRect.height-nodeRect.height-pad)
+        )
+      };
+      ensureTradeHologramPosition();
+      event.preventDefault();
+    },{passive:false});
+
+    const finish = event => {
+      if (state.hologramPointerId == null) return;
+      if (event?.pointerId != null && event.pointerId !== state.hologramPointerId) return;
+      node.releasePointerCapture?.(state.hologramPointerId);
+      state.hologramPointerId = null;
+      state.hologramDrag = null;
+      node.classList.remove('dragging');
+    };
+
+    window.addEventListener('pointerup',finish);
+    window.addEventListener('pointercancel',finish);
+    window.addEventListener('resize',() => requestAnimationFrame(ensureTradeHologramPosition));
+  }
+
   function renderTradeHologram() {
     const node = $('tradeHologram');
     const trade = state.openTrade;
@@ -373,6 +467,7 @@
     $('tradeHologramSide').textContent = trade.side + ' • ' + trade.lot.toFixed(2) + ' LOT';
     $('tradeHologramMoney').textContent = money(floating);
     $('tradeHologramPips').textContent = (pips >= 0 ? '+' : '') + pips.toFixed(1) + ' pips';
+    requestAnimationFrame(ensureTradeHologramPosition);
   }
 
   function renderOpenTrade() {
@@ -1395,6 +1490,7 @@
 
     stage.addEventListener('pointerdown',event => {
       if (state.drawMode || state.positionDrag) return;
+      if (event.target?.closest?.('#tradeHologram')) return;
       if (event.target && event.target.getAttribute && event.target.getAttribute('data-position-handle')) return;
       state.pricePanGesture = {
         startX:event.clientX,
@@ -1443,6 +1539,7 @@
 
   function bindSwipes() {
     document.addEventListener('touchstart',event => {
+      if (event.target?.closest?.('#tradeHologram')) return;
       if (event.touches.length !== 1) return;
       const touch = event.touches[0];
       state.swipeStart = {x:touch.clientX,y:touch.clientY};
@@ -1495,6 +1592,7 @@
   bindDrawing();
   bindPositionDrag();
   bindChartVerticalPan();
+  bindTradeHologramDrag();
   bindSwipes();
   syncLot(0.10);
   setSizingMode('AUTO_RISK');
