@@ -584,6 +584,7 @@
     renderMetrics();
     renderHistory();
     updateDraft();
+    renderDrawings();
   }
 
   function closeTradeNow() {
@@ -591,8 +592,8 @@
     if (candle) closeTradeAt(candle.close,candle.timestamp);
   }
 
-  function openTradeDrawer(side) {
-    if (side) setSide(side);
+  function openTradeDrawer() {
+    updateQuickEntryButtons();
     openDrawer('trade');
   }
 
@@ -652,10 +653,42 @@
     return {x:event.clientX-rect.left,y:event.clientY-rect.top};
   }
 
+  function positionOverlaySvg(position,editable) {
+    if (!position || !state.series) return '';
+    const entryY = state.series.priceToCoordinate(Number(position.entry));
+    const slY = state.series.priceToCoordinate(Number(position.sl));
+    const tpY = state.series.priceToCoordinate(Number(position.tp));
+    if (![entryY,slY,tpY].every(Number.isFinite)) return '';
+
+    const width = $('chart').clientWidth || 320;
+    const startX = Math.max(12,Math.round(width*0.18));
+    const endX = Math.max(startX+90,width-12);
+    const rect = (a,b,klass) => '<rect class="position-zone ' + klass + '" x="' + startX + '" y="' + Math.min(a,b) + '" width="' + (endX-startX) + '" height="' + Math.abs(b-a) + '" rx="2"/>';
+    const line = (field,value,y,klass) => {
+      const hit = editable && (field === 'sl' || field === 'tp')
+        ? '<line class="position-hit-line" data-position-handle="' + field + '" x1="' + startX + '" y1="' + y + '" x2="' + endX + '" y2="' + y + '"/>' +
+          '<circle class="position-handle ' + klass + '" data-position-handle="' + field + '" cx="' + (endX-10) + '" cy="' + y + '" r="10"/>'
+        : '';
+      return '<line class="position-line ' + klass + '" x1="' + startX + '" y1="' + y + '" x2="' + endX + '" y2="' + y + '"/>' +
+        hit +
+        '<text class="position-price-label ' + klass + '" x="' + (endX-16) + '" y="' + Math.max(12,y-6) + '" text-anchor="end">' + field.toUpperCase() + ' ' + fmt(value) + '</text>';
+    };
+
+    return '<g class="position-overlay ' + (editable ? 'draft' : 'active') + '">' +
+      rect(entryY,tpY,'profit-zone') +
+      rect(entryY,slY,'risk-zone') +
+      line('entry',position.entry,entryY,'entry') +
+      line('sl',position.sl,slY,'sl') +
+      line('tp',position.tp,tpY,'tp') +
+      '<text class="position-title" x="' + (startX+8) + '" y="' + Math.max(14,entryY-8) + '">' +
+        (position.side === 'LONG' ? 'LONG' : 'SHORT') + (editable ? ' POSITION' : ' ACTIVE') +
+      '</text></g>';
+  }
+
   function renderDrawings() {
     const svg = $('drawingSvg');
     if (!svg) return;
-    svg.innerHTML = state.drawings.map(drawing => {
+    const drawings = state.drawings.map(drawing => {
       if (drawing.type === 'rect') {
         const x = Math.min(drawing.a.x,drawing.b.x);
         const y = Math.min(drawing.a.y,drawing.b.y);
@@ -664,6 +697,8 @@
       const klass = drawing.type === 'measure' ? 'drawing-measure' : 'drawing-line';
       return '<line class="' + klass + '" x1="' + drawing.a.x + '" y1="' + drawing.a.y + '" x2="' + drawing.b.x + '" y2="' + drawing.b.y + '"/>';
     }).join('');
+    const position = state.positionDraft || state.openTrade;
+    svg.innerHTML = drawings + positionOverlaySvg(position,Boolean(state.positionDraft));
   }
 
   function setDrawMode(mode) {
@@ -688,6 +723,36 @@
       state.drawStart = null;
       renderDrawings();
     });
+  }
+
+  function bindPositionDrag() {
+    const svg = $('drawingSvg');
+    svg.addEventListener('pointerdown',event => {
+      const field = event.target && event.target.getAttribute ? event.target.getAttribute('data-position-handle') : null;
+      if (!state.positionDraft || !['sl','tp'].includes(field)) return;
+      state.positionDrag = field;
+      state.positionDragPointerId = event.pointerId;
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    window.addEventListener('pointermove',event => {
+      if (!state.positionDrag || event.pointerId !== state.positionDragPointerId || !state.positionDraft) return;
+      const rect = $('chart').getBoundingClientRect();
+      const y = Math.max(0,Math.min(rect.height,event.clientY-rect.top));
+      const next = state.series && state.series.coordinateToPrice ? state.series.coordinateToPrice(y) : null;
+      if (Number.isFinite(Number(next))) setDraftLevel(state.positionDrag,Number(next));
+      event.preventDefault();
+    },{passive:false});
+
+    const finish = event => {
+      if (!state.positionDrag) return;
+      if (event && state.positionDragPointerId != null && event.pointerId !== state.positionDragPointerId) return;
+      state.positionDrag = null;
+      state.positionDragPointerId = null;
+    };
+    window.addEventListener('pointerup',finish);
+    window.addEventListener('pointercancel',finish);
   }
 
   function bindSwipes() {
@@ -717,7 +782,7 @@
       }
       if (state.activeDrawer) return;
 
-      if (startX <= 38 && dx > 55) openTradeDrawer(state.side);
+      if (startX <= 38 && dx > 55) openTradeDrawer();
       else if (startX >= window.innerWidth-38 && dx < -55) openInfoDrawer('metrics');
     },{passive:true});
   }
@@ -742,12 +807,13 @@
   defaults();
   ensureChart();
   bindDrawing();
+  bindPositionDrag();
   bindSwipes();
   syncLot(0.10);
   setSizingMode('AUTO_RISK');
 
-  $('leftDrawerBtn').onclick = () => openTradeDrawer(state.side);
-  $('leftEdgeHandle').onclick = () => openTradeDrawer(state.side);
+  $('leftDrawerBtn').onclick = () => openTradeDrawer();
+  $('leftEdgeHandle').onclick = () => openTradeDrawer();
   $('rightEdgeHandle').onclick = () => openInfoDrawer('metrics');
   $('closeTradeDrawer').onclick = () => closeDrawers();
   $('closeInfoDrawer').onclick = () => closeDrawers();
@@ -760,13 +826,10 @@
   $('playBtn').onclick = () => setPlaying(!state.timer);
   $('speed').onchange = () => { if (state.timer) setPlaying(true); };
 
-  $('quickShort').onclick = () => openTradeDrawer('SHORT');
-  $('quickLong').onclick = () => openTradeDrawer('LONG');
-  $('ticketLong').onclick = () => setSide('LONG');
-  $('ticketShort').onclick = () => setSide('SHORT');
+  $('quickShort').onclick = () => handleQuickPosition('SHORT');
+  $('quickLong').onclick = () => handleQuickPosition('LONG');
   $('autoRiskMode').onclick = () => setSizingMode('AUTO_RISK');
   $('manualLotMode').onclick = () => setSizingMode('MANUAL_LOT');
-  $('confirmPositionBtn').onclick = () => openTrade(state.side);
   $('closeTradeBtn').onclick = closeTradeNow;
 
   $('lotMinus').onclick = () => syncLot(manualLot()-0.01);
@@ -777,8 +840,8 @@
   $('lotSize').addEventListener('input',() => syncLot($('lotSize').value));
   $('riskMethod').addEventListener('change',updateDraft);
   $('riskValue').addEventListener('input',updateDraft);
-  $('slPrice').addEventListener('input',updateDraft);
-  $('tpPrice').addEventListener('input',updateDraft);
+  $('slPrice').addEventListener('input',() => setDraftLevel('sl',$('slPrice').value));
+  $('tpPrice').addEventListener('input',() => setDraftLevel('tp',$('tpPrice').value));
 
   $('cursorBtn').onclick = () => setDrawMode(null);
   $('lineBtn').onclick = () => setDrawMode('line');
@@ -809,7 +872,11 @@
   window.addEventListener('keydown',event => {
     if (event.key !== 'Escape') return;
     if (state.activeDrawer) closeDrawers();
-    else if (!document.body.classList.contains('stream-fullscreen')) return;
+    else if (state.positionDraft) {
+      state.positionDraft = null;
+      updateDraft();
+      renderDrawings();
+    } else if (!document.body.classList.contains('stream-fullscreen')) return;
     else toggleFullscreen();
   });
 
