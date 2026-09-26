@@ -1,0 +1,102 @@
+/* Unified NathauxFX desktop shell: Manual Replay top bar + Strategy Studio sidebar. */
+:root{
+  --nfx-shell-top:66px;
+  --nfx-shell-side:196px;
+  --nfx-shell-bg:#f2f6fb;
+  --nfx-shell-surface:#ffffff;
+  --nfx-shell-soft:#f7faff;
+  --nfx-shell-line:#dce6f3;
+  --nfx-shell-text:#0c193d;
+  --nfx-shell-muted:#536b94;
+  --nfx-shell-accent:#2962ff;
+  --nfx-shell-positive:#008f7a;
+  --nfx-shell-shadow:0 3px 14px rgba(30,64,110,.08);
+}
+html[data-theme="dark"]{
+  --nfx-shell-bg:#081322;
+  --nfx-shell-surface:#101e32;
+  --nfx-shell-soft:#15253b;
+  --nfx-shell-line:#2c4260;
+  --nfx-shell-text:#edf3ff;
+  --nfx-shell-muted:#a0b4d1;
+  --nfx-shell-accent:#54a8ff;
+  --nfx-shell-positive:#21bd9c;
+  --nfx-shell-shadow:0 3px 16px rgba(0,0,0,.22);
+}
+@media (min-width:701px){
+  body.nfx-unified-desktop{background:var(--nfx-shell-bg)!important;}
+  .nfx-desktop-shell{position:fixed;inset:0;z-index:3000000;pointer-events:none;font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--nfx-shell-text);}
+  .nfx-desktop-shell.nfx-shell-hidden{display:none!important;}
+  .nfx-shell-topbar{position:absolute;inset:0 0 auto 0;height:var(--nfx-shell-top);display:flex;align-items:center;gap:34px;padding:0 28px;background:var(--nfx-shell-surface);border-bottom:1px solid var(--nfx-shell-line);box-shadow:var(--nfx-shell-shadow);pointer-events:auto;}
+  .nfx-shell-brand{display:flex;align-items:center;gap:12px;min-width:214px;color:var(--nfx-shell-text);text-decoration:none;}
+  .nfx-shell-brand-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:linear-gradient(#173b6c,#081b3b);color:#ffcb58;font-size:22px;font-weight:900;}
+  .nfx-shell-brand-copy{display:grid;line-height:1.1}.nfx-shell-brand-copy strong{font-size:19px}.nfx-shell-brand-copy small{margin-top:4px;color:var(--nfx-shell-muted);font-size:11px;font-weight:600;}
+  .nfx-shell-tabs{display:flex;align-self:stretch;gap:12px;}
+  .nfx-shell-tabs a{display:flex;align-items:center;padding:0 12px;border-bottom:2px solid transparent;color:var(--nfx-shell-muted);font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;}
+  .nfx-shell-tabs a:hover{color:var(--nfx-shell-text);background:var(--nfx-shell-soft);}
+  .nfx-shell-tabs a.active{color:var(--nfx-shell-text);border-bottom-color:var(--nfx-shell-accent);background:linear-gradient(transparent,var(--nfx-shell-soft));}
+  .nfx-shell-top-spacer{flex:1;}
+  .nfx-shell-theme{width:38px;height:38px;border:1px solid var(--nfx-shell-line);border-radius:10px;background:var(--nfx-shell-soft);color:var(--nfx-shell-text);font-size:18px;cursor:pointer;}
+  .nfx-shell-account{display:flex;align-items:center;gap:10px;padding-left:18px;border-left:1px solid var(--nfx-shell-line);}
+  .nfx-shell-avatar{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#8ca5ca;color:#fff;font-size:18px;font-weight:800;}
+  .nfx-shell-account-copy{display:grid;line-height:1.1}.nfx-shell-account-copy strong{font-size:13px}.nfx-shell-account-copy small{margin-top:4px;color:var(--nfx-shell-muted);font-size:10px;}
+
+  .nfx-shell-sidebar{position:absolute;left:0;top:var(--nfx-shell-top);bottom:0;width:var(--nfx-shell-side);display:flex;flex-direction:column;padding:18px 11px;background:var(--nfx-shell-surface);border-right:1px solid var(--nfx-shell-line);pointer-events:auto;}
+  .nfx-shell-sidebar nav{display:grid;gap:5px;}
+  .nfx-shell-sidebar a{position:relative;display:flex;align-items:center;gap:11px;height:42px;padding:10px;border-radius:7px;color:var(--nfx-shell-muted);text-decoration:none;font-size:12px;font-weight:600;}
+  .nfx-shell-sidebar a:hover{background:var(--nfx-shell-soft);color:var(--nfx-shell-text);}
+  .nfx-shell-sidebar a.active{background:color-mix(in srgb,var(--nfx-shell-positive) 10%,var(--nfx-shell-soft));color:var(--nfx-shell-positive);font-weight:750;}
+  .nfx-shell-sidebar a.active:before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:2px;background:var(--nfx-shell-positive);}
+  .nfx-shell-nav-icon{width:22px;text-align:center;font-size:16px;}
+  .nfx-shell-sidebar-footer{margin-top:auto;padding:12px 8px 0;border-top:1px solid var(--nfx-shell-line);color:var(--nfx-shell-muted);}
+  .nfx-shell-promo{padding:13px 11px;border:1px solid var(--nfx-shell-line);border-radius:9px;background:linear-gradient(135deg,var(--nfx-shell-soft),var(--nfx-shell-surface));}
+  .nfx-shell-promo b{display:block;color:var(--nfx-shell-positive);font-size:18px;margin-bottom:6px}.nfx-shell-promo strong{display:block;color:var(--nfx-shell-text);font-size:12px}.nfx-shell-promo small{display:block;margin-top:5px;font-size:9px;line-height:1.4;}
+  .nfx-shell-footer-label{display:block;padding:12px 5px 0;font-size:7px;letter-spacing:1px;}
+
+  body[data-nfx-page="manual-replay"]>header.topbar{display:none!important;}
+  body[data-nfx-page="manual-replay"]>.shell{width:calc(100% - var(--nfx-shell-side))!important;margin:0 0 0 var(--nfx-shell-side)!important;padding-top:calc(var(--nfx-shell-top) + 14px)!important;}
+
+  body[data-nfx-page="strategy-studio"]>.app-sidebar,
+  body[data-nfx-page="strategy-simulator"]>.app-sidebar{display:none!important;}
+  body[data-nfx-page="strategy-studio"] .studio-topbar,
+  body[data-nfx-page="strategy-simulator"] .studio-topbar{display:none!important;}
+  body[data-nfx-page="strategy-studio"] .studio-shell,
+  body[data-nfx-page="strategy-simulator"] .studio-shell{margin-left:var(--nfx-shell-side)!important;padding-top:calc(var(--nfx-shell-top) + 10px)!important;max-width:none!important;}
+
+  body[data-nfx-page="app"].nfx-app-ready #mainApp{padding:calc(var(--nfx-shell-top) + 10px) 12px 8px calc(var(--nfx-shell-side) + 12px)!important;width:100vw!important;height:100vh!important;}
+  body[data-nfx-page="app"].nfx-app-ready #mainApp>.top-header,
+  body[data-nfx-page="app"].nfx-app-ready #mainApp>#sideMenu,
+  body[data-nfx-page="app"].nfx-app-ready #mainApp>.divider{display:none!important;}
+
+  /* Light mode for the legacy/live dashboard so it belongs to the same product. */
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light{
+    --bg:#f2f6fb;--panel:#fff;--panel-2:#f7faff;--line:#dce6f3;--line-soft:#e5edf7;--text:#0c193d;--muted:#536b94;--track:#e8eef6;
+    background:#f2f6fb!important;color:#0c193d!important;
+  }
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp{background:#f2f6fb!important;color:#0c193d!important;}
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .symbol-card,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .chart-panel,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .chart-wrap,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .chart-section,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .history-section,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .structure-panel,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .v2-shadow-card,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .performance-card{
+    background:#fff!important;border-color:#dce6f3!important;color:#0c193d!important;box-shadow:0 4px 18px rgba(30,64,110,.05)!important;
+  }
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .signal-box,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .runtime-status-detail,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .chart-btn,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .switch-wrap,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp select,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp input{
+    background:#f7faff!important;border-color:#dce6f3!important;color:#0c193d!important;
+  }
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .metric-label,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .runtime-status-detail,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .history-table,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .history-table td,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .history-table th{color:#536b94!important;border-color:#e5edf7!important;}
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #mainApp .chart-section,
+  body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light #chartContainer{background:#fff!important;}
+}
