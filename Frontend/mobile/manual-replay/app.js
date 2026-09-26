@@ -11,6 +11,9 @@
   let candleCalendarMonthKey = null;
   let candleCalendarSelectedDay = null;
   let candleCalendarDayRows = [];
+  let candleCalendarActivePoint = 'from';
+  let candleCalendarFromTs = null;
+  let candleCalendarToTs = null;
 
   const state = {
     symbol:'EURUSD',
@@ -26,6 +29,7 @@
     startBalance:10000,
     trades:[],
     openTrade:null,
+    openTradeEditing:false,
     positionDraft:null,
     positionDrag:null,
     positionDragPointerId:null,
@@ -314,6 +318,7 @@
   }
 
   function renderAll() {
+    syncPositionDraftToCurrent();
     renderChart();
     updateOpenTrade(current());
     renderOpenTrade();
@@ -359,6 +364,7 @@
       state.balance = state.startBalance;
       state.trades = [];
       state.openTrade = null;
+      state.openTradeEditing = false;
       state.positionDraft = null;
       state.positionDrag = null;
       state.positionDragPointerId = null;
@@ -458,26 +464,76 @@
     return true;
   }
 
-  function setDraftLevel(field,rawValue) {
+  function syncPositionDraftToCurrent() {
     const draft = state.positionDraft;
-    if (!draft || !['sl','tp'].includes(field)) return false;
+    const candle = current();
+    if (!draft || !candle || state.openTrade) return false;
+
+    const nextEntry = Number(candle.close);
+    if (!Number.isFinite(nextEntry)) return false;
+    const oldEntry = Number(draft.entry);
+    const delta = nextEntry - oldEntry;
+    if (!Number.isFinite(delta)) return false;
+
+    if (Math.abs(delta) > 0) {
+      draft.entry = nextEntry;
+      draft.sl = Number(draft.sl) + delta;
+      draft.tp = Number(draft.tp) + delta;
+    }
+    draft.entryIndex = state.index;
+    draft.entryTime = candle.timestamp;
+
+    $('entryPrice').value = fmt(draft.entry);
+    $('slPrice').value = fmt(draft.sl);
+    $('tpPrice').value = fmt(draft.tp);
+    return true;
+  }
+
+  function setPositionLevel(field,rawValue) {
+    if (!['sl','tp'].includes(field)) return false;
     const value = Number(rawValue);
     if (!Number.isFinite(value)) return false;
 
     const gap = minimumPriceDistance();
-    const entry = Number(draft.entry);
-    let next = value;
-    if (field === 'sl') {
-      next = draft.side === 'LONG' ? Math.min(value,entry-gap) : Math.max(value,entry+gap);
-    } else {
-      next = draft.side === 'LONG' ? Math.max(value,entry+gap) : Math.min(value,entry-gap);
+
+    if (state.positionDraft) {
+      const draft = state.positionDraft;
+      const entry = Number(draft.entry);
+      let next = value;
+      if (field === 'sl') {
+        next = draft.side === 'LONG' ? Math.min(value,entry-gap) : Math.max(value,entry+gap);
+      } else {
+        next = draft.side === 'LONG' ? Math.max(value,entry+gap) : Math.min(value,entry-gap);
+      }
+      draft[field] = next;
+      $(field === 'sl' ? 'slPrice' : 'tpPrice').value = fmt(next);
+      updateDraft();
+      renderDrawings();
+      return true;
     }
 
-    draft[field] = next;
-    $(field === 'sl' ? 'slPrice' : 'tpPrice').value = fmt(next);
-    updateDraft();
-    renderDrawings();
-    return true;
+    if (state.openTrade && state.openTradeEditing) {
+      const trade = state.openTrade;
+      const market = Number(current()?.close);
+      if (!Number.isFinite(market)) return false;
+      let next = value;
+      if (field === 'sl') {
+        next = trade.side === 'LONG' ? Math.min(value,market-gap) : Math.max(value,market+gap);
+      } else {
+        next = trade.side === 'LONG' ? Math.max(value,market+gap) : Math.min(value,market-gap);
+      }
+      trade[field] = next;
+      $(field === 'sl' ? 'slPrice' : 'tpPrice').value = fmt(next);
+      renderOpenTrade();
+      renderDrawings();
+      return true;
+    }
+
+    return false;
+  }
+
+  function setDraftLevel(field,rawValue) {
+    return setPositionLevel(field,rawValue);
   }
 
   function draftFor(side) {
@@ -601,15 +657,18 @@
       return false;
     }
 
+    syncPositionDraftToCurrent();
     const draft = draftFor(side);
-    if (!draft) return false;
+    const candle = current();
+    if (!draft || !candle) return false;
 
     state.openTrade = Object.assign({},draft,{
       symbol:state.symbol,
-      openedAt:state.positionDraft.entryTime || current().timestamp,
+      openedAt:candle.timestamp,
       openedIndex:state.index,
       floating:0
     });
+    state.openTradeEditing = false;
     state.positionDraft = null;
     state.positionDrag = null;
     state.positionDragPointerId = null;
@@ -653,6 +712,7 @@
     state.balance += pnl;
     state.trades.push(Object.assign({},trade,{exit:price,closedAt:time,pnl}));
     state.openTrade = null;
+    state.openTradeEditing = false;
     renderOpenTrade();
     renderMetrics();
     renderHistory();
@@ -666,7 +726,8 @@
   }
 
   function openTradeDrawer() {
-    updateQuickEntryButtons();
+    if (state.openTrade) syncActiveTradeEditorFields();
+    else updateQuickEntryButtons();
     openDrawer('trade');
   }
 
@@ -736,6 +797,54 @@
     const node = $('candleCalendarStatus');
     node.textContent = message || '';
     node.className = 'calendar-status' + (kind ? ' ' + kind : '');
+  }
+
+  function formatCalendarPoint(timestamp) {
+    if (!timestamp) return 'Choose candle';
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return 'Choose candle';
+    return new Intl.DateTimeFormat(undefined,{
+      month:'short',day:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'
+    }).format(date);
+  }
+
+  function refreshCalendarRangeCards() {
+    $('calendarFromValue').textContent = formatCalendarPoint(candleCalendarFromTs);
+    $('calendarToValue').textContent = formatCalendarPoint(candleCalendarToTs);
+    $('calendarFromPick').classList.toggle('active',candleCalendarActivePoint === 'from');
+    $('calendarToPick').classList.toggle('active',candleCalendarActivePoint === 'to');
+
+    const fromMs = Date.parse(candleCalendarFromTs || '');
+    const toMs = Date.parse(candleCalendarToTs || '');
+    const valid = Number.isFinite(fromMs) && Number.isFinite(toMs) && fromMs < toMs;
+    $('jumpToCandleBtn').disabled = !valid;
+    if (!valid && candleCalendarFromTs && candleCalendarToTs) {
+      setCalendarStatus('TO must be after FROM.','error');
+    }
+  }
+
+  function commitActiveCalendarPoint(timestamp) {
+    if (!timestamp) return;
+    if (candleCalendarActivePoint === 'to') candleCalendarToTs = timestamp;
+    else candleCalendarFromTs = timestamp;
+    refreshCalendarRangeCards();
+  }
+
+  function timeframeDurationMs() {
+    if (state.timeframe === '1h') return 60*60*1000;
+    if (state.timeframe === '15m') return 15*60*1000;
+    return 5*60*1000;
+  }
+
+  async function activateCalendarPoint(which) {
+    candleCalendarActivePoint = which === 'to' ? 'to' : 'from';
+    refreshCalendarRangeCards();
+    const timestamp = candleCalendarActivePoint === 'to' ? candleCalendarToTs : candleCalendarFromTs;
+    if (!timestamp) return;
+    const date = new Date(timestamp);
+    const key = monthKey(date);
+    populateCalendarYearMonthControls(key);
+    await renderCandleCalendarMonth(date.getDate(),timestamp);
   }
 
   function calendarMonthParts(key) {
@@ -836,9 +945,10 @@
       }
 
       select.disabled = false;
-      jump.disabled = false;
+      commitActiveCalendarPoint(select.value);
       const label = new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric'}).format(dayStart);
       setCalendarStatus(rows.length + ' actual ' + state.timeframe.toUpperCase() + ' candles available on ' + label + '.','success');
+      refreshCalendarRangeCards();
     } catch (error) {
       select.replaceChildren(new Option('No candles available',''));
       setCalendarStatus(error.message || 'No candles are available for this day.','error');
@@ -913,15 +1023,18 @@
     $('candleJumpBackdrop').classList.remove('hidden');
     $('candleJumpPanel').classList.remove('hidden');
     setCalendarStatus('Loading candle history…');
-    $('jumpToCandleBtn').disabled = true;
 
     try {
       await loadReplayManifest();
-      const candle = current() || state.candles[0];
-      const anchor = new Date(candle.timestamp);
+      candleCalendarFromTs = state.candles[0]?.timestamp || null;
+      candleCalendarToTs = state.candles[state.candles.length-1]?.timestamp || null;
+      candleCalendarActivePoint = 'from';
+      refreshCalendarRangeCards();
+
+      const anchor = new Date(candleCalendarFromTs || current()?.timestamp);
       const anchorKey = monthKey(anchor);
       populateCalendarYearMonthControls(anchorKey);
-      await renderCandleCalendarMonth(anchor.getDate(),candle.timestamp);
+      await renderCandleCalendarMonth(anchor.getDate(),candleCalendarFromTs);
     } catch (error) {
       setCalendarStatus(error.message || 'Could not load candle history.','error');
     }
@@ -950,40 +1063,42 @@
   }
 
   async function jumpToSelectedCandle() {
-    const value = $('candleJumpTime').value;
-    const targetMs = Date.parse(value);
-    if (!Number.isFinite(targetMs)) return;
+    const fromMs = Date.parse(candleCalendarFromTs || '');
+    const toMs = Date.parse(candleCalendarToTs || '');
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs) {
+      setCalendarStatus('Choose a valid FROM and TO candle.','error');
+      return;
+    }
     if (state.openTrade) {
-      setCalendarStatus('Close the open trade before jumping to another date.','error');
+      setCalendarStatus('Close the open trade before loading another replay range.','error');
       return;
     }
 
-    const firstMs = state.candles.length ? Date.parse(state.candles[0].timestamp) : NaN;
-    const lastMs = state.candles.length ? Date.parse(state.candles[state.candles.length-1].timestamp) : NaN;
-    const insideCurrent = Number.isFinite(firstMs) && Number.isFinite(lastMs) && targetMs >= firstMs && targetMs <= lastMs;
-
     try {
-      if (!insideCurrent) {
-        setCalendarStatus('Loading candles around the selected date…');
-        const target = new Date(targetMs);
-        const start = new Date(targetMs - 3*86400000);
-        const end = new Date(targetMs + 11*86400000);
-        const candles = await loadHistory(state.symbol,state.timeframe,start,end,{allowPartial:true});
-        state.candles = candles;
-        $('startDate').value = toInput(start);
-        $('endDate').value = toInput(end);
-      }
+      setCalendarStatus('Loading the selected replay range…');
+      const start = new Date(fromMs);
+      const endExclusive = new Date(toMs + timeframeDurationMs());
+      const candles = await loadHistory(state.symbol,state.timeframe,start,endExclusive,{allowPartial:false});
+      if (candles.length < 2) throw new Error('The selected range needs at least two candles.');
 
-      state.index = nearestCandleIndex(targetMs);
+      state.candles = candles;
+      state.index = 0;
+      state.trades = [];
+      state.balance = state.startBalance;
+      state.openTrade = null;
+      state.openTradeEditing = false;
       state.positionDraft = null;
       state.positionDrag = null;
       state.positionDragPointerId = null;
       state.pricePanOffset = 0;
+      state.drawings = [];
+      $('startDate').value = toInput(start);
+      $('endDate').value = toInput(endExclusive);
       renderAll();
       state.chart.timeScale().scrollToRealTime();
       closeCandleJump();
     } catch (error) {
-      setCalendarStatus(error.message || 'Could not load the selected candle.','error');
+      setCalendarStatus(error.message || 'Could not load the selected replay range.','error');
     }
   }
 
@@ -1007,6 +1122,25 @@
     return {x:event.clientX-rect.left,y:event.clientY-rect.top};
   }
 
+  function positionDisplayMetrics(position) {
+    if (!position) return null;
+    if (state.positionDraft === position) return draftFor(position.side);
+
+    const pip = pipSize(state.symbol);
+    const perLot = pipValuePerLot(state.symbol);
+    const lot = Number(position.lot);
+    const entry = Number(position.entry);
+    const sl = Number(position.sl);
+    const tp = Number(position.tp);
+    if (![lot,entry,sl,tp].every(Number.isFinite) || lot <= 0) return null;
+
+    const slPips = Math.abs(entry-sl)/pip;
+    const tpPips = Math.abs(tp-entry)/pip;
+    const risk = slPips*perLot*lot;
+    const reward = tpPips*perLot*lot;
+    return {slPips,tpPips,risk,reward,lot};
+  }
+
   function positionOverlaySvg(position,editable) {
     if (!position || !state.series) return '';
     const entryY = state.series.priceToCoordinate(Number(position.entry));
@@ -1015,13 +1149,16 @@
     if (![entryY,slY,tpY].every(Number.isFinite)) return '';
 
     const width = $('chart').clientWidth || 320;
-    const entryTime = position.entryTime ? Math.floor(Date.parse(position.entryTime)/1000) : null;
-    const candleX = entryTime && state.chart?.timeScale ? state.chart.timeScale().timeToCoordinate(entryTime) : null;
+    const entryTime = position.entryTime || position.openedAt;
+    const entrySeconds = entryTime ? Math.floor(Date.parse(entryTime)/1000) : null;
+    const candleX = entrySeconds && state.chart?.timeScale ? state.chart.timeScale().timeToCoordinate(entrySeconds) : null;
     const fallbackX = Math.round(width*0.52);
     const baseX = Number.isFinite(Number(candleX)) ? Number(candleX) : fallbackX;
     const cardWidth = Math.max(150,Math.min(250,width*0.42));
     const startX = Math.max(12,Math.min(width-cardWidth-12,baseX-22));
     const endX = Math.min(width-12,startX+cardWidth);
+    const minY = Math.min(entryY,slY,tpY);
+    const maxY = Math.max(entryY,slY,tpY);
 
     const rect = (a,b,klass) => '<rect class="position-zone ' + klass + '" x="' + startX + '" y="' + Math.min(a,b) + '" width="' + (endX-startX) + '" height="' + Math.abs(b-a) + '" rx="2"/>';
     const line = (field,value,y,klass) => {
@@ -1034,7 +1171,7 @@
         '<text class="position-price-label ' + klass + '" x="' + (endX-14) + '" y="' + Math.max(12,y-5) + '" text-anchor="end">' + field.toUpperCase() + ' ' + fmt(value) + '</text>';
     };
 
-    const metrics = editable ? draftFor(position.side) : position;
+    const metrics = positionDisplayMetrics(position);
     const riskText = metrics && Number.isFinite(Number(metrics.slPips)) && Number.isFinite(Number(metrics.risk))
       ? metrics.slPips.toFixed(1) + ' pips  -$' + metrics.risk.toFixed(2)
       : '';
@@ -1043,8 +1180,11 @@
       : '';
     const riskMid = (entryY+slY)/2;
     const rewardMid = (entryY+tpY)/2;
+    const editingClass = state.openTrade === position && state.openTradeEditing ? ' editing' : '';
+    const modeClass = state.positionDraft === position ? 'draft' : 'active';
 
-    return '<g class="position-overlay ' + (editable ? 'draft' : 'active') + '">' +
+    return '<g class="position-overlay ' + modeClass + editingClass + '">' +
+      '<rect class="position-card-hit" data-position-card="1" x="' + startX + '" y="' + minY + '" width="' + (endX-startX) + '" height="' + Math.max(20,maxY-minY) + '"/>' +
       rect(entryY,tpY,'profit-zone') +
       rect(entryY,slY,'risk-zone') +
       line('entry',position.entry,entryY,'entry') +
@@ -1068,7 +1208,8 @@
       return '<line class="' + klass + '" x1="' + drawing.a.x + '" y1="' + drawing.a.y + '" x2="' + drawing.b.x + '" y2="' + drawing.b.y + '"/>';
     }).join('');
     const position = state.positionDraft || state.openTrade;
-    svg.innerHTML = drawings + positionOverlaySvg(position,Boolean(state.positionDraft));
+    const editable = Boolean(state.positionDraft || (state.openTrade && state.openTradeEditing));
+    svg.innerHTML = drawings + positionOverlaySvg(position,editable);
   }
 
   function setDrawMode(mode) {
@@ -1095,11 +1236,34 @@
     });
   }
 
+  function syncActiveTradeEditorFields() {
+    const trade = state.openTrade;
+    if (!trade) return;
+    $('entryPrice').value = fmt(trade.entry);
+    $('slPrice').value = fmt(trade.sl);
+    $('tpPrice').value = fmt(trade.tp);
+    $('ticketDirection').textContent = trade.side + (state.openTradeEditing ? ' ACTIVE • EDITING' : ' ACTIVE');
+  }
+
   function bindPositionDrag() {
     const svg = $('drawingSvg');
     svg.addEventListener('pointerdown',event => {
-      const field = event.target && event.target.getAttribute ? event.target.getAttribute('data-position-handle') : null;
-      if (!state.positionDraft || !['sl','tp'].includes(field)) return;
+      const target = event.target;
+      const field = target && target.getAttribute ? target.getAttribute('data-position-handle') : null;
+      const card = target && target.getAttribute ? target.getAttribute('data-position-card') : null;
+
+      if (card && state.openTrade && !state.positionDraft) {
+        setPlaying(false);
+        state.openTradeEditing = true;
+        syncActiveTradeEditorFields();
+        renderDrawings();
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      const canEdit = Boolean(state.positionDraft || (state.openTrade && state.openTradeEditing));
+      if (!canEdit || !['sl','tp'].includes(field)) return;
       state.positionDrag = field;
       state.positionDragPointerId = event.pointerId;
       event.preventDefault();
@@ -1107,11 +1271,12 @@
     });
 
     window.addEventListener('pointermove',event => {
-      if (!state.positionDrag || event.pointerId !== state.positionDragPointerId || !state.positionDraft) return;
+      const canEdit = Boolean(state.positionDraft || (state.openTrade && state.openTradeEditing));
+      if (!state.positionDrag || event.pointerId !== state.positionDragPointerId || !canEdit) return;
       const rect = $('chart').getBoundingClientRect();
       const y = Math.max(0,Math.min(rect.height,event.clientY-rect.top));
       const next = state.series && state.series.coordinateToPrice ? state.series.coordinateToPrice(y) : null;
-      if (Number.isFinite(Number(next))) setDraftLevel(state.positionDrag,Number(next));
+      if (Number.isFinite(Number(next))) setPositionLevel(state.positionDrag,Number(next));
       event.preventDefault();
     },{passive:false});
 
@@ -1254,6 +1419,9 @@
   $('closeCandleJump').onclick = closeCandleJump;
   $('candleJumpBackdrop').onclick = closeCandleJump;
   $('jumpToCandleBtn').onclick = jumpToSelectedCandle;
+  $('calendarFromPick').onclick = () => activateCalendarPoint('from');
+  $('calendarToPick').onclick = () => activateCalendarPoint('to');
+  $('candleJumpTime').onchange = () => commitActiveCalendarPoint($('candleJumpTime').value);
   $('candleCalendarPrevious').onclick = () => moveCandleCalendarMonth(-1);
   $('candleCalendarNext').onclick = () => moveCandleCalendarMonth(1);
   $('candleCalendarYear').onchange = async () => {

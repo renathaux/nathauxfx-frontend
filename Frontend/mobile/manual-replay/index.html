@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#05090d">
   <meta http-equiv="Cache-Control" content="no-store,max-age=0">
   <title>NathauxFX — Mobile Manual Replay</title>
-  <link rel="stylesheet" href="./styles.css?v=11">
+  <link rel="stylesheet" href="./styles.css?v=12">
   <link rel="stylesheet" href="./user-layout.css?v=4">
 </head>
 <body>
@@ -193,11 +193,20 @@
     <div class="calendar-panel-head">
       <div>
         <small>MANUAL REPLAY</small>
-        <h2 id="candleJumpTitle">Jump to Candle</h2>
+        <h2 id="candleJumpTitle">Replay Range</h2>
       </div>
       <button id="closeCandleJump" type="button" aria-label="Close candle calendar">×</button>
     </div>
-    <p>Pick a date that has downloaded candle data, then choose an actual candle time.</p>
+    <p>Choose exactly where the replay starts and ends. Dates and times come from downloaded candles.</p>
+
+    <div class="calendar-range-picks" role="group" aria-label="Replay range">
+      <button id="calendarFromPick" class="active" type="button">
+        <span>FROM</span><strong id="calendarFromValue">Choose candle</strong>
+      </button>
+      <button id="calendarToPick" type="button">
+        <span>TO</span><strong id="calendarToValue">Choose candle</strong>
+      </button>
+    </div>
 
     <div class="calendar-navigation">
       <button id="candleCalendarPrevious" type="button" aria-label="Previous month">‹</button>
@@ -216,11 +225,11 @@
     </label>
 
     <div id="candleCalendarStatus" class="calendar-status">Loading candle dates…</div>
-    <button id="jumpToCandleBtn" class="calendar-jump-action" type="button">Jump to Candle</button>
+    <button id="jumpToCandleBtn" class="calendar-jump-action" type="button">Load Replay Range</button>
   </section>
 
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-  <script src="./app.js?v=12"></script>
+  <script src="./app.js?v=13"></script>
   <script src="./layout-editor.js?v=1"></script>
 </body>
 </html>
