@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="NathauxFX">
   <meta http-equiv="Cache-Control" content="no-store,max-age=0">
   <title>NathauxFX — Mobile Manual Replay</title>
+  <link rel="manifest" href="/nathauxfx.webmanifest">
   <link rel="stylesheet" href="./styles.css?v=14">
   <link rel="stylesheet" href="./user-layout.css?v=4">
 </head>
@@ -239,10 +240,16 @@
 
   <script>
     (function(){
+      var params=new URLSearchParams(window.location.search);
+      var embedded=params.get('embedded')==='1' && window.parent!==window;
       var dashboardLink=document.getElementById('mobileDashboardLink');
       if(dashboardLink)dashboardLink.addEventListener('click',function(event){
         event.preventDefault();
         event.stopPropagation();
+        if(embedded){
+          window.parent.postMessage({type:'nathauxfx-close-manual-replay'},window.location.origin);
+          return;
+        }
         window.location.assign('/mobile.html');
       });
     })();
