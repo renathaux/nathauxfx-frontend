@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta name="theme-color" content="#020812" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NathauxFX" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -94,7 +98,7 @@
     <nav class="desktop-menu-list" aria-label="NathauxFX full menu">
       <a class="desktop-menu-row" href="mobile.html"><span>⌂</span><strong>Dashboard</strong></a>
       <a class="desktop-menu-row" href="/app?desktop=1&from=mobile&open=menuAssistantBtn"><span>◉</span><strong>Flow Assistant</strong></a>
-      <a class="desktop-menu-row" href="/mobile/manual-replay/"><span>↺</span><strong>Manual Replay</strong></a>
+      <a id="manualReplayMenuLink" class="desktop-menu-row" href="/mobile/manual-replay/"><span>↺</span><strong>Manual Replay</strong></a>
       <a class="desktop-menu-row" href="/app?desktop=1&from=mobile&open=menuFeedbackBtn"><span>💬</span><strong>Feedback</strong></a>
       <a class="desktop-menu-row" href="/app?desktop=1&from=mobile&open=menuStatsBtn"><span>▤</span><strong>Performance</strong></a>
 
@@ -143,6 +147,17 @@
       stripDuplicateSideItems();
       collapseSettings();
       if(settings)settings.addEventListener('toggle',syncLogout);
+
+      // iOS Home Screen / standalone mode can hand normal anchor navigation
+      // back to Safari. Force Manual Replay to navigate in this same web-app window.
+      var manualReplayLink=document.getElementById('manualReplayMenuLink');
+      if(manualReplayLink)manualReplayLink.addEventListener('click',function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        collapseSettings();
+        window.location.assign('/mobile/manual-replay/');
+      });
+
       var menuButton=document.getElementById('mobileMenuBtn');
       if(menuButton)menuButton.addEventListener('click',collapseSettings,true);
       window.addEventListener('pageshow',function(){stripDuplicateSideItems();collapseSettings();});
