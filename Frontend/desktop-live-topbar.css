@@ -1,0 +1,130 @@
+/* Shared desktop top bar based on the original NathauxFX live dashboard header. */
+:root{--nfx-live-topbar-h:54px;}
+@media (min-width:701px){
+  body.nfx-shared-live-topbar{min-height:100vh;}
+  .nfx-shared-topbar{
+    position:sticky;
+    top:0;
+    z-index:2500000;
+    height:var(--nfx-live-topbar-h);
+    display:grid;
+    grid-template-columns:42px 180px 1fr auto;
+    align-items:center;
+    gap:8px;
+    padding:6px 12px 6px;
+    background:#05070c;
+    border-bottom:1px solid #171c24;
+    color:#eef2f8;
+    font-family:Arial,Helvetica,sans-serif;
+  }
+  .nfx-shared-menu-toggle{
+    width:38px;
+    height:38px;
+    border-radius:10px;
+    border:1px solid #232b36;
+    background:#141a22;
+    color:#eef2f8;
+    font-size:20px;
+    cursor:pointer;
+  }
+  .nfx-shared-menu-toggle:hover{background:#1a2230;}
+  .nfx-shared-brand{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:#eef2f8;
+    text-decoration:none;
+    font-size:20px;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .nfx-shared-brand-wave{color:#1ea7ff;font-weight:900;}
+  .nfx-shared-topbar-center{min-width:0;}
+  .nfx-shared-topbar-actions{display:flex;align-items:center;gap:8px;}
+  .nfx-shared-page-action,
+  .nfx-shared-voice{
+    height:32px;
+    padding:0 11px;
+    border:1px solid #344153;
+    border-radius:8px;
+    background:#111923;
+    color:#8d9aad;
+    font-size:11px;
+    font-weight:800;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .nfx-shared-page-action{min-width:34px;padding:0 9px;color:#dbe2ee;}
+  .nfx-shared-lang{
+    min-width:72px;
+    height:34px;
+    border-radius:8px;
+    border:1px solid #2a313d;
+    background:#f1f3f5;
+    color:#111;
+    font-weight:700;
+    padding:0 8px;
+  }
+
+  /* Strategy pages keep their own sidebar, but it starts below the live-style top bar. */
+  body.nfx-shared-live-topbar .app-sidebar{
+    top:var(--nfx-live-topbar-h)!important;
+    height:calc(100vh - var(--nfx-live-topbar-h))!important;
+  }
+  body.nfx-shared-live-topbar .app-sidebar>.brand{display:none!important;}
+  body.nfx-shared-live-topbar .app-sidebar>.sidebar-footer{display:none!important;}
+  body.nfx-shared-live-topbar .studio-shell{
+    min-height:calc(100vh - var(--nfx-live-topbar-h));
+  }
+  body.nfx-shared-live-topbar .studio-topbar{display:none!important;}
+  body.nfx-shared-live-topbar.nfx-side-collapsed .app-sidebar{
+    transform:translateX(-102%);
+    pointer-events:none;
+  }
+  body.nfx-shared-live-topbar.nfx-side-collapsed .studio-shell{
+    margin-left:0!important;
+  }
+
+  /* Manual Replay already has a separate top bar; replace it with the live dashboard one. */
+  body.nfx-shared-live-topbar.nfx-page-manual-replay>header.topbar{display:none!important;}
+  body.nfx-shared-live-topbar.nfx-page-manual-replay>.shell{padding-top:14px;}
+
+  /* Small drawer used only on pages that do not already have a sidebar. */
+  .nfx-shared-drawer{
+    position:fixed;
+    top:var(--nfx-live-topbar-h);
+    left:0;
+    bottom:0;
+    width:250px;
+    z-index:2499999;
+    padding:12px;
+    background:#070d14;
+    border-right:1px solid #1d2836;
+    box-shadow:18px 0 40px rgba(0,0,0,.38);
+    transform:translateX(-102%);
+    transition:transform .18s ease;
+  }
+  .nfx-shared-drawer.open{transform:translateX(0);}
+  .nfx-shared-drawer nav{display:grid;gap:6px;}
+  .nfx-shared-drawer a{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-height:40px;
+    padding:9px 11px;
+    border-radius:8px;
+    color:#b7c2d0;
+    text-decoration:none;
+    font:600 12px Arial,Helvetica,sans-serif;
+  }
+  .nfx-shared-drawer a:hover,
+  .nfx-shared-drawer a.active{background:#111923;color:#fff;}
+  .nfx-shared-drawer-backdrop{
+    position:fixed;
+    inset:var(--nfx-live-topbar-h) 0 0;
+    z-index:2499998;
+    background:rgba(0,0,0,.32);
+    display:none;
+  }
+  .nfx-shared-drawer-backdrop.open{display:block;}
+}
