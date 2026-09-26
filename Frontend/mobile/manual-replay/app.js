@@ -1083,6 +1083,8 @@
 
       state.candles = candles;
       state.index = 0;
+      state.trades = [];
+      state.balance = state.startBalance;
       state.openTrade = null;
       state.openTradeEditing = false;
       state.positionDraft = null;
@@ -1179,8 +1181,9 @@
     const riskMid = (entryY+slY)/2;
     const rewardMid = (entryY+tpY)/2;
     const editingClass = state.openTrade === position && state.openTradeEditing ? ' editing' : '';
+    const modeClass = state.positionDraft === position ? 'draft' : 'active';
 
-    return '<g class="position-overlay ' + (editable ? 'draft' : 'active') + editingClass + '">' +
+    return '<g class="position-overlay ' + modeClass + editingClass + '">' +
       '<rect class="position-card-hit" data-position-card="1" x="' + startX + '" y="' + minY + '" width="' + (endX-startX) + '" height="' + Math.max(20,maxY-minY) + '"/>' +
       rect(entryY,tpY,'profit-zone') +
       rect(entryY,slY,'risk-zone') +
