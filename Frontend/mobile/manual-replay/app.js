@@ -136,8 +136,8 @@
       autoSize:true,
       layout:{background:{color:'#03070a'},textColor:'#98a8b6',attributionLogo:false},
       grid:{vertLines:{color:'#14232f'},horzLines:{color:'#14232f'}},
-      rightPriceScale:{borderColor:'#233745',scaleMargins:{top:.08,bottom:.10}},
-      timeScale:{borderColor:'#233745',timeVisible:true,secondsVisible:false,rightOffset:5,barSpacing:8,minBarSpacing:3},
+      rightPriceScale:{visible:false,borderVisible:false},
+      timeScale:{borderColor:'#233745',timeVisible:true,secondsVisible:false,rightOffset:0,fixRightEdge:true,barSpacing:8,minBarSpacing:3},
       handleScroll:true,
       handleScale:true,
       crosshair:{vertLine:{color:'#5b7180',width:1,style:3},horzLine:{color:'#5b7180',width:1,style:3}}
@@ -151,8 +151,8 @@
       priceLineColor:'#18c5ae',
       priceLineStyle:2,
       priceLineWidth:1,
-      lastValueVisible:true,
-      priceLineVisible:true
+      lastValueVisible:false,
+      priceLineVisible:false
     });
   }
 
