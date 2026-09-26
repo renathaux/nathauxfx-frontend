@@ -35,12 +35,26 @@
     ['manual-replay','↺','Manual Replay','/manual-replay'],
     ['history','◷','History','/app.html?desktop=1&open=menuHistoryBtn'],
     ['analytics','▥','Analytics','/app.html?desktop=1&open=menuStatsBtn'],
-    ['settings','⚙','Settings','/app.html?desktop=1&open=menuGeneralSettingsBtn'],
+  ];
+
+  const settingsItems = [
+    ['General','menuGeneralSettingsBtn'],
+    ['Risk Management','menuRiskSettingsBtn'],
+    ['Broker Accounts','menuBrokerAccountsBtn'],
+    ['Notifications','menuNotificationsSettingsBtn'],
+    ['Strategy','menuStrategySettingsBtn'],
   ];
 
   function nav(items) {
     return items.map(([key,icon,label,href]) =>
       '<a href="'+href+'" class="'+(active===key?'active':'')+'"><span class="nfx-shell-nav-icon">'+icon+'</span><span>'+label+'</span></a>'
+    ).join('');
+  }
+
+  function settingsNav() {
+    const currentOpen = params.get('open') || '';
+    return settingsItems.map(([label,openId]) =>
+      '<a class="nfx-shell-subitem '+(currentOpen===openId?'active':'')+'" href="/app.html?desktop=1&open='+openId+'">'+label+'</a>'
     ).join('');
   }
 
@@ -62,8 +76,16 @@
       '<div class="nfx-shell-account"><span class="nfx-shell-avatar">N</span><span class="nfx-shell-account-copy"><strong>NathauxFX</strong><small>Trader</small></span></div>' +
     '</header>' +
     '<aside class="nfx-shell-sidebar">' +
-      '<nav aria-label="NathauxFX navigation">'+nav(sidebarItems)+'</nav>' +
-      '<div class="nfx-shell-sidebar-footer"><div class="nfx-shell-promo"><b>◇</b><strong>Trade Smarter.<br>Build. Test. Execute.</strong><small>One workspace for live trading, strategy design and replay.</small></div><small class="nfx-shell-footer-label">NATHAUXFX · TRADING WORKSPACE</small></div>' +
+      '<nav aria-label="NathauxFX navigation">' +
+        nav(sidebarItems) +
+        '<details class="nfx-shell-settings" '+(active==='settings'?'open':'')+'>' +
+          '<summary class="'+(active==='settings'?'active':'')+'"><span class="nfx-shell-nav-icon">⚙</span><span>Settings</span><b>⌄</b></summary>' +
+          '<div class="nfx-shell-subnav">'+settingsNav()+'</div>' +
+        '</details>' +
+      '</nav>' +
+      '<div class="nfx-shell-sidebar-footer">' +
+        '<button id="nfxUnifiedLogout" class="nfx-shell-logout" type="button"><span class="nfx-shell-nav-icon">↪</span><span>Log out</span></button>' +
+      '</div>' +
     '</aside>';
   document.body.appendChild(shell);
 
@@ -110,6 +132,16 @@
   applyTheme(readTheme(), false);
   document.getElementById('nfxUnifiedTheme')?.addEventListener('click', () => {
     applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  });
+
+  document.getElementById('nfxUnifiedLogout')?.addEventListener('click', () => {
+    try {
+      localStorage.removeItem('flowsignal_access');
+      localStorage.removeItem('flowsignal_role');
+      localStorage.removeItem('flowsignal_admin');
+      localStorage.removeItem('flowsignal_session_token');
+    } catch (_) {}
+    window.location.assign('/app.html');
   });
 
   function syncAppShell() {
