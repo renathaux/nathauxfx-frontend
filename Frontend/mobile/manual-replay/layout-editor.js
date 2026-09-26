@@ -15,6 +15,57 @@
   style.href = '/manual-replay/manual-replay-layout-editor.css?v=1';
   document.head.appendChild(style);
 
+  const mobileEditorStyle = document.createElement('style');
+  mobileEditorStyle.textContent = `
+    #manualLayoutToolbar{
+      left:auto!important;
+      right:8px!important;
+      bottom:8px!important;
+      max-width:calc(100vw - 16px)!important;
+      padding:7px!important;
+      gap:6px!important;
+      flex-wrap:nowrap!important;
+      border-radius:10px!important;
+    }
+    #manualLayoutToolbar strong{
+      font-size:9px!important;
+      white-space:nowrap!important;
+      width:auto!important;
+      margin-right:0!important;
+    }
+    #manualLayoutToolbar .manual-layout-help{display:none!important}
+    #manualLayoutToolbar button{
+      min-height:32px!important;
+      padding:6px 9px!important;
+      font-size:11px!important;
+      white-space:nowrap!important;
+    }
+    #manualLayoutToolbar.mobile-layout-toolbar-hidden{display:none!important}
+    #mobileLayoutLauncher{
+      position:fixed!important;
+      right:8px!important;
+      bottom:8px!important;
+      z-index:2147483647!important;
+      height:36px!important;
+      min-width:48px!important;
+      padding:0 10px!important;
+      border:1px solid #3979bf!important;
+      border-radius:9px!important;
+      background:#07192c!important;
+      color:#e7f1ff!important;
+      font:800 11px/1 Arial,sans-serif!important;
+      box-shadow:0 6px 20px rgba(0,0,0,.5)!important;
+    }
+    #mobileLayoutLauncher.hidden{display:none!important}
+    @media(max-width:520px){
+      #manualLayoutToolbar strong{display:none!important}
+      #manualLayoutToolbar{right:6px!important;bottom:6px!important;gap:4px!important;padding:5px!important}
+      #manualLayoutToolbar button{min-height:30px!important;padding:5px 7px!important;font-size:10px!important}
+      #mobileLayoutLauncher{right:6px!important;bottom:6px!important;height:32px!important;min-width:44px!important}
+    }
+  `;
+  document.head.appendChild(mobileEditorStyle);
+
   const specs = [
     {name:'topbar', selector:'.topbar', minW:260, minH:34},
     {name:'topIcon', selector:'.top-icon', all:true, minW:28, minH:28},
@@ -260,9 +311,25 @@
     '<span class="manual-layout-help">Touch/drag any box to move it. Use the blue handles to resize it.</span>',
     '<button id="mobileLayoutSave" type="button">SAVE + COPY</button>',
     '<button id="mobileLayoutReset" type="button">RESET</button>',
+    '<button id="mobileLayoutHide" type="button">HIDE</button>',
     '<button id="mobileLayoutExit" type="button">EXIT</button>'
   ].join('');
   document.body.appendChild(toolbar);
+
+  const launcher = document.createElement('button');
+  launcher.id = 'mobileLayoutLauncher';
+  launcher.type = 'button';
+  launcher.textContent = 'EDIT';
+  document.body.appendChild(launcher);
+
+  function setToolbarOpen(open) {
+    toolbar.classList.toggle('mobile-layout-toolbar-hidden', !open);
+    launcher.classList.toggle('hidden', open);
+  }
+
+  // Keep the page clear for editing by default. The small EDIT button
+  // reopens Save / Reset / Exit only when needed.
+  setToolbarOpen(false);
 
   document.getElementById('mobileLayoutSave').onclick = async event => {
     event.preventDefault();
@@ -283,6 +350,18 @@
     event.stopPropagation();
     localStorage.removeItem(STORAGE_KEY);
     window.location.reload();
+  };
+
+  document.getElementById('mobileLayoutHide').onclick = event => {
+    event.preventDefault();
+    event.stopPropagation();
+    setToolbarOpen(false);
+  };
+
+  launcher.onclick = event => {
+    event.preventDefault();
+    event.stopPropagation();
+    setToolbarOpen(true);
   };
 
   document.getElementById('mobileLayoutExit').onclick = event => {
