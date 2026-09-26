@@ -283,11 +283,12 @@ test('manual replay fullscreen is chart-only and preserves the trade hologram la
   assert.match(html, /⛶ Full Screen/);
   assert.match(app, /function fullscreenChartFrame/);
   assert.match(app, /document\.querySelector\('\.chart-wrap'\)/);
-  assert.match(app, /frame\.requestFullscreen/);
-  assert.match(app, /document\.exitFullscreen/);
+  assert.doesNotMatch(app, /frame\.requestFullscreen/);
+  assert.doesNotMatch(app, /document\.exitFullscreen/);
+  assert.match(app, /classList\.toggle\('manual-replay-fullscreen-fallback'\)/);
   assert.match(app, /function syncFullscreenUi/);
   assert.match(css, /\.chart-wrap:fullscreen/);
-  assert.match(css, /\.chart-wrap:fullscreen \.manual-replay-trade-layer/);
+  assert.match(css, /manual-replay-fullscreen-fallback \.manual-replay-trade-layer/);
   assert.doesNotMatch(css, /#replayWorkspace:fullscreen/);
 });
 
@@ -495,7 +496,7 @@ test('chart frame has an always-visible line and support resistance drawing bar'
   assert.match(app, /\$\('chartRectBtn'\)\?\.addEventListener\('click', \(\) => toggleDrawingMode\('rect'\)\)/);
   assert.match(app, /\$\('drawLineBtn'\), \$\('chartLineBtn'\)/);
   assert.match(css, /\.chart-drawing-bar/);
-  assert.match(css, /\.chart-wrap:fullscreen \.chart-drawing-bar/);
+  assert.match(css, /manual-replay-fullscreen-fallback \.chart-drawing-bar/);
   assert.match(liveChart, /beginDrawingGesture[\s\S]*data-replay-chart-toolbar/);
   assert.match(liveChart, /onVerticalPointerDown[\s\S]*data-replay-chart-toolbar/);
 });
