@@ -1247,45 +1247,22 @@
     return document.querySelector('.chart-wrap');
   }
 
-  async function toggleFullscreenWorkspace() {
+  function toggleFullscreenWorkspace() {
     const frame = fullscreenChartFrame();
     if (!frame) return;
 
-    try {
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        }
-        return;
-      }
-
-      if (frame.requestFullscreen) {
-        await frame.requestFullscreen();
-      } else if (frame.webkitRequestFullscreen) {
-        frame.webkitRequestFullscreen();
-      } else {
-        document.body.classList.toggle('manual-replay-fullscreen-fallback');
-        window.dispatchEvent(new Event('resize'));
-        syncFullscreenUi();
-      }
-      $('fullscreenBtn')?.blur?.();
-    } catch (_error) {
-      document.body.classList.toggle('manual-replay-fullscreen-fallback');
-      window.dispatchEvent(new Event('resize'));
-      syncFullscreenUi();
-      $('fullscreenBtn')?.blur?.();
-    }
+    // Keep fullscreen inside the existing browser window so screen-sharing apps
+    // (TikTok Live Studio, Google Meet, OBS, Discord, etc.) capture the chart.
+    // Native Element.requestFullscreen() can move the chart to a separate
+    // compositor surface that some window-capture pipelines do not include.
+    document.body.classList.toggle('manual-replay-fullscreen-fallback');
+    window.dispatchEvent(new Event('resize'));
+    syncFullscreenUi();
+    $('fullscreenBtn')?.blur?.();
   }
 
   function syncFullscreenUi() {
-    const frame = fullscreenChartFrame();
-    const active = Boolean(
-      document.fullscreenElement === frame ||
-      document.webkitFullscreenElement === frame ||
-      document.body.classList.contains('manual-replay-fullscreen-fallback')
-    );
+    const active = document.body.classList.contains('manual-replay-fullscreen-fallback');
     const button = $('fullscreenBtn');
     if (button) {
       button.textContent = active ? '⤢' : '⛶';
@@ -1426,8 +1403,6 @@
   $('zoomInBtn').addEventListener('click', () => zoomChart(-1, null));
   $('zoomOutBtn').addEventListener('click', () => zoomChart(1, null));
   $('fullscreenBtn').addEventListener('click', toggleFullscreenWorkspace);
-  document.addEventListener('fullscreenchange', syncFullscreenUi);
-  document.addEventListener('webkitfullscreenchange', syncFullscreenUi);
 
   $('slPrice').addEventListener('focus', () => setActivePriceField('slPrice'));
   $('tpPrice').addEventListener('focus', () => setActivePriceField('tpPrice'));
