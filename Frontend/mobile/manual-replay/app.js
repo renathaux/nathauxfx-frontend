@@ -23,6 +23,9 @@
     positionDraft:null,
     positionDrag:null,
     positionDragPointerId:null,
+    pricePanOffset:0,
+    pricePanGesture:null,
+    pricePanPointerId:null,
     drawMode:null,
     drawStart:null,
     drawings:[],
@@ -134,6 +137,20 @@
     return out;
   }
 
+  function autoScaleInfoProvider(original) {
+    const info = original();
+    if (!info || !info.priceRange) return info;
+    const offset = Number(state.pricePanOffset) || 0;
+    if (!offset) return info;
+    return {
+      ...info,
+      priceRange:{
+        minValue:Number(info.priceRange.minValue) + offset,
+        maxValue:Number(info.priceRange.maxValue) + offset
+      }
+    };
+  }
+
   function ensureChart() {
     if (state.chart) return;
     state.chart = LightweightCharts.createChart($('chart'), {
@@ -169,7 +186,8 @@
       priceLineStyle:2,
       priceLineWidth:1,
       lastValueVisible:false,
-      priceLineVisible:false
+      priceLineVisible:false,
+      autoscaleInfoProvider:autoScaleInfoProvider
     });
   }
 
@@ -198,10 +216,11 @@
       $('ohlc').textContent = 'O ' + fmt(candle.open) + '   H ' + fmt(candle.high) + '   L ' + fmt(candle.low) + '   C ' + fmt(candle.close);
       const position = state.positionDraft || state.openTrade;
       $('entryPrice').value = fmt(position ? position.entry : candle.close);
-      $('shortPrice').textContent = fmt(candle.close);
-      $('longPrice').textContent = fmt(candle.close);
+      $('shortPrice').textContent = state.positionDraft?.side === 'SHORT' ? 'SELL' : fmt(candle.close);
+      $('longPrice').textContent = state.positionDraft?.side === 'LONG' ? 'BUY' : fmt(candle.close);
     }
     $('progress').textContent = (state.candles.length ? state.index+1 : 0) + ' / ' + state.candles.length;
+    state.series.applyOptions({autoscaleInfoProvider:autoScaleInfoProvider});
   }
 
   function renderMetrics() {
@@ -311,6 +330,9 @@
       state.positionDraft = null;
       state.positionDrag = null;
       state.positionDragPointerId = null;
+      state.pricePanOffset = 0;
+      state.pricePanGesture = null;
+      state.pricePanPointerId = null;
       state.drawings = [];
 
       const start = new Date($('startDate').value);
@@ -389,7 +411,7 @@
     const low = lows.length ? Math.min(...lows) : entry;
     const high = highs.length ? Math.max(...highs) : entry;
     const range = Math.max(high-low,minimumPriceDistance()*10);
-    const distance = Math.max(range*0.20,minimumPriceDistance()*4);
+    const distance = Math.max(range*0.075,minimumPriceDistance()*4);
 
     state.side = normalizedSide;
     state.positionDraft = normalizedSide === 'LONG'
@@ -470,11 +492,30 @@
 
   function updateQuickEntryButtons() {
     const draft = state.positionDraft;
+    const metrics = draft ? draftFor(draft.side) : null;
     const shortArmed = Boolean(draft && draft.side === 'SHORT');
     const longArmed = Boolean(draft && draft.side === 'LONG');
 
-    $('quickShortLabel').textContent = shortArmed ? 'SELL' : 'SHORT POSITION';
-    $('quickLongLabel').textContent = longArmed ? 'BUY' : 'LONG POSITION';
+    if (shortArmed) {
+      $('quickShortLabel').textContent = metrics
+        ? metrics.slPips.toFixed(1) + ' pips • $' + metrics.risk.toFixed(2) + ' risk'
+        : 'TAP TO ENTER';
+      $('shortPrice').textContent = 'SELL';
+    } else {
+      $('quickShortLabel').textContent = 'SHORT POSITION';
+      $('shortPrice').textContent = current() ? fmt(current().close) : '—';
+    }
+
+    if (longArmed) {
+      $('quickLongLabel').textContent = metrics
+        ? metrics.slPips.toFixed(1) + ' pips • $' + metrics.risk.toFixed(2) + ' risk'
+        : 'TAP TO ENTER';
+      $('longPrice').textContent = 'BUY';
+    } else {
+      $('quickLongLabel').textContent = 'LONG POSITION';
+      $('longPrice').textContent = current() ? fmt(current().close) : '—';
+    }
+
     $('quickShort').classList.toggle('selected',shortArmed);
     $('quickLong').classList.toggle('selected',longArmed);
 
@@ -661,18 +702,34 @@
     if (![entryY,slY,tpY].every(Number.isFinite)) return '';
 
     const width = $('chart').clientWidth || 320;
-    const startX = Math.max(12,Math.round(width*0.18));
-    const endX = Math.max(startX+90,width-12);
+    const entryTime = position.entryTime ? Math.floor(Date.parse(position.entryTime)/1000) : null;
+    const candleX = entryTime && state.chart?.timeScale ? state.chart.timeScale().timeToCoordinate(entryTime) : null;
+    const fallbackX = Math.round(width*0.52);
+    const baseX = Number.isFinite(Number(candleX)) ? Number(candleX) : fallbackX;
+    const cardWidth = Math.max(150,Math.min(250,width*0.42));
+    const startX = Math.max(12,Math.min(width-cardWidth-12,baseX-22));
+    const endX = Math.min(width-12,startX+cardWidth);
+
     const rect = (a,b,klass) => '<rect class="position-zone ' + klass + '" x="' + startX + '" y="' + Math.min(a,b) + '" width="' + (endX-startX) + '" height="' + Math.abs(b-a) + '" rx="2"/>';
     const line = (field,value,y,klass) => {
       const hit = editable && (field === 'sl' || field === 'tp')
         ? '<line class="position-hit-line" data-position-handle="' + field + '" x1="' + startX + '" y1="' + y + '" x2="' + endX + '" y2="' + y + '"/>' +
-          '<circle class="position-handle ' + klass + '" data-position-handle="' + field + '" cx="' + (endX-10) + '" cy="' + y + '" r="10"/>'
+          '<circle class="position-handle ' + klass + '" data-position-handle="' + field + '" cx="' + (endX-10) + '" cy="' + y + '" r="9"/>'
         : '';
       return '<line class="position-line ' + klass + '" x1="' + startX + '" y1="' + y + '" x2="' + endX + '" y2="' + y + '"/>' +
         hit +
-        '<text class="position-price-label ' + klass + '" x="' + (endX-16) + '" y="' + Math.max(12,y-6) + '" text-anchor="end">' + field.toUpperCase() + ' ' + fmt(value) + '</text>';
+        '<text class="position-price-label ' + klass + '" x="' + (endX-14) + '" y="' + Math.max(12,y-5) + '" text-anchor="end">' + field.toUpperCase() + ' ' + fmt(value) + '</text>';
     };
+
+    const metrics = editable ? draftFor(position.side) : position;
+    const riskText = metrics && Number.isFinite(Number(metrics.slPips)) && Number.isFinite(Number(metrics.risk))
+      ? metrics.slPips.toFixed(1) + ' pips  -$' + metrics.risk.toFixed(2)
+      : '';
+    const rewardText = metrics && Number.isFinite(Number(metrics.tpPips)) && Number.isFinite(Number(metrics.reward))
+      ? metrics.tpPips.toFixed(1) + ' pips  +$' + metrics.reward.toFixed(2)
+      : '';
+    const riskMid = (entryY+slY)/2;
+    const rewardMid = (entryY+tpY)/2;
 
     return '<g class="position-overlay ' + (editable ? 'draft' : 'active') + '">' +
       rect(entryY,tpY,'profit-zone') +
@@ -680,9 +737,12 @@
       line('entry',position.entry,entryY,'entry') +
       line('sl',position.sl,slY,'sl') +
       line('tp',position.tp,tpY,'tp') +
-      '<text class="position-title" x="' + (startX+8) + '" y="' + Math.max(14,entryY-8) + '">' +
+      '<text class="position-title" x="' + (startX+8) + '" y="' + Math.max(14,entryY-7) + '">' +
         (position.side === 'LONG' ? 'LONG' : 'SHORT') + (editable ? ' POSITION' : ' ACTIVE') +
-      '</text></g>';
+      '</text>' +
+      (riskText ? '<text class="position-info risk" x="' + (startX+8) + '" y="' + Math.max(14,riskMid+4) + '">' + riskText + '</text>' : '') +
+      (rewardText ? '<text class="position-info reward" x="' + (startX+8) + '" y="' + Math.max(14,rewardMid+4) + '">' + rewardText + '</text>' : '') +
+    '</g>';
   }
 
   function renderDrawings() {
@@ -755,6 +815,68 @@
     window.addEventListener('pointercancel',finish);
   }
 
+  function visiblePriceSpan() {
+    const rows = visibleCandles();
+    if (!rows.length) return minimumPriceDistance()*100;
+    const highs = rows.map(row => Number(row.high)).filter(Number.isFinite);
+    const lows = rows.map(row => Number(row.low)).filter(Number.isFinite);
+    if (!highs.length || !lows.length) return minimumPriceDistance()*100;
+    const raw = Math.max(...highs)-Math.min(...lows);
+    return Math.max(raw*1.25,minimumPriceDistance()*100);
+  }
+
+  function bindChartVerticalPan() {
+    const stage = $('chart').parentElement;
+    if (!stage) return;
+
+    stage.addEventListener('pointerdown',event => {
+      if (state.drawMode || state.positionDrag) return;
+      if (event.target && event.target.getAttribute && event.target.getAttribute('data-position-handle')) return;
+      state.pricePanGesture = {
+        startX:event.clientX,
+        startY:event.clientY,
+        startOffset:Number(state.pricePanOffset)||0,
+        span:visiblePriceSpan(),
+        active:false
+      };
+      state.pricePanPointerId = event.pointerId;
+    },true);
+
+    stage.addEventListener('pointermove',event => {
+      const gesture = state.pricePanGesture;
+      if (!gesture || event.pointerId !== state.pricePanPointerId || state.positionDrag) return;
+      const dx = event.clientX-gesture.startX;
+      const dy = event.clientY-gesture.startY;
+
+      if (!gesture.active) {
+        if (Math.hypot(dx,dy) < 7) return;
+        if (Math.abs(dy) <= Math.abs(dx)*1.12) {
+          state.pricePanGesture = null;
+          state.pricePanPointerId = null;
+          return;
+        }
+        gesture.active = true;
+        stage.setPointerCapture?.(event.pointerId);
+      }
+
+      const h = Math.max($('chart').clientHeight,1);
+      state.pricePanOffset = gesture.startOffset + (dy/h)*gesture.span;
+      state.series.applyOptions({autoscaleInfoProvider:autoScaleInfoProvider});
+      renderDrawings();
+      event.preventDefault();
+      event.stopPropagation();
+    },{capture:true,passive:false});
+
+    const finish = event => {
+      if (!state.pricePanGesture) return;
+      if (state.pricePanPointerId != null && event.pointerId !== state.pricePanPointerId) return;
+      state.pricePanGesture = null;
+      state.pricePanPointerId = null;
+    };
+    stage.addEventListener('pointerup',finish,true);
+    stage.addEventListener('pointercancel',finish,true);
+  }
+
   function bindSwipes() {
     document.addEventListener('touchstart',event => {
       if (event.touches.length !== 1) return;
@@ -808,6 +930,7 @@
   ensureChart();
   bindDrawing();
   bindPositionDrag();
+  bindChartVerticalPan();
   bindSwipes();
   syncLot(0.10);
   setSizingMode('AUTO_RISK');
