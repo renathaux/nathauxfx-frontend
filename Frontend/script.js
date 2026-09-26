@@ -11913,6 +11913,47 @@ function normalizeTradeExecutionSymbol(symbol) {
   return String(symbol || "").toUpperCase();
 }
 
+function getDashboardChartTheme() {
+  const light = document.body.classList.contains("nfx-theme-light");
+  return light
+    ? {
+        background:"#ffffff",
+        text:"#536b94",
+        grid:"rgba(130, 151, 181, 0.22)",
+        crosshair:"rgba(83, 107, 148, 0.34)",
+        label:"#eaf1fb",
+        border:"#dce6f3",
+      }
+    : {
+        background:"#0b0f1a",
+        text:"#9fb0c8",
+        grid:"rgba(42, 51, 66, 0.45)",
+        crosshair:"rgba(180, 190, 210, 0.35)",
+        label:"#111827",
+        border:"#1f2937",
+      };
+}
+
+function applyDashboardChartTheme() {
+  if (!chart) return;
+  const theme = getDashboardChartTheme();
+  chart.applyOptions({
+    layout:{background:{color:theme.background},textColor:theme.text,attributionLogo:false},
+    grid:{vertLines:{color:theme.grid},horzLines:{color:theme.grid}},
+    crosshair:{
+      mode:1,
+      vertLine:{color:theme.crosshair,width:1,style:2,labelBackgroundColor:theme.label},
+      horzLine:{color:theme.crosshair,width:1,style:2,labelBackgroundColor:theme.label},
+    },
+    rightPriceScale:{borderColor:theme.border},
+    timeScale:{borderColor:theme.border},
+  });
+}
+
+window.addEventListener("nathauxfx:themechange", () => {
+  applyDashboardChartTheme();
+});
+
 function initChart() {
   const container = document.getElementById("chartContainer");
 
@@ -11937,13 +11978,14 @@ function initChart() {
     clearTradeLevelDragLayer({ force: true });
   }
 
+  const dashboardChartTheme = getDashboardChartTheme();
   chart = LightweightCharts.createChart(container, {
   width: container.clientWidth || 800,
   height: Math.max(container.clientHeight || 420, 320),
 
   layout: {
-    background: { color: "#0b0f1a" },
-    textColor: "#9fb0c8",
+    background: { color: dashboardChartTheme.background },
+    textColor: dashboardChartTheme.text,
     attributionLogo: false
   },
   priceFormat: {
@@ -11952,33 +11994,33 @@ function initChart() {
     minMove: currentChartSymbol === "EURUSD" ? 0.00001 : 0.01,
   },
   grid: {
-    vertLines: { color: "rgba(42, 51, 66, 0.45)" },
-    horzLines: { color: "rgba(42, 51, 66, 0.45)" }
+    vertLines: { color: dashboardChartTheme.grid },
+    horzLines: { color: dashboardChartTheme.grid }
   },
   crosshair: {
     mode: 1,
     vertLine: {
-      color: "rgba(180, 190, 210, 0.35)",
+      color: dashboardChartTheme.crosshair,
       width: 1,
       style: 2,
-      labelBackgroundColor: "#111827"
+      labelBackgroundColor: dashboardChartTheme.label
     },
     horzLine: {
-      color: "rgba(180, 190, 210, 0.35)",
+      color: dashboardChartTheme.crosshair,
       width: 1,
       style: 2,
-      labelBackgroundColor: "#111827"
+      labelBackgroundColor: dashboardChartTheme.label
     }
   },
   rightPriceScale: {
-    borderColor: "#1f2937",
+    borderColor: dashboardChartTheme.border,
     scaleMargins: {
       top: 0.08,
       bottom: 0.08
     }
   },
   timeScale: {
-    borderColor: "#1f2937",
+    borderColor: dashboardChartTheme.border,
     timeVisible: true,
     secondsVisible: false,
     barSpacing: 14,
