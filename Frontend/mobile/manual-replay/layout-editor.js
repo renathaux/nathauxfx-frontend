@@ -73,6 +73,7 @@
     {name:'brandMark', selector:'.brand-mark', minW:22, minH:22},
     {name:'brandName', selector:'.brand-name', minW:80, minH:20},
     {name:'marketbar', selector:'.marketbar', minW:260, minH:36},
+    {name:'marketName', selector:'#marketName', minW:90, minH:14},
     {name:'symbolBox', selector:'.bare-select', minW:110, minH:28},
     {name:'tfBox', selector:'.tf-select', minW:56, minH:28},
     {name:'replayIndicator', selector:'.replay-indicator', minW:80, minH:20},
@@ -245,6 +246,7 @@
 
   document.addEventListener('pointerdown', event => {
     if (event.target.closest?.('#manualLayoutToolbar')) return;
+    if (event.target.closest?.('#mobileLayoutLauncher')) return;
 
     const handle = event.target.closest?.('.manual-layout-hover-handle');
     if (handle && active) {
@@ -263,6 +265,7 @@
 
   function block(event) {
     if (event.target.closest?.('#manualLayoutToolbar')) return;
+    if (event.target.closest?.('#mobileLayoutLauncher')) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
