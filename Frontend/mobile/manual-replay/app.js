@@ -20,6 +20,9 @@
     startBalance:10000,
     trades:[],
     openTrade:null,
+    positionDraft:null,
+    positionDrag:null,
+    positionDragPointerId:null,
     drawMode:null,
     drawStart:null,
     drawings:[],
@@ -193,7 +196,8 @@
     const candle = current();
     if (candle) {
       $('ohlc').textContent = 'O ' + fmt(candle.open) + '   H ' + fmt(candle.high) + '   L ' + fmt(candle.low) + '   C ' + fmt(candle.close);
-      $('entryPrice').value = fmt(candle.close);
+      const position = state.positionDraft || state.openTrade;
+      $('entryPrice').value = fmt(position ? position.entry : candle.close);
       $('shortPrice').textContent = fmt(candle.close);
       $('longPrice').textContent = fmt(candle.close);
     }
@@ -304,6 +308,9 @@
       state.balance = state.startBalance;
       state.trades = [];
       state.openTrade = null;
+      state.positionDraft = null;
+      state.positionDrag = null;
+      state.positionDragPointerId = null;
       state.drawings = [];
 
       const start = new Date($('startDate').value);
@@ -362,13 +369,70 @@
     updateDraft();
   }
 
-  function draftFor(side) {
-    const candle = current();
-    if (!candle) return null;
-    const entry = Number(candle.close);
-    const sl = Number($('slPrice').value);
-    const tp = Number($('tpPrice').value);
+  function minimumPriceDistance() {
+    return state.symbol === 'XAUUSD' ? 0.01 : 0.0001;
+  }
 
+  function createPositionDraft(side) {
+    if (state.openTrade) {
+      alert('Close the current replay trade first.');
+      return false;
+    }
+    const candle = current();
+    if (!candle) return false;
+
+    const normalizedSide = side === 'SHORT' ? 'SHORT' : 'LONG';
+    const rows = state.candles.slice(Math.max(0,state.index-119),state.index+1);
+    const lows = rows.map(row => Number(row.low)).filter(Number.isFinite);
+    const highs = rows.map(row => Number(row.high)).filter(Number.isFinite);
+    const entry = Number(candle.close);
+    const low = lows.length ? Math.min(...lows) : entry;
+    const high = highs.length ? Math.max(...highs) : entry;
+    const range = Math.max(high-low,minimumPriceDistance()*10);
+    const distance = Math.max(range*0.20,minimumPriceDistance()*4);
+
+    state.side = normalizedSide;
+    state.positionDraft = normalizedSide === 'LONG'
+      ? {side:'LONG',entry,sl:entry-distance,tp:entry+distance*2,entryIndex:state.index,entryTime:candle.timestamp}
+      : {side:'SHORT',entry,sl:entry+distance,tp:entry-distance*2,entryIndex:state.index,entryTime:candle.timestamp};
+
+    $('entryPrice').value = fmt(entry);
+    $('slPrice').value = fmt(state.positionDraft.sl);
+    $('tpPrice').value = fmt(state.positionDraft.tp);
+    updateDraft();
+    renderDrawings();
+    return true;
+  }
+
+  function setDraftLevel(field,rawValue) {
+    const draft = state.positionDraft;
+    if (!draft || !['sl','tp'].includes(field)) return false;
+    const value = Number(rawValue);
+    if (!Number.isFinite(value)) return false;
+
+    const gap = minimumPriceDistance();
+    const entry = Number(draft.entry);
+    let next = value;
+    if (field === 'sl') {
+      next = draft.side === 'LONG' ? Math.min(value,entry-gap) : Math.max(value,entry+gap);
+    } else {
+      next = draft.side === 'LONG' ? Math.max(value,entry+gap) : Math.min(value,entry-gap);
+    }
+
+    draft[field] = next;
+    $(field === 'sl' ? 'slPrice' : 'tpPrice').value = fmt(next);
+    updateDraft();
+    renderDrawings();
+    return true;
+  }
+
+  function draftFor(side) {
+    const position = state.positionDraft;
+    if (!position || position.side !== side) return null;
+
+    const entry = Number(position.entry);
+    const sl = Number(position.sl);
+    const tp = Number(position.tp);
     if (![entry,sl,tp].every(Number.isFinite) || sl <= 0 || tp <= 0) return null;
 
     const valid = side === 'LONG' ? (sl < entry && tp > entry) : (sl > entry && tp < entry);
@@ -404,6 +468,21 @@
     };
   }
 
+  function updateQuickEntryButtons() {
+    const draft = state.positionDraft;
+    const shortArmed = Boolean(draft && draft.side === 'SHORT');
+    const longArmed = Boolean(draft && draft.side === 'LONG');
+
+    $('quickShortLabel').textContent = shortArmed ? 'SELL' : 'SHORT POSITION';
+    $('quickLongLabel').textContent = longArmed ? 'BUY' : 'LONG POSITION';
+    $('quickShort').classList.toggle('selected',shortArmed);
+    $('quickLong').classList.toggle('selected',longArmed);
+
+    if (draft) $('ticketDirection').textContent = draft.side + ' DRAFT';
+    else if (state.openTrade) $('ticketDirection').textContent = state.openTrade.side + ' ACTIVE';
+    else $('ticketDirection').textContent = 'No draft';
+  }
+
   function updateDraft() {
     const draft = draftFor(state.side);
     $('draftLot').textContent = draft ? draft.lot.toFixed(2) : '—';
@@ -423,23 +502,24 @@
     } else {
       $('quickLot').value = draft && Number.isFinite(draft.lot) ? draft.lot.toFixed(2) : '';
     }
-
-    $('confirmPositionBtn').disabled = !draft || Boolean(state.openTrade);
+    updateQuickEntryButtons();
   }
 
   function setSide(side) {
-    state.side = side;
-    const long = side === 'LONG';
-    $('ticketLong').classList.toggle('active',long);
-    $('ticketShort').classList.toggle('active',!long);
-    $('quickLong').classList.toggle('selected',long);
-    $('quickShort').classList.toggle('selected',!long);
-
-    const confirm = $('confirmPositionBtn');
-    confirm.textContent = long ? '↑ Buy Position' : '↓ Sell Position';
-    confirm.classList.toggle('action-long',long);
-    confirm.classList.toggle('action-short',!long);
+    state.side = side === 'SHORT' ? 'SHORT' : 'LONG';
     updateDraft();
+  }
+
+  function handleQuickPosition(side) {
+    const normalizedSide = side === 'SHORT' ? 'SHORT' : 'LONG';
+    if (state.openTrade) {
+      alert('Close the current replay trade first.');
+      return false;
+    }
+    if (state.positionDraft && state.positionDraft.side === normalizedSide) {
+      return openTrade(normalizedSide);
+    }
+    return createPositionDraft(normalizedSide);
   }
 
   function openTrade(side) {
@@ -448,22 +528,22 @@
       return false;
     }
 
-    setSide(side);
     const draft = draftFor(side);
-    if (!draft) {
-      openTradeDrawer(side);
-      return false;
-    }
+    if (!draft) return false;
 
     state.openTrade = Object.assign({},draft,{
       symbol:state.symbol,
-      openedAt:current().timestamp,
+      openedAt:state.positionDraft.entryTime || current().timestamp,
       openedIndex:state.index,
       floating:0
     });
+    state.positionDraft = null;
+    state.positionDrag = null;
+    state.positionDragPointerId = null;
     renderOpenTrade();
     renderMetrics();
-    closeDrawers();
+    updateDraft();
+    renderDrawings();
     return true;
   }
 
@@ -504,6 +584,7 @@
     renderMetrics();
     renderHistory();
     updateDraft();
+    renderDrawings();
   }
 
   function closeTradeNow() {
@@ -511,8 +592,8 @@
     if (candle) closeTradeAt(candle.close,candle.timestamp);
   }
 
-  function openTradeDrawer(side) {
-    if (side) setSide(side);
+  function openTradeDrawer() {
+    updateQuickEntryButtons();
     openDrawer('trade');
   }
 
@@ -572,10 +653,42 @@
     return {x:event.clientX-rect.left,y:event.clientY-rect.top};
   }
 
+  function positionOverlaySvg(position,editable) {
+    if (!position || !state.series) return '';
+    const entryY = state.series.priceToCoordinate(Number(position.entry));
+    const slY = state.series.priceToCoordinate(Number(position.sl));
+    const tpY = state.series.priceToCoordinate(Number(position.tp));
+    if (![entryY,slY,tpY].every(Number.isFinite)) return '';
+
+    const width = $('chart').clientWidth || 320;
+    const startX = Math.max(12,Math.round(width*0.18));
+    const endX = Math.max(startX+90,width-12);
+    const rect = (a,b,klass) => '<rect class="position-zone ' + klass + '" x="' + startX + '" y="' + Math.min(a,b) + '" width="' + (endX-startX) + '" height="' + Math.abs(b-a) + '" rx="2"/>';
+    const line = (field,value,y,klass) => {
+      const hit = editable && (field === 'sl' || field === 'tp')
+        ? '<line class="position-hit-line" data-position-handle="' + field + '" x1="' + startX + '" y1="' + y + '" x2="' + endX + '" y2="' + y + '"/>' +
+          '<circle class="position-handle ' + klass + '" data-position-handle="' + field + '" cx="' + (endX-10) + '" cy="' + y + '" r="10"/>'
+        : '';
+      return '<line class="position-line ' + klass + '" x1="' + startX + '" y1="' + y + '" x2="' + endX + '" y2="' + y + '"/>' +
+        hit +
+        '<text class="position-price-label ' + klass + '" x="' + (endX-16) + '" y="' + Math.max(12,y-6) + '" text-anchor="end">' + field.toUpperCase() + ' ' + fmt(value) + '</text>';
+    };
+
+    return '<g class="position-overlay ' + (editable ? 'draft' : 'active') + '">' +
+      rect(entryY,tpY,'profit-zone') +
+      rect(entryY,slY,'risk-zone') +
+      line('entry',position.entry,entryY,'entry') +
+      line('sl',position.sl,slY,'sl') +
+      line('tp',position.tp,tpY,'tp') +
+      '<text class="position-title" x="' + (startX+8) + '" y="' + Math.max(14,entryY-8) + '">' +
+        (position.side === 'LONG' ? 'LONG' : 'SHORT') + (editable ? ' POSITION' : ' ACTIVE') +
+      '</text></g>';
+  }
+
   function renderDrawings() {
     const svg = $('drawingSvg');
     if (!svg) return;
-    svg.innerHTML = state.drawings.map(drawing => {
+    const drawings = state.drawings.map(drawing => {
       if (drawing.type === 'rect') {
         const x = Math.min(drawing.a.x,drawing.b.x);
         const y = Math.min(drawing.a.y,drawing.b.y);
@@ -584,6 +697,8 @@
       const klass = drawing.type === 'measure' ? 'drawing-measure' : 'drawing-line';
       return '<line class="' + klass + '" x1="' + drawing.a.x + '" y1="' + drawing.a.y + '" x2="' + drawing.b.x + '" y2="' + drawing.b.y + '"/>';
     }).join('');
+    const position = state.positionDraft || state.openTrade;
+    svg.innerHTML = drawings + positionOverlaySvg(position,Boolean(state.positionDraft));
   }
 
   function setDrawMode(mode) {
@@ -608,6 +723,36 @@
       state.drawStart = null;
       renderDrawings();
     });
+  }
+
+  function bindPositionDrag() {
+    const svg = $('drawingSvg');
+    svg.addEventListener('pointerdown',event => {
+      const field = event.target && event.target.getAttribute ? event.target.getAttribute('data-position-handle') : null;
+      if (!state.positionDraft || !['sl','tp'].includes(field)) return;
+      state.positionDrag = field;
+      state.positionDragPointerId = event.pointerId;
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    window.addEventListener('pointermove',event => {
+      if (!state.positionDrag || event.pointerId !== state.positionDragPointerId || !state.positionDraft) return;
+      const rect = $('chart').getBoundingClientRect();
+      const y = Math.max(0,Math.min(rect.height,event.clientY-rect.top));
+      const next = state.series && state.series.coordinateToPrice ? state.series.coordinateToPrice(y) : null;
+      if (Number.isFinite(Number(next))) setDraftLevel(state.positionDrag,Number(next));
+      event.preventDefault();
+    },{passive:false});
+
+    const finish = event => {
+      if (!state.positionDrag) return;
+      if (event && state.positionDragPointerId != null && event.pointerId !== state.positionDragPointerId) return;
+      state.positionDrag = null;
+      state.positionDragPointerId = null;
+    };
+    window.addEventListener('pointerup',finish);
+    window.addEventListener('pointercancel',finish);
   }
 
   function bindSwipes() {
@@ -637,7 +782,7 @@
       }
       if (state.activeDrawer) return;
 
-      if (startX <= 38 && dx > 55) openTradeDrawer(state.side);
+      if (startX <= 38 && dx > 55) openTradeDrawer();
       else if (startX >= window.innerWidth-38 && dx < -55) openInfoDrawer('metrics');
     },{passive:true});
   }
@@ -662,12 +807,13 @@
   defaults();
   ensureChart();
   bindDrawing();
+  bindPositionDrag();
   bindSwipes();
   syncLot(0.10);
   setSizingMode('AUTO_RISK');
 
-  $('leftDrawerBtn').onclick = () => openTradeDrawer(state.side);
-  $('leftEdgeHandle').onclick = () => openTradeDrawer(state.side);
+  $('leftDrawerBtn').onclick = () => openTradeDrawer();
+  $('leftEdgeHandle').onclick = () => openTradeDrawer();
   $('rightEdgeHandle').onclick = () => openInfoDrawer('metrics');
   $('closeTradeDrawer').onclick = () => closeDrawers();
   $('closeInfoDrawer').onclick = () => closeDrawers();
@@ -680,13 +826,10 @@
   $('playBtn').onclick = () => setPlaying(!state.timer);
   $('speed').onchange = () => { if (state.timer) setPlaying(true); };
 
-  $('quickShort').onclick = () => openTradeDrawer('SHORT');
-  $('quickLong').onclick = () => openTradeDrawer('LONG');
-  $('ticketLong').onclick = () => setSide('LONG');
-  $('ticketShort').onclick = () => setSide('SHORT');
+  $('quickShort').onclick = () => handleQuickPosition('SHORT');
+  $('quickLong').onclick = () => handleQuickPosition('LONG');
   $('autoRiskMode').onclick = () => setSizingMode('AUTO_RISK');
   $('manualLotMode').onclick = () => setSizingMode('MANUAL_LOT');
-  $('confirmPositionBtn').onclick = () => openTrade(state.side);
   $('closeTradeBtn').onclick = closeTradeNow;
 
   $('lotMinus').onclick = () => syncLot(manualLot()-0.01);
@@ -697,8 +840,8 @@
   $('lotSize').addEventListener('input',() => syncLot($('lotSize').value));
   $('riskMethod').addEventListener('change',updateDraft);
   $('riskValue').addEventListener('input',updateDraft);
-  $('slPrice').addEventListener('input',updateDraft);
-  $('tpPrice').addEventListener('input',updateDraft);
+  $('slPrice').addEventListener('input',() => setDraftLevel('sl',$('slPrice').value));
+  $('tpPrice').addEventListener('input',() => setDraftLevel('tp',$('tpPrice').value));
 
   $('cursorBtn').onclick = () => setDrawMode(null);
   $('lineBtn').onclick = () => setDrawMode('line');
@@ -729,7 +872,11 @@
   window.addEventListener('keydown',event => {
     if (event.key !== 'Escape') return;
     if (state.activeDrawer) closeDrawers();
-    else if (!document.body.classList.contains('stream-fullscreen')) return;
+    else if (state.positionDraft) {
+      state.positionDraft = null;
+      updateDraft();
+      renderDrawings();
+    } else if (!document.body.classList.contains('stream-fullscreen')) return;
     else toggleFullscreen();
   });
 
