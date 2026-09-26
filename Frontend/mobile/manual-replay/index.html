@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#05090d">
   <meta http-equiv="Cache-Control" content="no-store,max-age=0">
   <title>NathauxFX — Mobile Manual Replay</title>
-  <link rel="stylesheet" href="./styles.css?v=5">
+  <link rel="stylesheet" href="./styles.css?v=6">
   <link rel="stylesheet" href="./user-layout.css?v=4">
 </head>
 <body>
@@ -97,7 +97,7 @@
       <div><small>MANUAL REPLAY</small><h2>Trade Ticket</h2></div>
       <button id="closeTradeDrawer" type="button" aria-label="Close trade ticket">×</button>
     </div>
-    <p class="drawer-subtitle">Set the trade, then use Long or Short.</p>
+    <p class="drawer-subtitle">Choose the direction, set the trade, then tap Buy or Sell Position.</p>
 
     <div class="side-select">
       <button id="ticketLong" class="long active" type="button">↑ Long</button>
@@ -135,8 +135,7 @@
     </div>
 
     <div class="drawer-actions">
-      <button id="openLongBtn" class="action-long" type="button">↑ Open Long</button>
-      <button id="openShortBtn" class="action-short" type="button">↓ Open Short</button>
+      <button id="confirmPositionBtn" class="action-long" type="button">↑ Buy Position</button>
     </div>
 
     <section id="openTradeCard" class="open-trade hidden">
@@ -191,7 +190,7 @@
   </aside>
 
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-  <script src="./app.js?v=6"></script>
+  <script src="./app.js?v=7"></script>
   <script src="./layout-editor.js?v=1"></script>
 </body>
 </html>
