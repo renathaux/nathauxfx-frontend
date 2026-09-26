@@ -79,6 +79,51 @@ html[data-theme="dark"]{
   body[data-nfx-page="app"].nfx-app-ready #mainApp>#sideMenu,
   body[data-nfx-page="app"].nfx-app-ready #mainApp>.divider{display:none!important;}
 
+  /* Kill every legacy desktop drawer/backdrop layer once the unified shell is active. */
+  body[data-nfx-page="app"].nfx-app-ready{
+    --app-sidebar-width:var(--nfx-shell-side)!important;
+    --app-sidebar-top:var(--nfx-shell-top)!important;
+    --app-panel-height:calc(100dvh - var(--nfx-shell-top))!important;
+  }
+  body[data-nfx-page="app"].nfx-app-ready #sideMenu,
+  body[data-nfx-page="app"].nfx-app-ready #sideMenu.side-menu,
+  body[data-nfx-page="app"].nfx-app-ready #sideMenu.app-sidebar,
+  body[data-nfx-page="app"].nfx-app-ready #sideMenu .side-menu-inner{
+    display:none!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+    width:0!important;
+    min-width:0!important;
+    max-width:0!important;
+    opacity:0!important;
+    transform:none!important;
+  }
+  body[data-nfx-page="app"].nfx-app-ready #mainApp::after{
+    display:none!important;
+    content:none!important;
+  }
+
+  /* Attached settings/performance pages must use only the new shell geometry. */
+  body[data-nfx-page="app"].nfx-app-ready[data-active-settings-page] #settingsModal,
+  body[data-nfx-page="app"].nfx-app-ready[data-active-settings-page] #statsModal,
+  body[data-nfx-page="app"].nfx-app-ready[data-active-settings-page] #assistantModal,
+  body[data-nfx-page="app"].nfx-app-ready[data-active-settings-page] #brokerAccountsModal{
+    padding:var(--nfx-shell-top) 0 0 var(--nfx-shell-side)!important;
+  }
+  body[data-nfx-page="app"].nfx-app-ready[data-active-settings-page] #settingsModal .settings-modal-box,
+  body[data-nfx-page="app"].nfx-app-ready[data-active-settings-page] #statsModal .performance-modal-box,
+  body[data-nfx-page="app"].nfx-app-ready[data-active-settings-page] #assistantModal .assistant-modal-box{
+    top:var(--nfx-shell-top)!important;
+    left:var(--nfx-shell-side)!important;
+    width:calc(100vw - var(--nfx-shell-side))!important;
+    height:calc(100dvh - var(--nfx-shell-top))!important;
+    min-height:0!important;
+    max-height:calc(100dvh - var(--nfx-shell-top))!important;
+  }
+  body[data-nfx-page="app"].nfx-app-ready[data-active-settings-page] #brokerAccountsModal .broker-settings-content{
+    padding-left:26px!important;
+  }
+
   /* Light mode for the legacy/live dashboard so it belongs to the same product. */
   body[data-nfx-page="app"].nfx-app-ready.nfx-theme-light{
     --bg:#f2f6fb;--panel:#fff;--panel-2:#f7faff;--line:#dce6f3;--line-soft:#e5edf7;--text:#0c193d;--muted:#536b94;--track:#e8eef6;
