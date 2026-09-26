@@ -137,6 +137,16 @@
     return out;
   }
 
+  let overlayRenderFrame = null;
+
+  function scheduleOverlayRender() {
+    if (overlayRenderFrame != null) return;
+    overlayRenderFrame = requestAnimationFrame(() => {
+      overlayRenderFrame = null;
+      renderDrawings();
+    });
+  }
+
   function autoScaleInfoProvider(original) {
     const info = original();
     if (!info || !info.priceRange) return info;
@@ -189,6 +199,7 @@
       priceLineVisible:false,
       autoscaleInfoProvider:autoScaleInfoProvider
     });
+    state.chart.timeScale().subscribeVisibleLogicalRangeChange(() => scheduleOverlayRender());
   }
 
   function current() {
@@ -737,9 +748,6 @@
       line('entry',position.entry,entryY,'entry') +
       line('sl',position.sl,slY,'sl') +
       line('tp',position.tp,tpY,'tp') +
-      '<text class="position-title" x="' + (startX+8) + '" y="' + Math.max(14,entryY-7) + '">' +
-        (position.side === 'LONG' ? 'LONG' : 'SHORT') + (editable ? ' POSITION' : ' ACTIVE') +
-      '</text>' +
       (riskText ? '<text class="position-info risk" x="' + (startX+8) + '" y="' + Math.max(14,riskMid+4) + '">' + riskText + '</text>' : '') +
       (rewardText ? '<text class="position-info reward" x="' + (startX+8) + '" y="' + Math.max(14,rewardMid+4) + '">' + rewardText + '</text>' : '') +
     '</g>';
@@ -849,8 +857,8 @@
       const dy = event.clientY-gesture.startY;
 
       if (!gesture.active) {
-        if (Math.hypot(dx,dy) < 7) return;
-        if (Math.abs(dy) <= Math.abs(dx)*1.12) {
+        if (Math.hypot(dx,dy) < 12) return;
+        if (Math.abs(dy) <= Math.abs(dx)*1.4) {
           state.pricePanGesture = null;
           state.pricePanPointerId = null;
           return;
@@ -860,9 +868,9 @@
       }
 
       const h = Math.max($('chart').clientHeight,1);
-      state.pricePanOffset = gesture.startOffset + (dy/h)*gesture.span;
+      state.pricePanOffset = gesture.startOffset + (dy/h)*gesture.span*0.18;
       state.series.applyOptions({autoscaleInfoProvider:autoScaleInfoProvider});
-      renderDrawings();
+      scheduleOverlayRender();
       event.preventDefault();
       event.stopPropagation();
     },{capture:true,passive:false});
