@@ -71,23 +71,25 @@
     {name:'topIcon', selector:'.top-icon', all:true, minW:28, minH:28},
     {name:'brand', selector:'.brand', minW:120, minH:30},
     {name:'brandMark', selector:'.brand-mark', minW:22, minH:22},
-    {name:'brandName', selector:'.brand-name', minW:80, minH:20},
+    {name:'brandName', selector:'.brand-name', minW:80, minH:20, font:true},
     {name:'marketbar', selector:'.marketbar', minW:260, minH:36},
-    {name:'marketName', selector:'#marketName', minW:90, minH:14},
-    {name:'symbolBox', selector:'.bare-select', minW:110, minH:28},
-    {name:'tfBox', selector:'.tf-select', minW:56, minH:28},
-    {name:'replayIndicator', selector:'.replay-indicator', minW:80, minH:20},
+    {name:'marketName', selector:'#marketName', minW:90, minH:14, font:true},
+    {name:'symbolBox', selector:'.bare-select', minW:110, minH:28, font:true},
+    {name:'tfBox', selector:'.tf-select', minW:56, minH:28, font:true},
+    {name:'replayIndicator', selector:'.replay-indicator', minW:80, minH:20, font:true},
     {name:'chartShell', selector:'.chart-shell', minW:280, minH:240},
-    {name:'ohlc', selector:'.ohlc', minW:150, minH:16},
+    {name:'ohlc', selector:'.ohlc', minW:150, minH:16, font:true},
     {name:'replayControls', selector:'.replay-controls', minW:260, minH:30},
-    {name:'replayControl', selector:'.replay-controls > *', all:true, minW:28, minH:26},
+    {name:'replayControl', selector:'.replay-controls > *', all:true, minW:28, minH:26, font:true},
     {name:'tradeStrip', selector:'.trade-strip', minW:280, minH:42},
     {name:'positionButton', selector:'.position-btn', all:true, minW:90, minH:42},
+    {name:'positionLabel', selector:'.position-btn small', all:true, minW:60, minH:12, font:true},
+    {name:'positionPrice', selector:'#shortPrice, #longPrice', all:true, minW:60, minH:18, font:true},
     {name:'lotControl', selector:'.lot-control', minW:86, minH:42},
-    {name:'lotButton', selector:'.lot-control button', all:true, minW:22, minH:22},
-    {name:'lotInput', selector:'.lot-control input', minW:36, minH:22},
+    {name:'lotButton', selector:'.lot-control button', all:true, minW:22, minH:22, font:true},
+    {name:'lotInput', selector:'.lot-control input', minW:36, minH:22, font:true},
     {name:'bottomNav', selector:'.bottom-nav', minW:280, minH:44},
-    {name:'navButton', selector:'.bottom-nav button', all:true, minW:56, minH:40},
+    {name:'navButton', selector:'.bottom-nav button', all:true, minW:56, minH:40, font:true},
     {name:'edgeHandle', selector:'.edge-handle', all:true, minW:18, minH:34}
   ];
 
@@ -120,6 +122,8 @@
           y: Number(restored?.y || 0),
           width: Number(restored?.width || rect.width),
           height: Number(restored?.height || rect.height),
+          fontEditable: Boolean(spec.font),
+          fontSize: Number(restored?.fontSize || parseFloat(getComputedStyle(el).fontSize) || 14),
           touched: Boolean(restored)
         };
         states.set(el,state);
@@ -137,6 +141,9 @@
     el.style.setProperty('min-height','0','important');
     el.style.setProperty('max-width','none','important');
     el.style.setProperty('transform',`translate3d(${Math.round(state.x)}px,${Math.round(state.y)}px,0)`,'important');
+    if (state.fontEditable && Number.isFinite(state.fontSize)) {
+      el.style.setProperty('font-size',state.fontSize.toFixed(1)+'px','important');
+    }
     state.touched = true;
   }
 
@@ -144,6 +151,10 @@
   frame.id = 'manualLayoutHoverFrame';
   frame.innerHTML = `
     <div id="manualLayoutHoverLabel"></div>
+    <div id="manualLayoutHoverActions">
+      <button type="button" data-mobile-font="down">A−</button>
+      <button type="button" data-mobile-font="up">A+</button>
+    </div>
     ${dirs.map(dir => `<span class="manual-layout-hover-handle" data-dir="${dir}"></span>`).join('')}
   `;
   document.body.appendChild(frame);
@@ -167,8 +178,12 @@
       return;
     }
     const state = states.get(active);
-    document.getElementById('manualLayoutHoverLabel').textContent = state?.label || 'EDIT';
+    document.getElementById('manualLayoutHoverLabel').textContent =
+      (state?.label || 'EDIT') + (state?.fontEditable ? ' · ' + state.fontSize.toFixed(1) + 'px' : '');
     frame.classList.add('show');
+    frame.querySelectorAll('[data-mobile-font]').forEach(button => {
+      button.disabled = !state?.fontEditable;
+    });
     syncFrame();
   }
 
@@ -247,6 +262,7 @@
   document.addEventListener('pointerdown', event => {
     if (event.target.closest?.('#manualLayoutToolbar')) return;
     if (event.target.closest?.('#mobileLayoutLauncher')) return;
+    if (event.target.closest?.('#manualLayoutHoverActions')) return;
 
     const handle = event.target.closest?.('.manual-layout-hover-handle');
     if (handle && active) {
@@ -266,6 +282,7 @@
   function block(event) {
     if (event.target.closest?.('#manualLayoutToolbar')) return;
     if (event.target.closest?.('#mobileLayoutLauncher')) return;
+    if (event.target.closest?.('#manualLayoutHoverActions')) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
@@ -283,7 +300,8 @@
         x:Math.round(state.x),
         y:Math.round(state.y),
         width:Math.round(state.width),
-        height:Math.round(state.height)
+        height:Math.round(state.height),
+        ...(state.fontEditable ? {fontSize:Number(state.fontSize.toFixed(1))} : {})
       };
     }
     return {
@@ -306,6 +324,20 @@
     node.classList.add('show');
     setTimeout(() => node.classList.remove('show'),2200);
   }
+
+  frame.querySelectorAll('[data-mobile-font]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!active) return;
+      const state = states.get(active);
+      if (!state?.fontEditable) return;
+      const delta = button.dataset.mobileFont === 'down' ? -1 : 1;
+      state.fontSize = Math.max(7,Math.min(40,state.fontSize + delta));
+      apply(active,state);
+      select(active);
+    });
+  });
 
   const toolbar = document.createElement('div');
   toolbar.id = 'manualLayoutToolbar';
