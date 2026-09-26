@@ -25,6 +25,7 @@
     timer:null,
     chart:null,
     series:null,
+    renderedCandleCount:0,
     side:'LONG',
     sizingMode:'AUTO_RISK',
     balance:10000,
@@ -260,8 +261,36 @@
   function renderChart() {
     ensureChart();
     const rows = visibleCandles();
+    const timeScale = state.chart.timeScale();
+    const previousCount = Number(state.renderedCandleCount) || 0;
+    const previousRange = previousCount > 0 ? timeScale.getVisibleLogicalRange() : null;
+    const previousLast = previousCount - 1;
+    const previousCurrentWasVisible = Boolean(
+      previousRange &&
+      previousLast >= Number(previousRange.from) &&
+      previousLast <= Number(previousRange.to)
+    );
+    const delta = rows.length - previousCount;
+
     state.series.setData(rows);
-    if (rows.length) state.chart.timeScale().scrollToRealTime();
+
+    if (rows.length) {
+      if (previousRange) {
+        const shift = previousCurrentWasVisible ? delta : 0;
+        timeScale.setVisibleLogicalRange({
+          from:Number(previousRange.from) + shift,
+          to:Number(previousRange.to) + shift
+        });
+      } else {
+        // Start with the active candle around the middle instead of pinned to the right edge.
+        const last = rows.length - 1;
+        timeScale.setVisibleLogicalRange({
+          from:last - 70,
+          to:last + 70
+        });
+      }
+    }
+    state.renderedCandleCount = rows.length;
 
     const candle = current();
     if (candle) {
@@ -391,6 +420,7 @@
       state.pricePanGesture = null;
       state.pricePanPointerId = null;
       state.drawings = [];
+      state.renderedCandleCount = 0;
 
       const start = new Date($('startDate').value);
       const end = new Date($('endDate').value);
@@ -1128,10 +1158,10 @@
       state.positionDragPointerId = null;
       state.pricePanOffset = 0;
       state.drawings = [];
+      state.renderedCandleCount = 0;
       $('startDate').value = toInput(start);
       $('endDate').value = toInput(endExclusive);
       renderAll();
-      state.chart.timeScale().scrollToRealTime();
       closeCandleJump();
     } catch (error) {
       setCalendarStatus(error.message || 'Could not load the selected replay range.','error');
