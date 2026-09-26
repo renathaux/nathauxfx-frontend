@@ -79,12 +79,16 @@
     height: 56px !important;
     align-self: end !important;
     transform: none !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 118px minmax(0, 1fr) !important;
+    overflow: hidden !important;
   }
 
   #quickShort,
   #quickLong {
-    width: 38.8vw !important;
+    width: auto !important;
     height: 56px !important;
+    min-width: 0 !important;
     transform: none !important;
   }
 
@@ -103,9 +107,32 @@
   }
 
   .lot-control {
-    width: 22.4vw !important;
+    width: auto !important;
     height: 56px !important;
+    min-width: 0 !important;
     transform: none !important;
+    overflow: hidden !important;
+  }
+
+  .lot-control > div {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 6px !important;
+    display: grid !important;
+    grid-template-columns: 28px minmax(0, 1fr) 28px !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+
+  .lot-control button {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .lot-control input {
+    width: 100% !important;
+    min-width: 0 !important;
+    text-align: center !important;
   }
 
   .bottom-nav {
