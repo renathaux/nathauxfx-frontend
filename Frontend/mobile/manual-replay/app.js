@@ -726,7 +726,8 @@
   }
 
   function openTradeDrawer() {
-    updateQuickEntryButtons();
+    if (state.openTrade) syncActiveTradeEditorFields();
+    else updateQuickEntryButtons();
     openDrawer('trade');
   }
 
@@ -1180,11 +1181,34 @@
     });
   }
 
+  function syncActiveTradeEditorFields() {
+    const trade = state.openTrade;
+    if (!trade) return;
+    $('entryPrice').value = fmt(trade.entry);
+    $('slPrice').value = fmt(trade.sl);
+    $('tpPrice').value = fmt(trade.tp);
+    $('ticketDirection').textContent = trade.side + (state.openTradeEditing ? ' ACTIVE • EDITING' : ' ACTIVE');
+  }
+
   function bindPositionDrag() {
     const svg = $('drawingSvg');
     svg.addEventListener('pointerdown',event => {
-      const field = event.target && event.target.getAttribute ? event.target.getAttribute('data-position-handle') : null;
-      if (!state.positionDraft || !['sl','tp'].includes(field)) return;
+      const target = event.target;
+      const field = target && target.getAttribute ? target.getAttribute('data-position-handle') : null;
+      const card = target && target.getAttribute ? target.getAttribute('data-position-card') : null;
+
+      if (card && state.openTrade && !state.positionDraft) {
+        setPlaying(false);
+        state.openTradeEditing = true;
+        syncActiveTradeEditorFields();
+        renderDrawings();
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      const canEdit = Boolean(state.positionDraft || (state.openTrade && state.openTradeEditing));
+      if (!canEdit || !['sl','tp'].includes(field)) return;
       state.positionDrag = field;
       state.positionDragPointerId = event.pointerId;
       event.preventDefault();
@@ -1192,11 +1216,12 @@
     });
 
     window.addEventListener('pointermove',event => {
-      if (!state.positionDrag || event.pointerId !== state.positionDragPointerId || !state.positionDraft) return;
+      const canEdit = Boolean(state.positionDraft || (state.openTrade && state.openTradeEditing));
+      if (!state.positionDrag || event.pointerId !== state.positionDragPointerId || !canEdit) return;
       const rect = $('chart').getBoundingClientRect();
       const y = Math.max(0,Math.min(rect.height,event.clientY-rect.top));
       const next = state.series && state.series.coordinateToPrice ? state.series.coordinateToPrice(y) : null;
-      if (Number.isFinite(Number(next))) setDraftLevel(state.positionDrag,Number(next));
+      if (Number.isFinite(Number(next))) setPositionLevel(state.positionDrag,Number(next));
       event.preventDefault();
     },{passive:false});
 
