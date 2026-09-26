@@ -80,7 +80,7 @@
     align-self: end !important;
     transform: none !important;
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 118px minmax(0, 1fr) !important;
+    grid-template-columns: minmax(0, 1fr) clamp(132px, 34vw, 148px) minmax(0, 1fr) !important;
     overflow: hidden !important;
   }
 
@@ -119,20 +119,25 @@
     max-width: none !important;
     padding: 0 6px !important;
     display: grid !important;
-    grid-template-columns: 28px minmax(0, 1fr) 28px !important;
+    grid-template-columns: 30px minmax(0, 1fr) 30px !important;
     align-items: center !important;
-    gap: 4px !important;
+    gap: 5px !important;
   }
 
   .lot-control button {
-    width: 28px !important;
-    height: 28px !important;
+    width: 30px !important;
+    height: 30px !important;
   }
 
   .lot-control input {
     width: 100% !important;
     min-width: 0 !important;
+    padding: 0 2px !important;
     text-align: center !important;
+    font-size: 15px !important;
+    line-height: 1 !important;
+    font-variant-numeric: tabular-nums !important;
+    overflow: visible !important;
   }
 
   .bottom-nav {
