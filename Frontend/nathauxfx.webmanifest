@@ -1,0 +1,9 @@
+{
+  "name": "NathauxFX",
+  "short_name": "NathauxFX",
+  "start_url": "/mobile.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#020812",
+  "theme_color": "#020812"
+}
