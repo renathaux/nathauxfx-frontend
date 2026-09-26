@@ -945,9 +945,10 @@
       }
 
       select.disabled = false;
-      jump.disabled = false;
+      commitActiveCalendarPoint(select.value);
       const label = new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric'}).format(dayStart);
       setCalendarStatus(rows.length + ' actual ' + state.timeframe.toUpperCase() + ' candles available on ' + label + '.','success');
+      refreshCalendarRangeCards();
     } catch (error) {
       select.replaceChildren(new Option('No candles available',''));
       setCalendarStatus(error.message || 'No candles are available for this day.','error');
@@ -1022,15 +1023,18 @@
     $('candleJumpBackdrop').classList.remove('hidden');
     $('candleJumpPanel').classList.remove('hidden');
     setCalendarStatus('Loading candle history…');
-    $('jumpToCandleBtn').disabled = true;
 
     try {
       await loadReplayManifest();
-      const candle = current() || state.candles[0];
-      const anchor = new Date(candle.timestamp);
+      candleCalendarFromTs = state.candles[0]?.timestamp || null;
+      candleCalendarToTs = state.candles[state.candles.length-1]?.timestamp || null;
+      candleCalendarActivePoint = 'from';
+      refreshCalendarRangeCards();
+
+      const anchor = new Date(candleCalendarFromTs || current()?.timestamp);
       const anchorKey = monthKey(anchor);
       populateCalendarYearMonthControls(anchorKey);
-      await renderCandleCalendarMonth(anchor.getDate(),candle.timestamp);
+      await renderCandleCalendarMonth(anchor.getDate(),candleCalendarFromTs);
     } catch (error) {
       setCalendarStatus(error.message || 'Could not load candle history.','error');
     }
@@ -1059,40 +1063,40 @@
   }
 
   async function jumpToSelectedCandle() {
-    const value = $('candleJumpTime').value;
-    const targetMs = Date.parse(value);
-    if (!Number.isFinite(targetMs)) return;
+    const fromMs = Date.parse(candleCalendarFromTs || '');
+    const toMs = Date.parse(candleCalendarToTs || '');
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs) {
+      setCalendarStatus('Choose a valid FROM and TO candle.','error');
+      return;
+    }
     if (state.openTrade) {
-      setCalendarStatus('Close the open trade before jumping to another date.','error');
+      setCalendarStatus('Close the open trade before loading another replay range.','error');
       return;
     }
 
-    const firstMs = state.candles.length ? Date.parse(state.candles[0].timestamp) : NaN;
-    const lastMs = state.candles.length ? Date.parse(state.candles[state.candles.length-1].timestamp) : NaN;
-    const insideCurrent = Number.isFinite(firstMs) && Number.isFinite(lastMs) && targetMs >= firstMs && targetMs <= lastMs;
-
     try {
-      if (!insideCurrent) {
-        setCalendarStatus('Loading candles around the selected date…');
-        const target = new Date(targetMs);
-        const start = new Date(targetMs - 3*86400000);
-        const end = new Date(targetMs + 11*86400000);
-        const candles = await loadHistory(state.symbol,state.timeframe,start,end,{allowPartial:true});
-        state.candles = candles;
-        $('startDate').value = toInput(start);
-        $('endDate').value = toInput(end);
-      }
+      setCalendarStatus('Loading the selected replay range…');
+      const start = new Date(fromMs);
+      const endExclusive = new Date(toMs + timeframeDurationMs());
+      const candles = await loadHistory(state.symbol,state.timeframe,start,endExclusive,{allowPartial:false});
+      if (candles.length < 2) throw new Error('The selected range needs at least two candles.');
 
-      state.index = nearestCandleIndex(targetMs);
+      state.candles = candles;
+      state.index = 0;
+      state.openTrade = null;
+      state.openTradeEditing = false;
       state.positionDraft = null;
       state.positionDrag = null;
       state.positionDragPointerId = null;
       state.pricePanOffset = 0;
+      state.drawings = [];
+      $('startDate').value = toInput(start);
+      $('endDate').value = toInput(endExclusive);
       renderAll();
       state.chart.timeScale().scrollToRealTime();
       closeCandleJump();
     } catch (error) {
-      setCalendarStatus(error.message || 'Could not load the selected candle.','error');
+      setCalendarStatus(error.message || 'Could not load the selected replay range.','error');
     }
   }
 
@@ -1412,6 +1416,9 @@
   $('closeCandleJump').onclick = closeCandleJump;
   $('candleJumpBackdrop').onclick = closeCandleJump;
   $('jumpToCandleBtn').onclick = jumpToSelectedCandle;
+  $('calendarFromPick').onclick = () => activateCalendarPoint('from');
+  $('calendarToPick').onclick = () => activateCalendarPoint('to');
+  $('candleJumpTime').onchange = () => commitActiveCalendarPoint($('candleJumpTime').value);
   $('candleCalendarPrevious').onclick = () => moveCandleCalendarMonth(-1);
   $('candleCalendarNext').onclick = () => moveCandleCalendarMonth(1);
   $('candleCalendarYear').onchange = async () => {
