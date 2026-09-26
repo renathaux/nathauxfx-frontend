@@ -799,6 +799,54 @@
     node.className = 'calendar-status' + (kind ? ' ' + kind : '');
   }
 
+  function formatCalendarPoint(timestamp) {
+    if (!timestamp) return 'Choose candle';
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return 'Choose candle';
+    return new Intl.DateTimeFormat(undefined,{
+      month:'short',day:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'
+    }).format(date);
+  }
+
+  function refreshCalendarRangeCards() {
+    $('calendarFromValue').textContent = formatCalendarPoint(candleCalendarFromTs);
+    $('calendarToValue').textContent = formatCalendarPoint(candleCalendarToTs);
+    $('calendarFromPick').classList.toggle('active',candleCalendarActivePoint === 'from');
+    $('calendarToPick').classList.toggle('active',candleCalendarActivePoint === 'to');
+
+    const fromMs = Date.parse(candleCalendarFromTs || '');
+    const toMs = Date.parse(candleCalendarToTs || '');
+    const valid = Number.isFinite(fromMs) && Number.isFinite(toMs) && fromMs < toMs;
+    $('jumpToCandleBtn').disabled = !valid;
+    if (!valid && candleCalendarFromTs && candleCalendarToTs) {
+      setCalendarStatus('TO must be after FROM.','error');
+    }
+  }
+
+  function commitActiveCalendarPoint(timestamp) {
+    if (!timestamp) return;
+    if (candleCalendarActivePoint === 'to') candleCalendarToTs = timestamp;
+    else candleCalendarFromTs = timestamp;
+    refreshCalendarRangeCards();
+  }
+
+  function timeframeDurationMs() {
+    if (state.timeframe === '1h') return 60*60*1000;
+    if (state.timeframe === '15m') return 15*60*1000;
+    return 5*60*1000;
+  }
+
+  async function activateCalendarPoint(which) {
+    candleCalendarActivePoint = which === 'to' ? 'to' : 'from';
+    refreshCalendarRangeCards();
+    const timestamp = candleCalendarActivePoint === 'to' ? candleCalendarToTs : candleCalendarFromTs;
+    if (!timestamp) return;
+    const date = new Date(timestamp);
+    const key = monthKey(date);
+    populateCalendarYearMonthControls(key);
+    await renderCandleCalendarMonth(date.getDate(),timestamp);
+  }
+
   function calendarMonthParts(key) {
     const match = String(key || '').match(/^(\d{4})-(\d{2})$/);
     if (!match) return null;
