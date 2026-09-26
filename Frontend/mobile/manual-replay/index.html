@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#05090d">
   <meta http-equiv="Cache-Control" content="no-store,max-age=0">
   <title>NathauxFX — Mobile Manual Replay</title>
-  <link rel="stylesheet" href="./styles.css?v=4">
+  <link rel="stylesheet" href="./styles.css?v=5">
   <link rel="stylesheet" href="./user-layout.css?v=4">
 </head>
 <body>
@@ -70,9 +70,9 @@
       <button id="quickShort" class="position-btn short" type="button">
         <small>SHORT POSITION</small><strong id="shortPrice">—</strong>
       </button>
-      <div class="lot-control" aria-label="Manual lot size">
-        <small>MANUAL LOT</small>
-        <div><button id="lotMinus" type="button">−</button><input id="quickLot" type="number" min="0.01" step="0.01" value="0.10"><button id="lotPlus" type="button">+</button></div>
+      <div class="lot-control" aria-label="Position size">
+        <small id="quickLotLabel">AUTO LOT</small>
+        <div><button id="lotMinus" type="button" disabled>−</button><input id="quickLot" type="number" min="0.01" step="0.01" value="0.10" readonly><button id="lotPlus" type="button" disabled>+</button></div>
       </div>
       <button id="quickLong" class="position-btn long" type="button">
         <small>LONG POSITION</small><strong id="longPrice">—</strong>
@@ -104,18 +104,34 @@
       <button id="ticketShort" class="short" type="button">↓ Short</button>
     </div>
 
+    <div class="sizing-select" role="group" aria-label="Position sizing mode">
+      <button id="autoRiskMode" class="active" type="button">AUTO RISK</button>
+      <button id="manualLotMode" type="button">MANUAL LOT</button>
+    </div>
+
     <div class="ticket-fields">
       <label>Entry Price<input id="entryPrice" type="text" value="—" readonly></label>
       <label>Stop Loss<input id="slPrice" type="number" step="any" placeholder="Required"></label>
       <label>Take Profit<input id="tpPrice" type="number" step="any" placeholder="Required"></label>
-      <label>Manual Lot<input id="lotSize" type="number" min="0.01" step="0.01" value="0.10"></label>
+      <div id="autoRiskFields" class="auto-risk-fields">
+        <label>Risk Method
+          <select id="riskMethod">
+            <option value="PERCENT">% Balance</option>
+            <option value="FIXED">Fixed $</option>
+          </select>
+        </label>
+        <label>Risk Value<input id="riskValue" type="number" min="0.01" step="0.01" value="1"></label>
+      </div>
+      <label id="manualLotField" class="hidden">Manual Lot<input id="lotSize" type="number" min="0.01" step="0.01" value="0.10"></label>
     </div>
 
     <div class="ticket-summary">
+      <div><span>Lot</span><strong id="draftLot">—</strong></div>
       <div><span>Risk</span><strong id="draftRisk">—</strong></div>
       <div><span>Reward</span><strong id="draftReward">—</strong></div>
       <div><span>R:R</span><strong id="draftRr">—</strong></div>
       <div><span>SL pips</span><strong id="draftSlPips">—</strong></div>
+      <div><span>TP pips</span><strong id="draftTpPips">—</strong></div>
     </div>
 
     <div class="drawer-actions">
@@ -175,7 +191,7 @@
   </aside>
 
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-  <script src="./app.js?v=5"></script>
+  <script src="./app.js?v=6"></script>
   <script src="./layout-editor.js?v=1"></script>
 </body>
 </html>
