@@ -1099,11 +1099,26 @@
       setCalendarStatus('Loading the selected replay range…');
       const start = new Date(fromMs);
       const endExclusive = new Date(toMs + timeframeDurationMs());
-      const candles = await loadHistory(state.symbol,state.timeframe,start,endExclusive,{allowPartial:false});
-      if (candles.length < 2) throw new Error('The selected range needs at least two candles.');
 
-      state.candles = candles;
-      state.index = 0;
+      // Like desktop Manual Replay, preload earlier candles only as chart context.
+      // They are visible before the selected FROM candle, but playback still starts at FROM.
+      const contextStart = new Date(fromMs - 14*86400000);
+      const allCandles = await loadHistory(
+        state.symbol,state.timeframe,contextStart,endExclusive,{allowPartial:true}
+      );
+      const contextCandles = allCandles
+        .filter(candle => Date.parse(candle.timestamp) < fromMs)
+        .slice(-220);
+      const replayCandles = allCandles.filter(candle => {
+        const time = Date.parse(candle.timestamp);
+        return time >= fromMs && time <= toMs;
+      });
+      if (replayCandles.length < 2) throw new Error('The selected range needs at least two candles.');
+
+      state.candles = contextCandles.concat(replayCandles);
+      state.replayStartIndex = contextCandles.length;
+      state.replayEndIndex = state.candles.length-1;
+      state.index = state.replayStartIndex;
       state.trades = [];
       state.balance = state.startBalance;
       state.openTrade = null;
