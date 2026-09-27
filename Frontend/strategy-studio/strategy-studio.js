@@ -173,6 +173,12 @@
       blocked_start: $('sessionBlockedStart').value || '17:00',
       blocked_end: $('sessionBlockedEnd').value || '20:00',
     };
+    draft.seasonal_filter = {
+      enabled: $('seasonalFilterEnabled').checked,
+      timezone: 'UTC',
+      blocked_start: $('seasonalBlockedStart').value || '12-01',
+      blocked_end: $('seasonalBlockedEnd').value || '12-15',
+    };
     state.serverErrors = {};
     renderDraftState();
   }
@@ -230,6 +236,9 @@
     $('sessionFilterEnabled').checked = Boolean(value.session_filter?.enabled);
     $('sessionBlockedStart').value = value.session_filter?.blocked_start || '17:00';
     $('sessionBlockedEnd').value = value.session_filter?.blocked_end || '20:00';
+    $('seasonalFilterEnabled').checked = Boolean(value.seasonal_filter?.enabled);
+    $('seasonalBlockedStart').value = value.seasonal_filter?.blocked_start || '12-01';
+    $('seasonalBlockedEnd').value = value.seasonal_filter?.blocked_end || '12-15';
     renderDraftState();
   }
 
@@ -250,6 +259,7 @@
     $('setupMaxAge').disabled = !$('setupFreshnessEnabled').checked;
     for (const id of ['slDistanceMode','slDistanceMin','slDistanceMax']) $(id).disabled = !$('slDistanceEnabled').checked;
     for (const id of ['sessionBlockedStart','sessionBlockedEnd']) $(id).disabled = !$('sessionFilterEnabled').checked;
+    for (const id of ['seasonalBlockedStart','seasonalBlockedEnd']) $(id).disabled = !$('seasonalFilterEnabled').checked;
     $('trendTimeframeField').classList.remove('hidden');
     $('breakBodyField').classList.toggle('hidden', !visible.breakBody);
     $('breakDistanceField').classList.toggle('hidden', !visible.breakDistance);
@@ -337,6 +347,7 @@
       ['TP2', !errors['tp2.method'] && !errors['tp2.value']],
       ['Risk', !errors['risk.method'] && !errors['risk.value']],
       ['Session', !errors['session_filter.blocked_start'] && !errors['session_filter.blocked_end']],
+      ['Seasonal', !errors['seasonal_filter.blocked_start'] && !errors['seasonal_filter.blocked_end']],
       ['Fundamentals', !errors['fundamentals.mode']],
     ];
     const ready = checks.filter((item) => item[1]).length;
@@ -759,7 +770,7 @@
       }
       collectDraft();
     });
-    ['structureTimeframe', 'slDistanceMode', 'slDistanceEnabled', 'setupFreshnessEnabled', 'sessionFilterEnabled', 'sessionBlockedStart', 'sessionBlockedEnd', 'entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
+    ['structureTimeframe', 'slDistanceMode', 'slDistanceEnabled', 'setupFreshnessEnabled', 'sessionFilterEnabled', 'sessionBlockedStart', 'sessionBlockedEnd', 'seasonalFilterEnabled', 'seasonalBlockedStart', 'seasonalBlockedEnd', 'entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
     ['setupMaxAge', 'slDistanceMin', 'slDistanceMax', 'breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp1Step1Trigger', 'tp1Step1Secure', 'tp1Step2Trigger', 'tp1Step2Secure', 'tp1Step3Trigger', 'tp1Step3Secure', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
     $('tp1Enabled').addEventListener('change', collectDraft);
     $('rememberBosEntry').addEventListener('change', collectDraft);
