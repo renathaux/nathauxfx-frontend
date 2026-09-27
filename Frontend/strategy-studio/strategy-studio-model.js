@@ -40,6 +40,12 @@
       tp2: { method: null, value: null },
       risk: { method: null, value: null },
       fundamentals: { mode: 'BLOCK_OPPOSITE' },
+      session_filter: {
+        enabled: false,
+        timezone: 'UTC',
+        blocked_start: '17:00',
+        blocked_end: '20:00',
+      },
     };
   }
 
@@ -140,6 +146,16 @@
     if (!value.fundamentals || !['BLOCK_OPPOSITE', 'REQUIRE_ALIGNMENT'].includes(value.fundamentals.mode)) {
       value.fundamentals = { mode: 'BLOCK_OPPOSITE' };
     }
+
+    value.session_filter = {
+      enabled: false,
+      timezone: 'UTC',
+      blocked_start: '17:00',
+      blocked_end: '20:00',
+      ...(value.session_filter || {}),
+    };
+    value.session_filter.enabled = Boolean(value.session_filter.enabled);
+    value.session_filter.timezone = 'UTC';
 
     return value;
   }
@@ -300,6 +316,24 @@
       errors['fundamentals.mode'] = 'Choose how fundamentals should confirm LIVE entries';
     }
 
+    const session = value.session_filter || {};
+    if (session.enabled) {
+      const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+      if (!timePattern.test(String(session.blocked_start || ''))) {
+        errors['session_filter.blocked_start'] = 'Use UTC time in HH:MM format';
+      }
+      if (!timePattern.test(String(session.blocked_end || ''))) {
+        errors['session_filter.blocked_end'] = 'Use UTC time in HH:MM format';
+      }
+      if (
+        !errors['session_filter.blocked_start']
+        && !errors['session_filter.blocked_end']
+        && session.blocked_start === session.blocked_end
+      ) {
+        errors['session_filter.blocked_end'] = 'Blocked start and end times must be different';
+      }
+    }
+
     return errors;
   }
 
@@ -373,6 +407,11 @@
       CONFIRMATION_CLOSE: 'confirmation close',
       RETEST: 'retest entry',
     };
+    const session = value.session_filter || {};
+    if (session.enabled) {
+      parts.push(`block entries ${session.blocked_start}–${session.blocked_end} UTC`);
+    }
+
     if (value.entry && value.entry.method) {
       let entryText = entryLabels[value.entry.method] || value.entry.method;
       if (value.entry.remember_bos_on_confirmation_failure) {
