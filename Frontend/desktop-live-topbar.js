@@ -22,6 +22,7 @@
       ((isStudio || isSimulator) ? '<button class="nfx-shared-page-action" id="nfxStudioThemeProxy" type="button" aria-label="Toggle page theme">☀</button>' : '') +
       '<button class="nfx-shared-voice" type="button" aria-disabled="true" title="Voice controls are available on the Live Dashboard">Voice OFF</button>' +
       '<select class="nfx-shared-lang" aria-label="Language"><option value="en">EN</option><option value="fr">FR</option><option value="es">ES</option></select>' +
+      '<button class="nfx-shared-page-action" id="nfxSharedLogout" type="button" aria-label="Log out">Log out</button>' +
     '</div>';
 
   document.body.insertBefore(header, document.body.firstChild);
@@ -78,6 +79,61 @@
     setTimeout(syncThemeIcon,0);
   });
   syncThemeIcon();
+
+  async function logoutSharedSession() {
+    const auth = window.FlowSignalAuth;
+    if (auth && typeof auth.logout === 'function') {
+      await auth.logout();
+      return;
+    }
+
+    const userSessionKey = 'flowsignal_user_session_token';
+    const csrfKey = 'flowsignal_csrf_token';
+    const cookieSentinel = '__flowsignal_cookie_session__';
+    const rawToken = String(sessionStorage.getItem(userSessionKey) || '').trim();
+    const token = rawToken === cookieSentinel ? '' : rawToken;
+    const csrf = String(sessionStorage.getItem(csrfKey) || '').trim();
+
+    try {
+      const headers = {};
+      if (token) headers.Authorization = 'FlowSignalUser ' + token;
+      if (csrf) headers['X-FlowSignal-CSRF'] = csrf;
+      await fetch('/api/proxy/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers
+      });
+    } catch (_) {}
+
+    const windowName = String(window.name || '');
+    if (windowName.startsWith('flowsignal-tab:')) {
+      const tabId = windowName.slice('flowsignal-tab:'.length);
+      if (tabId) {
+        try {
+          localStorage.removeItem('flowsignal_tab_user_session:' + tabId);
+          localStorage.removeItem('flowsignal_tab_admin_session:' + tabId);
+        } catch (_) {}
+      }
+    }
+    try {
+      localStorage.removeItem('flowsignal_user_session_persist');
+      localStorage.removeItem('flowsignal_session_token');
+      localStorage.removeItem('flowsignal_login_hint');
+    } catch (_) {}
+    try {
+      sessionStorage.setItem('flowsignal_tab_signed_out', '1');
+      sessionStorage.removeItem(userSessionKey);
+      sessionStorage.removeItem(csrfKey);
+      sessionStorage.removeItem('flowsignal_tab_role');
+      sessionStorage.removeItem('flowsignal_public_home');
+    } catch (_) {}
+
+    window.location.replace('/app.html?home=1');
+  }
+
+  document.getElementById('nfxSharedLogout')?.addEventListener('click', () => {
+    logoutSharedSession();
+  });
 
   const lang = header.querySelector('.nfx-shared-lang');
   try {
