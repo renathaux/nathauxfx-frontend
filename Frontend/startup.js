@@ -219,21 +219,61 @@
   document.addEventListener('click', async (event) => {
     const target = event.target?.closest?.('#logoutBtn,#binaryLogoutBtn');
     if (!target) return;
-    const token = String(sessionStorage.getItem('flowsignal_user_session_token') || '').trim();
-    if (!token) return;
+
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
+
+    const token = String(sessionStorage.getItem('flowsignal_user_session_token') || '').trim();
+
+    // Mark signed out and remove every local recovery source immediately.
     try {
-      await window.FlowSignalAuth?.logout?.();
-    } catch (_error) {
+      sessionStorage.setItem('flowsignal_tab_signed_out', '1');
+      sessionStorage.setItem('flowsignal_public_home_mode', '1');
       sessionStorage.removeItem('flowsignal_user_session_token');
       sessionStorage.removeItem('flowsignal_binary_user_id');
       sessionStorage.removeItem('flowsignal_csrf_token');
       sessionStorage.removeItem('flowsignal_tab_role');
-    }
+
+      for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        if (
+          key === 'flowsignal_user_session_persist' ||
+          key === 'flowsignal_session_token' ||
+          key === 'flowsignal_access' ||
+          key === 'flowsignal_role' ||
+          key.startsWith('flowsignal_tab_user_session:') ||
+          key.startsWith('flowsignal_tab_admin_session:')
+        ) {
+          localStorage.removeItem(key);
+        }
+      }
+
+      document.cookie = 'flowsignal_login_hint=; Max-Age=0; Path=/; Secure; SameSite=Lax';
+      window.name = '';
+    } catch (_error) {}
+
+    try {
+      if (window.FlowSignalAuth?.logout) {
+        await window.FlowSignalAuth.logout();
+        return;
+      }
+
+      const headers = {};
+      if (token && token !== '__flowsignal_cookie_session__') {
+        headers.Authorization = `FlowSignalUser ${token}`;
+      }
+      await fetch('/api/proxy/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers
+      });
+    } catch (_error) {}
+
     try { window.speechSynthesis?.cancel?.(); } catch (_error) {}
-    window.location.replace('/');
+    window.location.replace('/?logged_out=1');
   }, true);
 
   try {
