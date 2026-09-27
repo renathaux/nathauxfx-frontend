@@ -18,18 +18,32 @@
 
   function ownerToken() {
     if (!root || !root.sessionStorage || !root.localStorage) return '';
-    if (String(root.sessionStorage.getItem('flowsignal_tab_role') || '').toLowerCase() !== 'admin') return '';
+
+    const sessionRole = String(
+      root.sessionStorage.getItem('flowsignal_tab_role') || ''
+    ).toLowerCase();
+    const legacyRole = String(
+      root.localStorage.getItem('flowsignal_role') || ''
+    ).toLowerCase();
+    if (sessionRole !== 'admin' && legacyRole !== 'admin') return '';
+
     const prefix = 'flowsignal-tab:';
     const windowName = String(root.name || '');
-    if (!windowName.startsWith(prefix)) return '';
-    const tabId = windowName.slice(prefix.length);
-    if (!tabId) return '';
-    try {
-      const saved = JSON.parse(root.localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null');
-      return String(saved?.token || '').trim();
-    } catch (_error) {
-      return '';
+    if (windowName.startsWith(prefix)) {
+      const tabId = windowName.slice(prefix.length);
+      if (tabId) {
+        try {
+          const saved = JSON.parse(
+            root.localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null'
+          );
+          const tabToken = String(saved?.token || '').trim();
+          if (tabToken) return tabToken;
+        } catch (_error) {}
+      }
     }
+
+    // Legacy owner login stores the admin bearer token globally.
+    return String(root.localStorage.getItem('flowsignal_session_token') || '').trim();
   }
 
   function authHeaders(method = 'GET') {
