@@ -259,6 +259,7 @@
     ['structure', 'Structure found'],
     ['break_validation', 'Break rules passed'],
     ['confirmation', 'Confirmation passed'],
+    ['session', 'Session allowed'],
     ['entry', 'Entry available'],
     ['stop_loss', 'Stop loss available'],
     ['tp2', 'TP2 available'],
@@ -568,6 +569,8 @@
     $('savedRisk').textContent=`Risk ${riskText}`;
     const chips=[$('symbolSelect').value,`${d.trading_timeframe} Entry`,`${d.structure_timeframe||d.trading_timeframe} Structure`,`${riskText} Risk`, `SL: ${d.stop_loss?.method==='LAST_SWING'?'Last Swing':`${d.stop_loss?.fixed_distance} pips`}`,`TP2: ${d.tp2?.method==='FIXED_R'?`${d.tp2.value}R`:d.tp2?.method==='FIXED_DISTANCE'?`${d.tp2.value} pips`:'Opposite Swing'}`];
     if(filter?.enabled)chips.push(`SL Filter: ${filter.minimum}–${filter.maximum}${filter.mode==='PERCENT_ENTRY'?'%':' pips'}`);
+    const session=d.session_filter;
+    if(session?.enabled)chips.push(`No entries: ${session.blocked_start}–${session.blocked_end} UTC`);
     if(d.confirmation?.max_setup_age_bars!=null)chips.push(`Freshness: ${d.confirmation.max_setup_age_bars} bars`);
     $('strategyMeta').innerHTML=chips.map(t=>`<span>${escapeHtml(t)}</span>`).join('');
     for(const id of ['backToStudio','editInStudio'])$(id).href=`/strategy-studio.html?strategy=${encodeURIComponent(state.strategy.strategy_id)}`;
