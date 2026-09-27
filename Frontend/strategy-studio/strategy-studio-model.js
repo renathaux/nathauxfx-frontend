@@ -46,6 +46,12 @@
         blocked_start: '17:00',
         blocked_end: '20:00',
       },
+      seasonal_filter: {
+        enabled: false,
+        timezone: 'UTC',
+        blocked_start: '12-01',
+        blocked_end: '12-15',
+      },
     };
   }
 
@@ -157,6 +163,16 @@
     value.session_filter.enabled = Boolean(value.session_filter.enabled);
     value.session_filter.timezone = 'UTC';
 
+    value.seasonal_filter = {
+      enabled: false,
+      timezone: 'UTC',
+      blocked_start: '12-01',
+      blocked_end: '12-15',
+      ...(value.seasonal_filter || {}),
+    };
+    value.seasonal_filter.enabled = Boolean(value.seasonal_filter.enabled);
+    value.seasonal_filter.timezone = 'UTC';
+
     return value;
   }
 
@@ -170,6 +186,15 @@
 
   function percent(value) {
     return finiteNumber(value) && value > 0 && value <= 100;
+  }
+
+  function validMonthDay(value) {
+    const match = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.exec(String(value || ''));
+    if (!match) return false;
+    const month = Number(match[1]);
+    const day = Number(match[2]);
+    const date = new Date(Date.UTC(2000, month - 1, day));
+    return date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
   }
 
   function clientValidation(definition) {
@@ -334,6 +359,23 @@
       }
     }
 
+    const seasonal = value.seasonal_filter || {};
+    if (seasonal.enabled) {
+      if (!validMonthDay(seasonal.blocked_start)) {
+        errors['seasonal_filter.blocked_start'] = 'Use a valid UTC month-day in MM-DD format';
+      }
+      if (!validMonthDay(seasonal.blocked_end)) {
+        errors['seasonal_filter.blocked_end'] = 'Use a valid UTC month-day in MM-DD format';
+      }
+      if (
+        !errors['seasonal_filter.blocked_start']
+        && !errors['seasonal_filter.blocked_end']
+        && seasonal.blocked_start === seasonal.blocked_end
+      ) {
+        errors['seasonal_filter.blocked_end'] = 'Blocked start and end dates must be different';
+      }
+    }
+
     return errors;
   }
 
@@ -410,6 +452,11 @@
     const session = value.session_filter || {};
     if (session.enabled) {
       parts.push(`block entries ${session.blocked_start}–${session.blocked_end} UTC`);
+    }
+
+    const seasonal = value.seasonal_filter || {};
+    if (seasonal.enabled) {
+      parts.push(`block dates ${seasonal.blocked_start}–${seasonal.blocked_end} UTC`);
     }
 
     if (value.entry && value.entry.method) {
