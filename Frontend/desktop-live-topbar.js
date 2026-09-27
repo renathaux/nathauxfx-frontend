@@ -81,70 +81,70 @@
   syncThemeIcon();
 
   async function logoutSharedSession() {
-    const auth = window.FlowSignalAuth;
-    if (auth && typeof auth.logout === 'function') {
-      await auth.logout();
-      return;
-    }
-
     const userSessionKey = 'flowsignal_user_session_token';
     const csrfKey = 'flowsignal_csrf_token';
     const cookieSentinel = '__flowsignal_cookie_session__';
-    const rawToken = String(sessionStorage.getItem(userSessionKey) || '').trim();
-    const token = rawToken === cookieSentinel ? '' : rawToken;
-    const csrf = String(sessionStorage.getItem(csrfKey) || '').trim();
 
-    try {
-      let logoutCsrf = csrf;
-      let logoutToken = token;
-      if (!logoutCsrf) {
-        const sessionHeaders = {};
-        if (logoutToken) sessionHeaders.Authorization = 'FlowSignalUser ' + logoutToken;
-        const sessionResponse = await fetch('/api/proxy/auth/session', {
-          method: 'GET',
-          credentials: 'include',
-          cache: 'no-store',
-          headers: sessionHeaders
-        });
-        if (sessionResponse.ok) {
-          const sessionPayload = await sessionResponse.json().catch(() => ({}));
-          logoutCsrf = String(sessionPayload?.csrf_token || '').trim();
-        }
-      }
-      const headers = {};
-      if (logoutCsrf) headers['X-FlowSignal-CSRF'] = logoutCsrf;
-      if (logoutToken) headers.Authorization = 'FlowSignalUser ' + logoutToken;
-      await fetch('/api/proxy/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers
-      });
-    } catch (_) {}
-
-    const windowName = String(window.name || '');
-    if (windowName.startsWith('flowsignal-tab:')) {
-      const tabId = windowName.slice('flowsignal-tab:'.length);
-      if (tabId) {
-        try {
-          localStorage.removeItem('flowsignal_tab_user_session:' + tabId);
-          localStorage.removeItem('flowsignal_tab_admin_session:' + tabId);
-        } catch (_) {}
-      }
-    }
-    try {
-      localStorage.removeItem('flowsignal_user_session_persist');
-      localStorage.removeItem('flowsignal_session_token');
-      localStorage.removeItem('flowsignal_login_hint');
-    } catch (_) {}
+    // Block any auth recovery immediately, before network requests can race.
     try {
       sessionStorage.setItem('flowsignal_tab_signed_out', '1');
+      sessionStorage.setItem('flowsignal_public_home_mode', '1');
       sessionStorage.removeItem(userSessionKey);
       sessionStorage.removeItem(csrfKey);
       sessionStorage.removeItem('flowsignal_tab_role');
-      sessionStorage.removeItem('flowsignal_public_home');
     } catch (_) {}
 
-    window.location.replace('/app.html?home=1');
+    try {
+      for (let n = localStorage.length - 1; n >= 0; n -= 1) {
+        const key = localStorage.key(n);
+        if (!key) continue;
+        if (
+          key === 'flowsignal_user_session_persist' ||
+          key === 'flowsignal_session_token' ||
+          key === 'flowsignal_access' ||
+          key === 'flowsignal_role' ||
+          key.startsWith('flowsignal_tab_user_session:') ||
+          key.startsWith('flowsignal_tab_admin_session:')
+        ) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (_) {}
+
+    try {
+      document.cookie = 'flowsignal_login_hint=; Max-Age=0; Path=/; Secure; SameSite=Lax';
+    } catch (_) {}
+
+    window.name = '';
+
+    // Revoke any surviving server-side/cookie session. Logout is idempotent server-side.
+    try {
+      await fetch('/api/proxy/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store'
+      });
+    } catch (_) {}
+
+    // Verify the cookie session is really gone before navigating.
+    try {
+      const check = await fetch('/api/proxy/auth/session', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store'
+      });
+      const payload = await check.json().catch(() => ({}));
+      if (payload?.authenticated) {
+        // Last-resort second revoke for browsers/proxies that applied Set-Cookie late.
+        await fetch('/api/proxy/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store'
+        }).catch(() => {});
+      }
+    } catch (_) {}
+
+    window.location.replace('/?logged_out=1');
   }
 
   document.getElementById('nfxSharedLogout')?.addEventListener('click', () => {
