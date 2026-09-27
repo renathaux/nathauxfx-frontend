@@ -975,6 +975,23 @@
                         class="conditional hidden"
                         id="tp1StepProtectionFields"
                       >
+                        <label class="field">
+                          <span>Protection Trigger Method</span>
+                          <select id="tp1ProtectionTriggerMethod">
+                            <option value="CANDLE_CLOSE">Candle Close</option>
+                            <option value="PRICE_TOUCH">Price Touch</option>
+                          </select>
+                          <small class="field-hint">
+                            Candle Close keeps the current behavior. Price Touch advances
+                            protection as soon as the candle high/low reaches a step.
+                            Same-candle trigger/stop ordering that cannot be known from OHLC
+                            is marked ambiguous in backtests.
+                          </small>
+                          <small
+                            class="field-error"
+                            data-error-for="tp1.protection_trigger_method"
+                          ></small>
+                        </label>
                         <div class="locked-rule">
                           <span class="rule-dot"></span>
                           <div>
@@ -1512,11 +1529,11 @@
       <option value="2"></option>
     </datalist>
     <script src="/apiClient.js?v=1"></script>
-    <script src="/strategy-studio/strategy-studio-model.js?v=20260927-seasonal-filter"></script>
+    <script src="/strategy-studio/strategy-studio-model.js?v=20260927-protection-trigger"></script>
     <script src="/strategy-studio/strategy-studio-api.js?v=20260927-admin-token-2"></script>
 
     <script src="/strategy-studio/strategy-studio-settings.js?v=20260924-flow"></script>
     <script src="/strategy-studio/strategy-studio-workspace.js?v=20260924-flow"></script>
-    <script src="/strategy-studio/strategy-studio.js?v=20260927-seasonal-filter"></script>
+    <script src="/strategy-studio/strategy-studio.js?v=20260927-protection-trigger"></script>
   </body>
 </html>
