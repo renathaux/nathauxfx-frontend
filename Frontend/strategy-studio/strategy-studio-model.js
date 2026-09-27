@@ -35,6 +35,7 @@
         close_percent: null,
         protection_r: null,
         protection_mode: 'FIXED',
+        protection_trigger_method: 'CANDLE_CLOSE',
         protection_steps: [],
       },
       tp2: { method: null, value: null },
@@ -116,6 +117,7 @@
     if (!value.tp1) value.tp1 = blankStrategy().tp1;
     value.tp1.target_basis = value.tp1.target_basis || 'SL_DISTANCE';
     value.tp1.protection_mode = value.tp1.protection_mode || 'FIXED';
+    value.tp1.protection_trigger_method = value.tp1.protection_trigger_method || 'CANDLE_CLOSE';
     value.tp1.protection_steps = Array.isArray(value.tp1.protection_steps)
       ? value.tp1.protection_steps
       : [];
@@ -125,10 +127,12 @@
       value.tp1.close_percent = null;
       value.tp1.protection_r = null;
       value.tp1.protection_mode = 'FIXED';
+      value.tp1.protection_trigger_method = 'CANDLE_CLOSE';
       value.tp1.protection_steps = [];
     } else if (value.tp1.protection_mode === 'TP2_STEPS') {
       value.tp1.protection_r = null;
     } else {
+      value.tp1.protection_trigger_method = 'CANDLE_CLOSE';
       value.tp1.protection_steps = [];
     }
 
@@ -293,6 +297,9 @@
       } else {
         if (tp1.target_basis !== 'TP2_DISTANCE') {
           errors['tp1.protection_mode'] = 'Step protection requires TP2-based TP1';
+        }
+        if (!['CANDLE_CLOSE', 'PRICE_TOUCH'].includes(tp1.protection_trigger_method || 'CANDLE_CLOSE')) {
+          errors['tp1.protection_trigger_method'] = 'Choose how protection steps are triggered';
         }
         const steps = Array.isArray(tp1.protection_steps) ? tp1.protection_steps : [];
         if (!steps.length) {
@@ -490,7 +497,8 @@
         protection = (tp1.protection_steps || [])
           .map((step) => `${fmt(step.trigger_percent)}→${fmt(step.secure_percent)}%`)
           .join(', ');
-        protection = protection ? `step protect ${protection}` : 'step protection';
+        const triggerLabel = tp1.protection_trigger_method === 'PRICE_TOUCH' ? 'price touch' : 'candle close';
+        protection = protection ? `step protect on ${triggerLabel} ${protection}` : `step protection on ${triggerLabel}`;
       } else if (tp1.protection_r != null) {
         protection = Number(tp1.protection_r) === 0
           ? 'breakeven'
