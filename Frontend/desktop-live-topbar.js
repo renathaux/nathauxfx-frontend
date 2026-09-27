@@ -95,14 +95,31 @@
     const csrf = String(sessionStorage.getItem(csrfKey) || '').trim();
 
     try {
-      const headers = {};
-      if (token) headers.Authorization = 'FlowSignalUser ' + token;
-      if (csrf) headers['X-FlowSignal-CSRF'] = csrf;
-      await fetch('/api/proxy/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers
-      });
+      let logoutCsrf = csrf;
+      let logoutToken = token;
+      if (!logoutCsrf) {
+        const sessionHeaders = {};
+        if (logoutToken) sessionHeaders.Authorization = 'FlowSignalUser ' + logoutToken;
+        const sessionResponse = await fetch('/api/proxy/auth/session', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+          headers: sessionHeaders
+        });
+        if (sessionResponse.ok) {
+          const sessionPayload = await sessionResponse.json().catch(() => ({}));
+          logoutCsrf = String(sessionPayload?.csrf_token || '').trim();
+        }
+      }
+      if (logoutCsrf) {
+        const headers = { 'X-FlowSignal-CSRF': logoutCsrf };
+        if (logoutToken) headers.Authorization = 'FlowSignalUser ' + logoutToken;
+        await fetch('/api/proxy/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+          headers
+        });
+      }
     } catch (_) {}
 
     const windowName = String(window.name || '');
