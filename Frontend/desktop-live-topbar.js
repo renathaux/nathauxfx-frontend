@@ -111,15 +111,14 @@
           logoutCsrf = String(sessionPayload?.csrf_token || '').trim();
         }
       }
-      if (logoutCsrf) {
-        const headers = { 'X-FlowSignal-CSRF': logoutCsrf };
-        if (logoutToken) headers.Authorization = 'FlowSignalUser ' + logoutToken;
-        await fetch('/api/proxy/auth/logout', {
-          method: 'POST',
-          credentials: 'include',
-          headers
-        });
-      }
+      const headers = {};
+      if (logoutCsrf) headers['X-FlowSignal-CSRF'] = logoutCsrf;
+      if (logoutToken) headers.Authorization = 'FlowSignalUser ' + logoutToken;
+      await fetch('/api/proxy/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers
+      });
     } catch (_) {}
 
     const windowName = String(window.name || '');
