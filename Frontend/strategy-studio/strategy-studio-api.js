@@ -19,14 +19,6 @@
   function ownerToken() {
     if (!root || !root.sessionStorage || !root.localStorage) return '';
 
-    const sessionRole = String(
-      root.sessionStorage.getItem('flowsignal_tab_role') || ''
-    ).toLowerCase();
-    const legacyRole = String(
-      root.localStorage.getItem('flowsignal_role') || ''
-    ).toLowerCase();
-    if (sessionRole !== 'admin' && legacyRole !== 'admin') return '';
-
     const prefix = 'flowsignal-tab:';
     const windowName = String(root.name || '');
     if (windowName.startsWith(prefix)) {
@@ -42,7 +34,9 @@
       }
     }
 
-    // Legacy owner login stores the admin bearer token globally.
+    // Always forward the persisted legacy session token when present.
+    // The backend decides whether it is an admin owner session. This avoids
+    // losing admin scope when the separate role flag is missing on Studio.
     return String(root.localStorage.getItem('flowsignal_session_token') || '').trim();
   }
 
