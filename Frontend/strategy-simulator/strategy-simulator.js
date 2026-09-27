@@ -576,6 +576,10 @@
     if(session?.enabled)chips.push(`No entries: ${session.blocked_start}–${session.blocked_end} UTC`);
     const seasonal=d.seasonal_filter;
     if(seasonal?.enabled)chips.push(`No dates: ${seasonal.blocked_start}–${seasonal.blocked_end} UTC`);
+    if(d.tp1?.enabled && d.tp1?.protection_mode==='TP2_STEPS') {
+      const trigger=d.tp1.protection_trigger_method==='PRICE_TOUCH'?'Price Touch':'Candle Close';
+      chips.push(`Protection: ${trigger}`);
+    }
     if(d.confirmation?.max_setup_age_bars!=null)chips.push(`Freshness: ${d.confirmation.max_setup_age_bars} bars`);
     $('strategyMeta').innerHTML=chips.map(t=>`<span>${escapeHtml(t)}</span>`).join('');
     for(const id of ['backToStudio','editInStudio'])$(id).href=`/strategy-studio.html?strategy=${encodeURIComponent(state.strategy.strategy_id)}`;
