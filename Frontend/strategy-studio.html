@@ -438,6 +438,46 @@
                     </div>
                   </div>
                 </details>
+
+                <div class="execution-filter">
+                  <label class="toggle-row"
+                    ><span
+                      ><strong>Trading Session Filter</strong
+                      ><small
+                        >Block new entries during a UTC time window. Existing open
+                        trades continue to be managed normally.</small
+                      ></span
+                    ><input id="sessionFilterEnabled" type="checkbox" /><i></i
+                  ></label>
+                  <div class="field-grid three-col">
+                    <label class="field"
+                      ><span>Timezone</span
+                      ><select id="sessionTimezone" disabled>
+                        <option value="UTC">UTC</option>
+                      </select></label
+                    >
+                    <label class="field"
+                      ><span>Block From</span
+                      ><input id="sessionBlockedStart" type="time" value="17:00"
+                      /><small
+                        class="field-error"
+                        data-error-for="session_filter.blocked_start"
+                      ></small
+                    ></label>
+                    <label class="field"
+                      ><span>Block Until</span
+                      ><input id="sessionBlockedEnd" type="time" value="20:00"
+                      /><small
+                        class="field-error"
+                        data-error-for="session_filter.blocked_end"
+                      ></small
+                    ></label>
+                  </div>
+                  <small class="field-hint"
+                    >The blocked interval is start-inclusive and end-exclusive.
+                    Windows that cross midnight are supported.</small
+                  >
+                </div>
               </div>
             </details>
             <details class="builder-section" id="section3" open="">
@@ -1429,11 +1469,11 @@
       <option value="2"></option>
     </datalist>
     <script src="/apiClient.js?v=1"></script>
-    <script src="/strategy-studio/strategy-studio-model.js?v=20260924-flow"></script>
+    <script src="/strategy-studio/strategy-studio-model.js?v=20260927-session-filter"></script>
     <script src="/strategy-studio/strategy-studio-api.js?v=20260927-admin-token-2"></script>
 
     <script src="/strategy-studio/strategy-studio-settings.js?v=20260924-flow"></script>
     <script src="/strategy-studio/strategy-studio-workspace.js?v=20260924-flow"></script>
-    <script src="/strategy-studio/strategy-studio.js?v=20260924-flow"></script>
+    <script src="/strategy-studio/strategy-studio.js?v=20260927-session-filter"></script>
   </body>
 </html>
