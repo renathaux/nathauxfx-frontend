@@ -260,6 +260,7 @@
     ['break_validation', 'Break rules passed'],
     ['confirmation', 'Confirmation passed'],
     ['session', 'Session allowed'],
+    ['seasonal', 'Seasonal date allowed'],
     ['entry', 'Entry available'],
     ['stop_loss', 'Stop loss available'],
     ['tp2', 'TP2 available'],
@@ -288,6 +289,8 @@
     ENTRY_UNAVAILABLE: 'Entry price was unavailable',
     SL_DISTANCE_BELOW_MINIMUM: 'SL distance below minimum',
     SL_DISTANCE_ABOVE_MAXIMUM: 'SL distance above maximum',
+    ENTRY_SESSION_BLOCKED: 'Entry blocked by UTC session filter',
+    ENTRY_SEASONAL_BLOCKED: 'Entry blocked by UTC seasonal filter',
     SETUP_EXPIRED: 'Setup expired',
     STOP_LOSS_UNAVAILABLE: 'Stop loss could not be built',
     TP2_OPPOSITE_SWING_UNAVAILABLE: 'Opposite-swing TP2 was unavailable',
@@ -571,6 +574,8 @@
     if(filter?.enabled)chips.push(`SL Filter: ${filter.minimum}–${filter.maximum}${filter.mode==='PERCENT_ENTRY'?'%':' pips'}`);
     const session=d.session_filter;
     if(session?.enabled)chips.push(`No entries: ${session.blocked_start}–${session.blocked_end} UTC`);
+    const seasonal=d.seasonal_filter;
+    if(seasonal?.enabled)chips.push(`No dates: ${seasonal.blocked_start}–${seasonal.blocked_end} UTC`);
     if(d.confirmation?.max_setup_age_bars!=null)chips.push(`Freshness: ${d.confirmation.max_setup_age_bars} bars`);
     $('strategyMeta').innerHTML=chips.map(t=>`<span>${escapeHtml(t)}</span>`).join('');
     for(const id of ['backToStudio','editInStudio'])$(id).href=`/strategy-studio.html?strategy=${encodeURIComponent(state.strategy.strategy_id)}`;
