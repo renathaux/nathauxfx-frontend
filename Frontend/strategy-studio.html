@@ -478,6 +478,49 @@
                     Windows that cross midnight are supported.</small
                   >
                 </div>
+
+                <div class="execution-filter">
+                  <label class="toggle-row"
+                    ><span
+                      ><strong>Seasonal Filter</strong
+                      ><small
+                        >Block new entries during a recurring UTC calendar window.
+                        Existing open trades continue to be managed normally.</small
+                      ></span
+                    ><input id="seasonalFilterEnabled" type="checkbox" /><i></i
+                  ></label>
+                  <div class="field-grid three-col">
+                    <label class="field"
+                      ><span>Timezone</span
+                      ><select id="seasonalTimezone" disabled>
+                        <option value="UTC">UTC</option>
+                      </select></label
+                    >
+                    <label class="field"
+                      ><span>Block From (MM-DD)</span
+                      ><input id="seasonalBlockedStart" type="text" inputmode="numeric"
+                        maxlength="5" placeholder="12-01" value="12-01"
+                      /><small
+                        class="field-error"
+                        data-error-for="seasonal_filter.blocked_start"
+                      ></small
+                    ></label>
+                    <label class="field"
+                      ><span>Block Through (MM-DD)</span
+                      ><input id="seasonalBlockedEnd" type="text" inputmode="numeric"
+                        maxlength="5" placeholder="12-15" value="12-15"
+                      /><small
+                        class="field-error"
+                        data-error-for="seasonal_filter.blocked_end"
+                      ></small
+                    ></label>
+                  </div>
+                  <small class="field-hint"
+                    >Both dates are blocked, inclusive. Example: 12-01 through
+                    12-15 blocks new entries every Dec 1–15. Windows that cross
+                    New Year are supported.</small
+                  >
+                </div>
               </div>
             </details>
             <details class="builder-section" id="section3" open="">
@@ -1469,11 +1512,11 @@
       <option value="2"></option>
     </datalist>
     <script src="/apiClient.js?v=1"></script>
-    <script src="/strategy-studio/strategy-studio-model.js?v=20260927-session-filter"></script>
+    <script src="/strategy-studio/strategy-studio-model.js?v=20260927-seasonal-filter"></script>
     <script src="/strategy-studio/strategy-studio-api.js?v=20260927-admin-token-2"></script>
 
     <script src="/strategy-studio/strategy-studio-settings.js?v=20260924-flow"></script>
     <script src="/strategy-studio/strategy-studio-workspace.js?v=20260924-flow"></script>
-    <script src="/strategy-studio/strategy-studio.js?v=20260927-session-filter"></script>
+    <script src="/strategy-studio/strategy-studio.js?v=20260927-seasonal-filter"></script>
   </body>
 </html>
