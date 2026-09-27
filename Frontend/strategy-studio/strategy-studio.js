@@ -150,6 +150,7 @@
     draft.tp1.target_r = Model.percentToR(toNumber('tp1Target'));
     draft.tp1.close_percent = toNumber('tp1Close');
     draft.tp1.protection_mode = $('tp1ProtectionMode').value || 'FIXED';
+    draft.tp1.protection_trigger_method = $('tp1ProtectionTriggerMethod').value || 'CANDLE_CLOSE';
     if (draft.tp1.protection_mode === 'TP2_STEPS') {
       draft.tp1.protection_r = null;
       draft.tp1.protection_steps = [
@@ -159,6 +160,7 @@
       ];
     } else {
       draft.tp1.protection_r = Model.percentToR(toNumber('tp1Protection'));
+      draft.tp1.protection_trigger_method = 'CANDLE_CLOSE';
       draft.tp1.protection_steps = [];
     }
     draft.tp2.method = $('tp2Method').value || null;
@@ -214,6 +216,7 @@
     $('tp1Target').value = Model.rToPercent(value.tp1.target_r) ?? '';
     $('tp1Close').value = value.tp1.close_percent ?? '';
     $('tp1ProtectionMode').value = value.tp1.protection_mode || 'FIXED';
+    $('tp1ProtectionTriggerMethod').value = value.tp1.protection_trigger_method || 'CANDLE_CLOSE';
     $('tp1Protection').value = Model.rToPercent(value.tp1.protection_r) ?? '';
     const steps = Array.isArray(value.tp1.protection_steps) && value.tp1.protection_steps.length
       ? value.tp1.protection_steps
@@ -284,8 +287,10 @@
     if (tp1Basis !== 'TP2_DISTANCE' && state.draft.tp1?.protection_mode === 'TP2_STEPS') {
       state.draft.tp1.protection_mode = 'FIXED';
       state.draft.tp1.protection_r = Model.percentToR(toNumber('tp1Protection'));
+      state.draft.tp1.protection_trigger_method = 'CANDLE_CLOSE';
       state.draft.tp1.protection_steps = [];
       $('tp1ProtectionMode').value = 'FIXED';
+      $('tp1ProtectionTriggerMethod').value = 'CANDLE_CLOSE';
       $('tp1FixedProtectionField').classList.remove('hidden');
       $('tp1StepProtectionFields').classList.add('hidden');
     }
@@ -770,7 +775,7 @@
       }
       collectDraft();
     });
-    ['structureTimeframe', 'slDistanceMode', 'slDistanceEnabled', 'setupFreshnessEnabled', 'sessionFilterEnabled', 'sessionBlockedStart', 'sessionBlockedEnd', 'seasonalFilterEnabled', 'seasonalBlockedStart', 'seasonalBlockedEnd', 'entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
+    ['structureTimeframe', 'slDistanceMode', 'slDistanceEnabled', 'setupFreshnessEnabled', 'sessionFilterEnabled', 'sessionBlockedStart', 'sessionBlockedEnd', 'seasonalFilterEnabled', 'seasonalBlockedStart', 'seasonalBlockedEnd', 'entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp1ProtectionTriggerMethod', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
     ['setupMaxAge', 'slDistanceMin', 'slDistanceMax', 'breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp1Step1Trigger', 'tp1Step1Secure', 'tp1Step2Trigger', 'tp1Step2Secure', 'tp1Step3Trigger', 'tp1Step3Secure', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
     $('tp1Enabled').addEventListener('change', collectDraft);
     $('rememberBosEntry').addEventListener('change', collectDraft);
