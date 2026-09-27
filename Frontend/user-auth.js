@@ -316,28 +316,61 @@
   }
   async function logoutUser(){
     const token=userSessionToken();
-    const csrf=csrfToken;
-    if(csrf&&(token||hasCookieSessionMarker())){
-      try{
-        const headers={'X-FlowSignal-CSRF':csrf};
-        if(token)headers.Authorization=`FlowSignalUser ${token}`;
-        await nativeFetch(`${AUTH_BACKEND}/auth/logout`,{method:'POST',headers});
-      }catch(_error){}
-    }
-    const tabId=currentTabId();
-    if(tabId)localStorage.removeItem(`flowsignal_tab_user_session:${tabId}`);
-    clearDeviceSession();
-    clearLoginHint();
-    localStorage.removeItem('flowsignal_access');
-    localStorage.removeItem('flowsignal_role');
-    window.name='';
+
+    // Stop every local auth recovery path before any network request.
     sessionStorage.setItem(TAB_SIGNED_OUT_KEY,'1');
+    sessionStorage.setItem(PUBLIC_HOME_KEY,'1');
     sessionStorage.removeItem(USER_SESSION_KEY);
     sessionStorage.removeItem(CSRF_KEY);
     sessionStorage.removeItem(TAB_ROLE_KEY);
-    sessionStorage.removeItem(PUBLIC_HOME_KEY);
     sessionUser=null;csrfToken='';
-    location.replace('/');
+
+    try{
+      for(let i=localStorage.length-1;i>=0;i--){
+        const key=localStorage.key(i);
+        if(!key)continue;
+        if(
+          key===PERSISTED_USER_SESSION_KEY||
+          key===LEGACY_SESSION_TOKEN_KEY||
+          key==='flowsignal_access'||
+          key==='flowsignal_role'||
+          key.startsWith('flowsignal_tab_user_session:')||
+          key.startsWith('flowsignal_tab_admin_session:')
+        ){
+          localStorage.removeItem(key);
+        }
+      }
+    }catch(_error){}
+    clearLoginHint();
+    window.name='';
+
+    try{
+      const headers={};
+      if(token)headers.Authorization=`FlowSignalUser ${token}`;
+      await nativeFetch(`${AUTH_BACKEND}/auth/logout`,{
+        method:'POST',
+        headers,
+        credentials:'include',
+        cache:'no-store'
+      });
+    }catch(_error){}
+
+    try{
+      const check=await nativeFetch(`${AUTH_BACKEND}/auth/session`,{
+        credentials:'include',
+        cache:'no-store'
+      });
+      const data=await check.json().catch(()=>null);
+      if(data?.authenticated){
+        await nativeFetch(`${AUTH_BACKEND}/auth/logout`,{
+          method:'POST',
+          credentials:'include',
+          cache:'no-store'
+        }).catch(()=>{});
+      }
+    }catch(_error){}
+
+    location.replace('/?logged_out=1');
   }
   function logoutAdmin(){
     const tabId=currentTabId();
