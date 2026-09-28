@@ -9880,8 +9880,11 @@ async function setActiveBrokerAccount(accountId) {
 
   if (brokerAccountActionInProgress) return;
 
+  // The accounts endpoint is authoritative for durable selection. A transient
+  // connection-status account id must not block the Set Active request when the
+  // saved selection is empty (for example immediately after a new OAuth grant).
   const confirmedActiveId = String(
-    lastGoodBrokerAccountsData?.active_account_id || liveConnectionState.account_id || ""
+    lastGoodBrokerAccountsData?.active_account_id || ""
   );
   if (String(selectedAccountId) === confirmedActiveId) {
     setBrokerStatusMessage(`Connection Status: account ${selectedAccountId} is already active`);
