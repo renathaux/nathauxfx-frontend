@@ -95,7 +95,7 @@
     const existing = document.querySelector('script[data-flowsignal-user-auth]');
     if (existing) return;
     const script = document.createElement('script');
-    script.src = 'user-auth.js?v=5';
+    script.src = 'user-auth.js?v=6';
     script.async = false;
     script.dataset.flowsignalUserAuth = 'true';
     script.addEventListener('error', () => console.warn('USER_AUTH_LOAD_FAILED'));
