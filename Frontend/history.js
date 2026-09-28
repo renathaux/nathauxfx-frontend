@@ -757,7 +757,7 @@
       grid = document.createElement("div");
       grid.id = "live-strategy-condition-grid";
       grid.className = "entry-strategy-debug-grid live-strategy-condition-grid";
-      details.appendChild(grid);
+      details.append(grid);
     }
     return grid;
   }
