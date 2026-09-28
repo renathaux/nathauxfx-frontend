@@ -29,18 +29,50 @@
 
   function ownerToken() {
     if (!root?.sessionStorage || !root?.localStorage) return '';
-    if (String(root.sessionStorage.getItem('flowsignal_tab_role') || '').toLowerCase() !== 'admin') return '';
+    const role = String(
+      root.sessionStorage.getItem('flowsignal_tab_role')
+      || root.localStorage.getItem('flowsignal_role')
+      || ''
+    ).toLowerCase();
+    const userToken = String(
+      root.sessionStorage.getItem('flowsignal_user_session_token') || ''
+    ).trim();
+    if (role === 'user' && userToken) return '';
+
     const prefix = 'flowsignal-tab:';
     const windowName = String(root.name || '');
-    if (!windowName.startsWith(prefix)) return '';
-    const tabId = windowName.slice(prefix.length);
-    if (!tabId) return '';
-    try {
-      const saved = JSON.parse(root.localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null');
-      return String(saved?.token || '').trim();
-    } catch (_error) {
-      return '';
+    if (windowName.startsWith(prefix)) {
+      const tabId = windowName.slice(prefix.length);
+      if (tabId) {
+        try {
+          const saved = JSON.parse(root.localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null');
+          const token = String(saved?.token || '').trim();
+          if (token) {
+            root.localStorage.setItem('flowsignal_session_token', token);
+            return token;
+          }
+        } catch (_error) {}
+      }
     }
+
+    const persisted = String(root.localStorage.getItem('flowsignal_session_token') || '').trim();
+    if (persisted) return persisted;
+
+    if (role === 'admin') {
+      for (let index = 0; index < root.localStorage.length; index += 1) {
+        const key = root.localStorage.key(index);
+        if (!key || !key.startsWith('flowsignal_tab_admin_session:')) continue;
+        try {
+          const saved = JSON.parse(root.localStorage.getItem(key) || 'null');
+          const token = String(saved?.token || '').trim();
+          if (token) {
+            root.localStorage.setItem('flowsignal_session_token', token);
+            return token;
+          }
+        } catch (_error) {}
+      }
+    }
+    return '';
   }
 
   function authHeaders(method = 'GET') {
