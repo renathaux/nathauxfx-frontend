@@ -248,3 +248,29 @@ test('Safari window.name loss and restoration keep explicit admin requests on th
   assert.equal((await context.StrategyStudioApi.listStrategies()).strategies[0].name,'Gold 931');
   assert.deepEqual(calls,['Bearer valid-owner','Bearer valid-owner']);
 });
+
+test('shared authentication script completes initialization and exposes owner sign-in', () => {
+  const vm = require('node:vm');
+  const storage = values => ({
+    getItem: key => values.get(key) || null,
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: key => values.delete(key),
+  });
+  const removed=[];
+  const context = {
+    name:'flowsignal-tab:owner',
+    location:{hostname:'www.nathauxfx.com',origin:'https://www.nathauxfx.com',pathname:'/strategy-studio.html',href:'https://www.nathauxfx.com/strategy-studio.html'},
+    localStorage:storage(new Map([['flowsignal_tab_admin_session:owner',JSON.stringify({token:'test-owner-token'})]])),
+    sessionStorage:storage(new Map()),
+    document:{cookie:'',addEventListener(){},getElementById(){return null;},body:{classList:{remove(value){removed.push(value);}},dataset:{}}},
+    fetch:async()=>{throw new Error('owner bootstrap must not call customer session');},
+    URL, URLSearchParams, Headers, Request,
+  };
+  context.window=context;
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'..','user-auth.js'),'utf8'),context);
+  assert.equal(typeof context.FlowSignalAuth.session,'function');
+  assert.ok(removed.includes('flowsignal-public-home'));
+  context.FlowSignalAuth.openOwner();
+  assert.equal(context.location.href,'/account.html?mode=login');
+});
