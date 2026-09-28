@@ -16,7 +16,7 @@
     baselineSettings: window.StrategyStudioSettings.defaults(),
     serverErrors: {},
     busy: false,
-    liveStatus: { enabled: false, parity_status: 'REQUIRES_VERIFICATION' },
+    liveStatus: { enabled: false, readiness_status: 'REQUIRES_VERIFICATION' },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -31,9 +31,13 @@
     return state.strategies.find((item) => item.strategy_id === state.currentId) || null;
   }
 
-  function parityVerified(status = state.liveStatus) {
-    const value = String(status?.parity_status || '').toUpperCase();
-    return status?.parity_verified === true || ['VERIFIED', 'PASS', 'GREEN', 'MATCH', 'MATCHED'].includes(value);
+  function liveReadinessVerified(status = state.liveStatus) {
+    const value = String(
+      status?.readiness_status || status?.parity_status || ''
+    ).toUpperCase();
+    return status?.readiness_verified === true
+      || status?.parity_verified === true
+      || ['VERIFIED', 'PASS', 'GREEN'].includes(value);
   }
 
   function renderLiveHandoffState() {
@@ -52,8 +56,8 @@
       node.textContent = 'Strategy Studio LIVE enabled — this saved strategy is the gated LIVE candidate source.';
       node.className = 'notice studio-live-readiness success';
       button.textContent = 'Studio LIVE Enabled';
-    } else if (parityVerified(status)) {
-      node.textContent = 'Parity verified — Go Live requires confirmation';
+    } else if (liveReadinessVerified(status)) {
+      node.textContent = 'LIVE readiness verified — Go Live requires confirmation';
       node.className = 'notice studio-live-readiness success';
       button.textContent = 'Go Live';
     } else {
@@ -70,7 +74,7 @@
 
     button.disabled = Boolean(
       state.busy || !current || current.state !== 'ACTIVE' || locked
-      || live_handoff_enabled || !parityVerified(status)
+      || live_handoff_enabled || !liveReadinessVerified(status)
     );
     button.title = !current
       ? 'Select and activate a saved strategy first'
@@ -80,16 +84,16 @@
           ? 'This strategy is locked while its Studio-managed position is open'
           : live_handoff_enabled
             ? 'Strategy Studio LIVE is already enabled for this strategy'
-            : parityVerified(status)
+            : liveReadinessVerified(status)
               ? 'Review and explicitly confirm the Strategy Studio LIVE handoff'
-              : 'Parity verification is required before Go Live';
+              : 'LIVE readiness verification is required before Go Live';
   }
 
   async function loadLiveStatus() {
     try {
       state.liveStatus = await Api.getLiveStatus();
     } catch (error) {
-      state.liveStatus = { enabled: false, parity_status: 'REQUIRES_VERIFICATION', error: error.message };
+      state.liveStatus = { enabled: false, readiness_status: 'REQUIRES_VERIFICATION', error: error.message };
     }
     renderLiveHandoffState();
   }
@@ -621,7 +625,7 @@
       return;
     }
     if (!parityVerified()) {
-      notice('Parity verification is required before Strategy Studio can Go Live.', 'error');
+      notice('LIVE readiness verification is required before Strategy Studio can Go Live.', 'error');
       return;
     }
     const ok = await showConfirmation({
