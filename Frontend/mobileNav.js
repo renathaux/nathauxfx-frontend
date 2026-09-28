@@ -113,6 +113,31 @@
   function renderIsch(data=cache.panel||{}){
     const symbol=selectedSymbol();
     const plan=data?.[symbol]||{};
+    const studio=data?._meta?.live_strategy_display_by_symbol?.[symbol]||plan?.live_strategy_display||null;
+    if(
+      studio?.live_handoff_enabled===true &&
+      String(studio?.execution_source||"").toUpperCase()==="STRATEGY_STUDIO"
+    ){
+      const conditionStatus=value=>{
+        const state=String(value||"WAITING").toUpperCase();
+        if(["PASSED","READY","COMPLETE"].includes(state)) return "YES";
+        if(["BLOCKED","FAILED","INVALID"].includes(state)) return "NO";
+        if(state==="NOT_APPLICABLE") return "N/A";
+        return "WAITING";
+      };
+      const strategyName=first(studio.strategy_name,"Strategy Studio");
+      const conditions=Array.isArray(studio.conditions)?studio.conditions:[];
+      const body=conditions.map(item=>row(
+        first(item?.label,item?.key,"Condition"),
+        conditionStatus(item?.state)
+      )).join("");
+      openDetail(
+        "ISCH",
+        `${strategyName} · LIVE CONDITIONS`,
+        `<div class="detail-card desktop-isch-card"><h3>${esc(symbol)} · ${esc(strategyName)} · LIVE CONDITIONS</h3>${body}${row("Signal",String(studio.signal||"WAIT").toUpperCase())}${row("Reason",first(studio.execution_block_reason,studio.reason,"--"),"strategy-reason")}</div>`
+      );
+      return;
+    }
     const facts=window.NathauxMobileV3B?.mobileV3bFacts?.(plan)||{
       hasBos:false,
       bodyPass:false,
