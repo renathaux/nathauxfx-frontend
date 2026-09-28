@@ -155,7 +155,7 @@ test('TP2-based TP1 summary and protection steps are explicit', () => {
   assert.deepEqual(errors, {});
   const summary = StudioModel.buildSummary(value);
   assert.match(summary, /TP1 70% of TP2 path/);
-  assert.match(summary, /step protect 70→50%, 80→60%, 90→70%/);
+  assert.match(summary, /step protect on candle close 70→50%, 80→60%, 90→70%/);
 });
 
 test('TP2 step protection is rejected when TP1 is based on SL', () => {

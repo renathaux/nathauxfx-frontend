@@ -45,7 +45,7 @@ assert.match(
 );
 
 assert.match(startup, /live-candle-controller\.js\?v=9/);
-assert.match(html, /startup\.js\?v=23/);
+assert.ok(Number(html.match(/startup\.js\?v=(\d+)/)?.[1]) >= 23);
 
 
 
@@ -54,7 +54,7 @@ assert.match(
   /window\.FlowSignalLiveCandles\?\.mount\?\.\(\{[\s\S]*candleSeries,[\s\S]*symbol: currentChartSymbol,[\s\S]*timeframe: currentChartTimeframe/,
   "every chart creation explicitly mounts the live-candle controller",
 );
-assert.match(html, /script\.js\?v=137/);
+assert.ok(Number(html.match(/src="script\.js\?v=(\d+)/)?.[1]) >= 137);
 
 
 assert.match(

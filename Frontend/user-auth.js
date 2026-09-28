@@ -425,7 +425,7 @@
     get user(){return sessionUser;},get csrf(){return csrfToken;},get sessionToken(){return userSessionToken();},
     currentUserId(){return sessionUser?.id||'';},session,
     logout(){return tabRole()==='admin'?logoutAdmin():logoutUser();},
-    open(mode='login'){openAccount(mode);},openOwner:openOwnerAccess,backend:BACKEND
+    open(mode='login'){openAccount(mode);},openOwner(){openAccount('login');},backend:BACKEND
   };
 
   if(legacyOwner()){
