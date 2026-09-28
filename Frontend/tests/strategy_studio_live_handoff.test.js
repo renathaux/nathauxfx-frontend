@@ -15,7 +15,7 @@ assert.match(api, /\/strategy-studio\/live-handoff/, 'Strategy Studio API must u
 assert.doesNotMatch(api, /live-auto-toggle/, 'Strategy Studio must never mutate the existing LIVE Auto setting');
 
 assert.match(studio, /Simulator ready — LIVE still uses current V3B/);
-assert.match(studio, /Parity verified — Go Live requires confirmation/);
+assert.match(studio, /LIVE readiness verified — Go Live requires confirmation/);
 assert.match(studio, /Go Live with this Strategy\?/);
 assert.match(studio, /current\?\.locked|current\.locked/, 'open Studio-managed positions must lock destructive/edit actions');
 assert.match(studio, /live_handoff_enabled/, 'UI must render the durable handoff state');
