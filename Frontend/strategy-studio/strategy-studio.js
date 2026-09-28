@@ -624,7 +624,7 @@
       notice('This strategy is locked while its Studio-managed position is open.', 'error');
       return;
     }
-    if (!parityVerified()) {
+    if (!liveReadinessVerified()) {
       notice('LIVE readiness verification is required before Strategy Studio can Go Live.', 'error');
       return;
     }
