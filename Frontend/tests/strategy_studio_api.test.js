@@ -226,3 +226,25 @@ test('cookie-session sentinel is never sent as bearer credentials', async () => 
     globalThis.StrategyStudioApi = old.api;
   }
 });
+
+test('Safari window.name loss and restoration keep explicit admin requests on the owner library', async () => {
+  const vm = require('node:vm');
+  const store = entries => { const values = new Map(entries); return {
+    getItem: key => values.get(key) || null,
+    setItem: (key,value) => values.set(key,String(value)),
+    removeItem: key => values.delete(key), key: index => [...values.keys()][index],
+    get length() { return values.size; },
+  }; };
+  const calls=[];
+  const context={
+    name:'',sessionStorage:store([['flowsignal_tab_role','admin'],['flowsignal_user_session_token','stale-customer']]),
+    localStorage:store([['flowsignal_tab_admin_session:stable',JSON.stringify({token:'valid-owner'})]]),
+    location:{hostname:'www.nathauxfx.com',origin:'https://www.nathauxfx.com'},
+    fetch: async (_url,init) => { calls.push(init.headers.Authorization); return {ok:true,json:async()=>({strategies:[{name:'Gold 931'}]})}; },
+  };
+  vm.createContext(context);vm.runInContext(fs.readFileSync(apiPath,'utf8'),context);
+  assert.equal((await context.StrategyStudioApi.listStrategies()).strategies[0].name,'Gold 931');
+  context.name='flowsignal-tab:stable';
+  assert.equal((await context.StrategyStudioApi.listStrategies()).strategies[0].name,'Gold 931');
+  assert.deepEqual(calls,['Bearer valid-owner','Bearer valid-owner']);
+});

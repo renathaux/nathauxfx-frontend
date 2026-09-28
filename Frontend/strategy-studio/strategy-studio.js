@@ -8,6 +8,7 @@
 
   const state = {
     strategies: [],
+    libraryStatus: 'idle',
     currentId: null,
     draft: Model.blankStrategy(),
     baseline: Model.blankStrategy(),
@@ -404,11 +405,17 @@
 
   function renderSavedStrategies() {
     const list = $('savedStrategiesList');
+    const error = state.libraryStatus === 'error'
+      ? '<div class="notice error" role="alert">Unable to load saved strategies. Try again to load your library. <button type="button" id="retryLibraryBtn">Retry</button></div>'
+      : '';
     if (!state.strategies.length) {
-      list.innerHTML = '<div class="empty-state">No saved strategies yet.<br>Create a blank strategy to begin.</div>';
+      list.innerHTML = error || (state.libraryStatus === 'loaded'
+        ? '<div class="empty-state">No saved strategies yet.<br>Create a blank strategy to begin.</div>'
+        : '<div class="empty-state">Loading saved strategies…</div>');
+      list.querySelector('#retryLibraryBtn')?.addEventListener('click', () => loadStrategies());
       return;
     }
-    list.innerHTML = state.strategies.map((item) => {
+    list.innerHTML = error + state.strategies.map((item) => {
       const tf = item.definition?.trading_timeframe || '—';
       const symbols = (item.definition?.symbols || []).join(' + ') || 'No symbols';
       const risk = item.definition?.risk || {};
@@ -420,6 +427,7 @@
         <small>${symbols} • ${tf}<br>${riskText}<br>${fundamentalText}</small>
       </article>`;
     }).join('');
+    list.querySelector('#retryLibraryBtn')?.addEventListener('click', () => loadStrategies());
     list.querySelectorAll('[data-strategy-id]').forEach((card) => {
       card.addEventListener('click', () => openSaved(card.dataset.strategyId));
       card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openSaved(card.dataset.strategyId); } });
@@ -471,13 +479,25 @@
     renderDraftState();
     try {
       const payload = await Api.listStrategies();
-      state.strategies = Array.isArray(payload.strategies) ? payload.strategies : [];
+      if (!payload || payload.ok === false || !Array.isArray(payload.strategies)) {
+        throw new Error('Invalid saved strategies response');
+      }
+      const validRows = payload.strategies.every(item => item && typeof item === 'object'
+        && typeof item.strategy_id === 'string' && item.strategy_id.trim()
+        && typeof item.name === 'string'
+        && item.definition && typeof item.definition === 'object' && !Array.isArray(item.definition)
+        && (item.definition.symbols == null || (Array.isArray(item.definition.symbols)
+          && item.definition.symbols.every(symbol => typeof symbol === 'string'))));
+      if (!validRows) throw new Error('Invalid saved strategy data');
+      state.strategies = payload.strategies;
+      state.libraryStatus = 'loaded';
       renderSavedStrategies();
       const target = state.strategies.find((item) => item.strategy_id === selectId) || (!state.currentId ? state.strategies[0] : null);
       if (target) openSaved(target.strategy_id);
       else if (!state.currentId) newStrategy();
     } catch (error) {
-      notice(`Strategy Studio could not load: ${error.message}`, 'error');
+      state.libraryStatus = 'error';
+      notice(`Unable to load saved strategies: ${error.message}`, 'error');
       renderSavedStrategies();
     } finally {
       state.busy = false;
