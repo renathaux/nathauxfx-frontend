@@ -78,16 +78,40 @@
 
   function ownerTabToken() {
     if (currentTabRole() !== "admin") return "";
+
     const tabId = currentTabId();
-    if (!tabId) return "";
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || "null"
-      );
-      return String(saved?.token || "").trim();
-    } catch (_error) {
-      return "";
+    if (tabId) {
+      try {
+        const saved = JSON.parse(
+          localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || "null"
+        );
+        const token = String(saved?.token || "").trim();
+        if (token) {
+          localStorage.setItem(OWNER_SESSION_KEY, token);
+          return token;
+        }
+      } catch (_error) {}
     }
+
+    const persisted = String(localStorage.getItem(OWNER_SESSION_KEY) || "").trim();
+    if (persisted) return persisted;
+
+    // Safari can lose window.name during navigation/restoration. If this tab is
+    // still explicitly marked admin, recover a persisted admin-tab token
+    // rather than silently downgrading owner requests to another auth scope.
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key || !key.startsWith("flowsignal_tab_admin_session:")) continue;
+      try {
+        const saved = JSON.parse(localStorage.getItem(key) || "null");
+        const token = String(saved?.token || "").trim();
+        if (token) {
+          localStorage.setItem(OWNER_SESSION_KEY, token);
+          return token;
+        }
+      } catch (_error) {}
+    }
+    return "";
   }
 
   function isOwnerMutation(url, method) {
