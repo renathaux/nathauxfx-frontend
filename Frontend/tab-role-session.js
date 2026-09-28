@@ -11,8 +11,36 @@
     return role === 'admin' || role === 'user' ? role : '';
   }
 
+  function currentTabAdminToken() {
+    try {
+      const current = String(window.name || '');
+      const tabId = current.startsWith(TAB_WINDOW_PREFIX)
+        ? current.slice(TAB_WINDOW_PREFIX.length)
+        : '';
+      if (!tabId) return '';
+      const saved = JSON.parse(
+        localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null'
+      );
+      return String(saved?.token || '').trim();
+    } catch (_error) {
+      return '';
+    }
+  }
+
   function restorePersistentOwnerRole() {
     try {
+      const tabToken = currentTabAdminToken();
+      if (tabToken) {
+        sessionStorage.removeItem('flowsignal_user_session_token');
+        sessionStorage.removeItem('flowsignal_csrf_token');
+        sessionStorage.setItem(TAB_ROLE_KEY, 'admin');
+        localStorage.setItem(OWNER_TOKEN_KEY, tabToken);
+        sessionStorage.removeItem('flowsignal_tab_signed_out');
+        sessionStorage.removeItem('flowsignal_public_home_mode');
+        sessionStorage.removeItem('flowsignal_binary_user_id');
+        return true;
+      }
+
       if (sessionStorage.getItem('flowsignal_user_session_token')) return false;
       if (normalizeRole(sessionStorage.getItem(TAB_ROLE_KEY)) === 'user') return false;
 
@@ -67,7 +95,7 @@
     const existing = document.querySelector('script[data-flowsignal-user-auth]');
     if (existing) return;
     const script = document.createElement('script');
-    script.src = 'user-auth.js?v=5';
+    script.src = 'user-auth.js?v=6';
     script.async = false;
     script.dataset.flowsignalUserAuth = 'true';
     script.addEventListener('error', () => console.warn('USER_AUTH_LOAD_FAILED'));
@@ -127,7 +155,10 @@
   }
   installSafariSpeechNormalizer();
 
-  function getTabRole() { return authenticatedRole() || normalizeRole(sessionStorage.getItem(TAB_ROLE_KEY)); }
+  function getTabRole() {
+    if (currentTabAdminToken()) return 'admin';
+    return authenticatedRole() || normalizeRole(sessionStorage.getItem(TAB_ROLE_KEY));
+  }
   function setTabRole(role) {
     const normalized = normalizeRole(role);
     if (!normalized) return false;

@@ -39,6 +39,25 @@
   function hasCookieSessionMarker(){return rawUserSessionToken()===COOKIE_SESSION_SENTINEL||hasLoginHint();}
   function recoverTabAuth(){
     const id=currentTabId();
+
+    // Exact per-tab owner binding is authoritative. A stale customer token or
+    // secure-cookie marker in the same Safari tab must not demote the owner tab
+    // and make Strategy Studio load a different user's empty library.
+    if(id){
+      try{
+        const saved=JSON.parse(localStorage.getItem(`flowsignal_tab_admin_session:${id}`)||'null');
+        if(saved?.token){
+          sessionStorage.removeItem(USER_SESSION_KEY);
+          sessionStorage.removeItem(CSRF_KEY);
+          sessionStorage.setItem(TAB_ROLE_KEY,'admin');
+          localStorage.setItem(LEGACY_SESSION_TOKEN_KEY,String(saved.token));
+          sessionStorage.removeItem(PUBLIC_HOME_KEY);
+          sessionStorage.removeItem(TAB_SIGNED_OUT_KEY);
+          return;
+        }
+      }catch(_error){}
+    }
+
     if(!sessionStorage.getItem(USER_SESSION_KEY)){
       try{
         const saved=JSON.parse(localStorage.getItem(`flowsignal_tab_user_session:${id}`)||'null');
@@ -52,17 +71,7 @@
         }
       }catch(_error){}
     }
-    if(!sessionStorage.getItem(USER_SESSION_KEY)&&sessionStorage.getItem(TAB_ROLE_KEY)!=='admin'&&id){
-      try{
-        const saved=JSON.parse(localStorage.getItem(`flowsignal_tab_admin_session:${id}`)||'null');
-        if(saved?.token){
-          sessionStorage.setItem(TAB_ROLE_KEY,'admin');
-          localStorage.setItem(LEGACY_SESSION_TOKEN_KEY,String(saved.token));
-          sessionStorage.removeItem(PUBLIC_HOME_KEY);
-          sessionStorage.removeItem(TAB_SIGNED_OUT_KEY);
-        }
-      }catch(_error){}
-    }
+
     if(!sessionStorage.getItem(USER_SESSION_KEY)&&sessionStorage.getItem(TAB_ROLE_KEY)!=='admin'){
       const saved=savedDeviceSession();
       if(saved?.token){
@@ -125,8 +134,12 @@
   }
 
   function legacyOwner(){
+    // The tab-scoped admin role is explicit and must win over a stale customer
+    // cookie marker. Backend Strategy Studio routes also prefer Bearer owner
+    // credentials, so keep the browser on that same durable owner namespace.
+    if(tabRole()==='admin'&&Boolean(adminToken()))return true;
     if(userSessionToken()||hasCookieSessionMarker())return false;
-    return tabRole()==='admin'&&Boolean(adminToken());
+    return false;
   }
   function isBackend(input){
     try{
@@ -180,7 +193,7 @@
     const method=String(options.method||'GET').toUpperCase();
     if(token&&customerRequest)options.headers.set('Authorization',`FlowSignalUser ${token}`);
     if(sessionUser?.id&&!['GET','HEAD','OPTIONS'].includes(method)&&csrfToken)options.headers.set('X-FlowSignal-CSRF',csrfToken);
-    if(!token&&!hasCookieSessionMarker()&&legacyOwner()&&!options.headers.has('Authorization')){
+    if(legacyOwner()&&!options.headers.has('Authorization')){
       const ownerToken=adminToken();
       if(ownerToken)options.headers.set('Authorization',`Bearer ${ownerToken}`);
     }
