@@ -4844,6 +4844,16 @@ function getSignalSide(signal) {
 }
 
 function getVisibleSignal(data) {
+  const studioDisplay = data?.live_strategy_display;
+  if (
+    studioDisplay?.live_handoff_enabled === true
+    && String(studioDisplay?.execution_source || "").toUpperCase() === "STRATEGY_STUDIO"
+  ) {
+    if (studioDisplay?.enabled_for_symbol === false) return "WAIT";
+    const studioSignal = String(studioDisplay?.signal || "WAIT").trim().toUpperCase();
+    return ["BUY", "SELL"].includes(studioSignal) ? studioSignal : "WAIT";
+  }
+
   const canonical = data?.live_v3b_details?.source_candidate?.v3b_setup_state;
   if (String(data?.live_strategy_model || "").toUpperCase().includes("V3B")) {
     const facts = canonical && typeof window !== "undefined" ? window.FlowSignalHistory?.v3bFacts?.(data) : null;
@@ -5227,9 +5237,14 @@ function updateCard(symbol, data) {
     data?.live_v3b_details?.source_candidate?.v3b_setup_state
     && window.FlowSignalHistory?.v3bFacts?.(data)?.currentEvent
   );
+  const currentStudioDisplay = Boolean(
+    data?.live_strategy_display?.live_handoff_enabled === true
+    && String(data?.live_strategy_display?.execution_source || "").toUpperCase() === "STRATEGY_STUDIO"
+  );
+  const currentStrategySetup = currentStudioDisplay || currentV3BSetup;
 
   const noData = !["BUY", "SELL"].includes(signal)
-    && !currentV3BSetup
+    && !currentStrategySetup
     && marketCondition === "UNKNOWN" && buyPct === 0 && sellPct === 0 && confidence === 0;
 
   if (marketClosed) {
@@ -7515,14 +7530,14 @@ if (priceEl) {
   // Render V3B presentation from this same canonical per-symbol snapshot.
   // The presentation layer only displays backend facts; it does not poll,
   // observe the DOM, or calculate an independent trading decision.
-  window.FlowSignalHistory?.renderV3BPresentation?.(data);
+  window.FlowSignalHistory?.renderStrategyPresentation?.(data);
 
-  const v3bBlocker = window.FlowSignalHistory?.v3bPanelBlocker?.(data, signal);
-  const blockReason = v3bBlocker
-    ? v3bBlocker.reason
+  const strategyBlocker = window.FlowSignalHistory?.strategyPanelBlocker?.(data, signal);
+  const blockReason = strategyBlocker
+    ? strategyBlocker.reason
     : String(data.blocked_reason || data.block_reason || "");
-  const showSignalBlocker = v3bBlocker
-    ? v3bBlocker.show
+  const showSignalBlocker = strategyBlocker
+    ? strategyBlocker.show
     : signal === "WAIT" && Boolean(blockReason);
   const blockedReasonRow = document.getElementById("main-blocked-reason-row");
   const blockedReasonEl = document.getElementById("main-blocked-reason");
@@ -10243,6 +10258,12 @@ console.log("PANEL_DATA_RECEIVED", {
 
 const data = normalizePanelData(rawData);
 latestPanelMeta = meta;
+for (const symbol of ["EURUSD", "XAUUSD"]) {
+  const strategyDisplay = meta?.live_strategy_display_by_symbol?.[symbol];
+  if (strategyDisplay && typeof strategyDisplay === "object") {
+    data[symbol].live_strategy_display = strategyDisplay;
+  }
+}
 data.EURUSD._panel_meta = meta;
 data.XAUUSD._panel_meta = meta;
 latestPanelData = data;
@@ -10445,6 +10466,12 @@ updateUTC();
 
     const cachedData = normalizePanelData(lastGoodPanelData);
     latestPanelMeta = lastGoodPanelData._meta;
+    for (const symbol of ["EURUSD", "XAUUSD"]) {
+      const strategyDisplay = latestPanelMeta?.live_strategy_display_by_symbol?.[symbol];
+      if (strategyDisplay && typeof strategyDisplay === "object") {
+        cachedData[symbol].live_strategy_display = strategyDisplay;
+      }
+    }
     cachedData.EURUSD._panel_meta = latestPanelMeta;
     cachedData.XAUUSD._panel_meta = latestPanelMeta;
     latestPanelData = cachedData;
