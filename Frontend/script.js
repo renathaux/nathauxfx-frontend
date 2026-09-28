@@ -9801,7 +9801,7 @@ async function loadBrokerAccounts(refresh = false) {
     const res = await fetch(`${BASE_URL}/${endpoint}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
-      timeoutMs: 10000,
+      timeoutMs: 25000,
       suppressErrorPanel: true,
     });
     const data = await res.json();
@@ -9847,6 +9847,8 @@ async function postBrokerAccountAction(path, payload = {}) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    timeoutMs: 30000,
+    suppressErrorPanel: true,
   });
 
   const data = await res.json();
