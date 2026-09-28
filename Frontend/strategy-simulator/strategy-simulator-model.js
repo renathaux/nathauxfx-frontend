@@ -113,6 +113,10 @@
     let tradesOpened = 0;
     let warmupCandles = 0;
     let historyStart = null;
+    let capacityBlockedCandles = 0;
+    let combinedRiskBlockedSignals = 0;
+    let maxSimultaneousPositions = 0;
+    let maxOpenRiskDollars = 0;
 
     (results || []).forEach((result, resultIndex) => {
       const diagnostics = result?.diagnostics || {};
@@ -120,6 +124,16 @@
       evaluations += Number(diagnostics.evaluations || 0);
       signals += Number(diagnostics.signals_emitted || 0);
       tradesOpened += Number(diagnostics.trades_opened || 0);
+      capacityBlockedCandles += Number(diagnostics.capacity_blocked_candles || 0);
+      combinedRiskBlockedSignals += Number(diagnostics.combined_risk_blocked_signals || 0);
+      maxSimultaneousPositions = Math.max(
+        maxSimultaneousPositions,
+        Number(diagnostics.max_simultaneous_positions || 0)
+      );
+      maxOpenRiskDollars = Math.max(
+        maxOpenRiskDollars,
+        Number(diagnostics.max_open_risk_dollars || 0)
+      );
       if (resultIndex === 0) {
         warmupCandles = Number(diagnostics.warmup_candles || 0);
         historyStart = diagnostics.history_start || null;
@@ -177,6 +191,10 @@
       open_trades_at_end: Number(finalDiagnostics.open_trades_at_end || 0),
       blocked_setups: blocked,
       waiting_setups: waiting,
+      capacity_blocked_candles: capacityBlockedCandles,
+      combined_risk_blocked_signals: combinedRiskBlockedSignals,
+      max_simultaneous_positions: maxSimultaneousPositions,
+      max_open_risk_dollars: maxOpenRiskDollars,
       stage_pass_counts: stagePassCounts,
       rejection_reasons: rejectionReasons,
       no_setup_reasons: noSetupReasons,
