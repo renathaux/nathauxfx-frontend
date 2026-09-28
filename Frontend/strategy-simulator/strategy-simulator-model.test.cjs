@@ -18,6 +18,8 @@ test('buildRunPayload preserves saved strategy id and FAST mode', () => {
     end: '2026-09-02T00:00:00Z',
     mode: 'FAST',
     risk_override: null,
+    max_concurrent_positions: 1,
+    max_combined_open_risk_percent: null,
   });
 });
 
@@ -94,6 +96,10 @@ test('aggregateSimulationResults combines multi-chunk trades and diagnostics', (
         signals_emitted: 1,
         trades_opened: 1,
         open_trades_at_end: 0,
+        capacity_blocked_candles: 4,
+        combined_risk_blocked_signals: 1,
+        max_simultaneous_positions: 2,
+        max_open_risk_dollars: 20,
         no_setup_reasons: { BOS_CHOCH_REQUIRED: 80 },
         setup_details: [
           {
@@ -121,6 +127,10 @@ test('aggregateSimulationResults combines multi-chunk trades and diagnostics', (
         signals_emitted: 1,
         trades_opened: 1,
         open_trades_at_end: 0,
+        capacity_blocked_candles: 6,
+        combined_risk_blocked_signals: 2,
+        max_simultaneous_positions: 3,
+        max_open_risk_dollars: 30,
         no_setup_reasons: { BOS_CHOCH_REQUIRED: 100 },
         setup_details: [
           {
@@ -155,4 +165,40 @@ test('aggregateSimulationResults combines multi-chunk trades and diagnostics', (
   assert.equal(result.diagnostics.stage_pass_counts.confirmation, 1);
   assert.equal(result.diagnostics.rejection_reasons.TREND_BOS_CHOCH_DISAGREES, 1);
   assert.equal(result.diagnostics.no_setup_reasons.BOS_CHOCH_REQUIRED, 180);
+  assert.equal(result.diagnostics.capacity_blocked_candles, 10);
+  assert.equal(result.diagnostics.combined_risk_blocked_signals, 3);
+  assert.equal(result.diagnostics.max_simultaneous_positions, 3);
+  assert.equal(result.diagnostics.max_open_risk_dollars, 30);
+});
+
+
+test('buildRunPayload carries concurrent-position simulator options', () => {
+  const payload = Model.buildRunPayload({
+    strategyId: 'strat_multi',
+    symbol: 'EURUSD',
+    start: '2026-09-01T00:00:00Z',
+    end: '2026-09-02T00:00:00Z',
+    maxConcurrentPositions: 2,
+    maxCombinedOpenRiskPercent: 2,
+  });
+  assert.equal(payload.max_concurrent_positions, 2);
+  assert.equal(payload.max_combined_open_risk_percent, 2);
+});
+
+test('buildRunPayload rejects unsafe concurrent-position options', () => {
+  assert.throws(() => Model.buildRunPayload({
+    strategyId: 'strat_multi',
+    symbol: 'EURUSD',
+    start: '2026-09-01T00:00:00Z',
+    end: '2026-09-02T00:00:00Z',
+    maxConcurrentPositions: 4,
+  }), /Max concurrent positions/);
+  assert.throws(() => Model.buildRunPayload({
+    strategyId: 'strat_multi',
+    symbol: 'EURUSD',
+    start: '2026-09-01T00:00:00Z',
+    end: '2026-09-02T00:00:00Z',
+    maxConcurrentPositions: 2,
+    maxCombinedOpenRiskPercent: 11,
+  }), /Max combined open risk/);
 });
