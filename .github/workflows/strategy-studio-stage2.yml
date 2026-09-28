@@ -28,7 +28,9 @@ jobs:
             Frontend/tests/strategy_studio_navigation.test.js \
             Frontend/tests/strategy_studio_page.test.js \
             Frontend/tests/strategy_studio_live_handoff.test.js \
-            Frontend/tests/strategy_lab.test.js
+            Frontend/tests/strategy_lab.test.js \
+            Frontend/tests/v3b_dashboard_mapping.test.js \
+            Frontend/tests/mobile_v3b_isch_mapping.test.js
           node --check Frontend/strategy-simulator/strategy-simulator-api.js
           node --check Frontend/strategy-simulator/strategy-simulator-model.js
           node --check Frontend/strategy-simulator/strategy-simulator.js
@@ -36,4 +38,6 @@ jobs:
           node --check Frontend/manual-replay/manual-replay.js
           node --check Frontend/strategy-studio/strategy-studio-api.js
           node --check Frontend/strategy-studio/strategy-studio.js
+          node --check Frontend/history.js
+          node --check Frontend/mobileNav.js
           node --check Frontend/script.js

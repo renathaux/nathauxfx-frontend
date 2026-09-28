@@ -720,6 +720,252 @@
     renderV3BPlan(status || {}, f, effectiveCurrentEvent);
   }
 
+
+  function liveStrategyDisplay(status) {
+    const display = asObject(status?.live_strategy_display);
+    if (!display) return null;
+    if (String(display.execution_source || "").toUpperCase() !== "STRATEGY_STUDIO") return null;
+    if (display.live_handoff_enabled !== true) return null;
+    return display;
+  }
+
+  function ownedElement(originalId) {
+    return document.getElementById(OWNED_IDS[originalId] || "")
+      || document.getElementById(originalId);
+  }
+
+  function studioConditionText(state) {
+    const value = String(state || "WAITING").toUpperCase();
+    if (["PASSED", "READY", "COMPLETE"].includes(value)) return "YES";
+    if (["BLOCKED", "FAILED", "INVALID"].includes(value)) return "NO";
+    if (value === "NOT_APPLICABLE") return "N/A";
+    return "WAITING";
+  }
+
+  function studioConditionClass(state) {
+    const text = studioConditionText(state);
+    if (text === "YES") return "check-pass";
+    if (text === "NO") return "check-fail";
+    return "check-waiting";
+  }
+
+  function ensureStudioConditionGrid() {
+    const details = document.querySelector("details.entry-strategy-debug");
+    if (!details) return null;
+    let grid = document.getElementById("live-strategy-condition-grid");
+    if (!grid) {
+      grid = document.createElement("div");
+      grid.id = "live-strategy-condition-grid";
+      grid.className = "entry-strategy-debug-grid live-strategy-condition-grid";
+      details.append(grid);
+    }
+    return grid;
+  }
+
+  function fixedStrategyGrid() {
+    const details = document.querySelector("details.entry-strategy-debug");
+    if (!details) return null;
+    return Array.from(details.children || []).find((node) =>
+      node?.classList?.contains?.("entry-strategy-debug-grid")
+      && node.id !== "live-strategy-condition-grid"
+    ) || null;
+  }
+
+  function setStrategyPlanText(originalId, text) {
+    const el = ownedElement(originalId);
+    if (el && el.textContent !== text) el.textContent = text;
+  }
+
+  function setStrategyPlanLabel(originalId, text) {
+    const el = ownedElement(originalId);
+    if (el?.previousElementSibling) el.previousElementSibling.textContent = text;
+  }
+
+  function renderStudioWaitingList(display) {
+    const target = ownedElement("main-smc-waiting-list");
+    if (!target) return;
+    const conditions = Array.isArray(display?.conditions) ? display.conditions : [];
+    const pending = conditions.filter((item) => !["PASSED", "READY", "COMPLETE"].includes(
+      String(item?.state || "").toUpperCase()
+    ));
+    target.replaceChildren();
+    const items = pending.length ? pending : [{
+      label: display?.signal === "BUY" || display?.signal === "SELL"
+        ? `${display.signal} entry ready`
+        : "Waiting for the next strategy condition",
+      state: display?.signal === "BUY" || display?.signal === "SELL" ? "PASSED" : "WAITING",
+    }];
+    for (const item of items) {
+      const li = document.createElement("li");
+      const stateText = studioConditionText(item?.state);
+      li.className = stateText === "YES" ? "complete" : stateText === "NO" ? "missing" : "info";
+      const mark = document.createElement("b");
+      mark.textContent = stateText === "YES" ? "✓" : stateText === "NO" ? "✗" : "•";
+      const label = document.createElement("span");
+      label.textContent = item?.label || item?.key || "Condition";
+      li.append(mark, label);
+      target.appendChild(li);
+    }
+  }
+
+  function renderStudioPresentation(status) {
+    const display = liveStrategyDisplay(status);
+    if (!display) return false;
+
+    const fixed = fixedStrategyGrid();
+    if (fixed) {
+      fixed.hidden = true;
+      fixed.style?.setProperty?.("display", "none", "important");
+    }
+    const grid = ensureStudioConditionGrid();
+    if (!grid) return false;
+    grid.hidden = false;
+    grid.style?.removeProperty?.("display");
+
+    const strategyName = firstText(display.strategy_name, "Strategy Studio");
+    const details = document.querySelector("details.entry-strategy-debug");
+    const summary = details?.querySelector("summary");
+    if (summary) summary.textContent = `${strategyName} · LIVE CONDITIONS`;
+
+    const conditions = Array.isArray(display.conditions) ? display.conditions : [];
+    grid.replaceChildren();
+    for (const item of conditions) {
+      const label = document.createElement("span");
+      label.textContent = item?.label || item?.key || "Condition";
+      const value = document.createElement("strong");
+      const stateText = studioConditionText(item?.state);
+      value.textContent = stateText;
+      value.classList.add(studioConditionClass(item?.state));
+      const reason = firstText(item?.reason);
+      if (reason) value.title = reason;
+      grid.append(label, value);
+    }
+
+    const signalLabel = document.createElement("span");
+    signalLabel.textContent = "Signal";
+    const signalValue = document.createElement("strong");
+    signalValue.textContent = normalizeSignal(display.signal);
+    signalValue.classList.add(
+      signalValue.textContent === "BUY" ? "decision-buy"
+        : signalValue.textContent === "SELL" ? "decision-sell"
+          : "decision-wait"
+    );
+    grid.append(signalLabel, signalValue);
+
+    const reasonLabel = document.createElement("span");
+    reasonLabel.textContent = "Reason";
+    reasonLabel.className = "strategy-debug-reason-label";
+    const reasonValue = document.createElement("strong");
+    reasonValue.textContent = firstText(
+      display.execution_block_reason,
+      display.reason,
+      "--"
+    );
+    reasonValue.title = reasonValue.textContent;
+    grid.append(reasonLabel, reasonValue);
+
+    const header = document.querySelector(".main-smc-panel .smc-header");
+    if (header) header.textContent = `⚡ ${strategyName} · LIVE PLAN`;
+
+    const conditionsPassed = conditions.filter((item) =>
+      ["PASSED", "READY", "COMPLETE"].includes(String(item?.state || "").toUpperCase())
+    ).length;
+    const progress = Number.isFinite(Number(display.progress))
+      ? Math.max(0, Math.min(100, Number(display.progress)))
+      : conditions.length ? Math.round(conditionsPassed / conditions.length * 100) : 0;
+    const signal = normalizeSignal(display.signal);
+    const next = conditions.find((item) => String(item?.state || "").toUpperCase() === "BLOCKED")
+      || conditions.find((item) => String(item?.state || "").toUpperCase() === "WAITING");
+    const nextText = next?.label
+      || (signal === "BUY" || signal === "SELL" ? `${signal} ENTRY READY` : "Waiting for strategy conditions");
+    const symbol = firstText(display.symbol, status?.symbol).toUpperCase().replace("/", "");
+
+    setStrategyPlanLabel("main-smc-structure", "Live Strategy");
+    setStrategyPlanLabel("main-smc-trigger", "Next Condition");
+    setStrategyPlanLabel("main-smc-entry-zone", "Entry");
+    setStrategyPlanLabel("main-smc-estimated-sl", "SL");
+    setStrategyPlanLabel("main-smc-estimated-tp", "TP2");
+    setStrategyPlanLabel("main-smc-progress-label", "Rule Progress");
+
+    setStrategyPlanText("main-smc-structure", strategyName);
+    setStrategyPlanText("main-smc-trigger", nextText);
+    setStrategyPlanText("main-smc-entry-zone", formatPrice(symbol, display.entry));
+    setStrategyPlanText("main-smc-estimated-sl", formatPrice(symbol, display.sl));
+    setStrategyPlanText("main-smc-estimated-tp", formatPrice(symbol, display.tp2));
+    setStrategyPlanText("main-smc-progress-label", `${Math.round(progress)}%`);
+    const progressBar = ownedElement("main-smc-progress-bar");
+    if (progressBar) progressBar.style.width = `${progress}%`;
+    renderStudioWaitingList(display);
+
+    setStrategyPlanText("main-plan-type", signal === "WAIT" ? "--" : signal);
+    setStrategyPlanText("main-entry-price", formatPrice(symbol, display.entry));
+    setStrategyPlanText("main-sl", formatPrice(symbol, display.sl));
+    setStrategyPlanText("main-tp1", formatPrice(symbol, display.tp1));
+    setStrategyPlanText("main-tp2", formatPrice(symbol, display.tp2));
+
+    const entry = Number(display.entry);
+    const sl = Number(display.sl);
+    const tp2 = Number(display.tp2);
+    let rr = "--";
+    if ([entry, sl, tp2].every(Number.isFinite) && Math.abs(entry - sl) > 0) {
+      rr = `1:${(Math.abs(tp2 - entry) / Math.abs(entry - sl)).toFixed(2)}`;
+    }
+    setStrategyPlanText("main-rr", rr);
+    setStrategyPlanText(
+      "main-blocked-reason",
+      firstText(display.execution_block_reason, display.reason, "--")
+    );
+
+    const planIntel = document.getElementById("main-smc-plan-intel");
+    if (planIntel) {
+      planIntel.classList.toggle(
+        "is-ready",
+        (signal === "BUY" || signal === "SELL") && display.execution_ready !== false
+      );
+    }
+    return true;
+  }
+
+  function restoreV3BGrid() {
+    const grid = document.getElementById("live-strategy-condition-grid");
+    if (grid) {
+      grid.hidden = true;
+      grid.style?.setProperty?.("display", "none", "important");
+    }
+    const fixed = fixedStrategyGrid();
+    if (fixed) {
+      fixed.hidden = false;
+      fixed.style?.removeProperty?.("display");
+    }
+  }
+
+  function studioPanelBlocker(status, visibleSignal) {
+    const display = liveStrategyDisplay(status);
+    if (!display) return null;
+    const reason = firstText(display.execution_block_reason, display.reason);
+    const signal = normalizeSignal(visibleSignal);
+    return {
+      show: Boolean(reason) && (
+        signal === "WAIT"
+        || display.execution_ready === false
+        || String(display.reason || "").includes("SYMBOL_DISABLED")
+      ),
+      reason,
+    };
+  }
+
+  function renderStrategyPresentation(status) {
+    if (renderStudioPresentation(status)) return "STRATEGY_STUDIO";
+    restoreV3BGrid();
+    renderV3BPresentation(status);
+    return "V3B";
+  }
+
+  function strategyPanelBlocker(status, visibleSignal) {
+    return studioPanelBlocker(status, visibleSignal)
+      || v3bPanelBlocker(status, visibleSignal);
+  }
+
   function install() {
     applyMonthlyPaperLocalStorageWindow();
     let attempts = 0;
@@ -744,7 +990,12 @@
       newYorkMonthKey,
       v3bFacts,
       renderV3BPresentation,
-      v3bPanelBlocker
+      v3bPanelBlocker,
+      liveStrategyDisplay,
+      renderStudioPresentation,
+      renderStrategyPresentation,
+      studioPanelBlocker,
+      strategyPanelBlocker
     };
     if (document.readyState === "loading") {
       window.addEventListener("DOMContentLoaded", install, { once: true });
@@ -765,7 +1016,12 @@
       normalizeSignal,
       v3bFacts,
       renderV3BPresentation,
-      v3bPanelBlocker
+      v3bPanelBlocker,
+      liveStrategyDisplay,
+      renderStudioPresentation,
+      renderStrategyPresentation,
+      studioPanelBlocker,
+      strategyPanelBlocker
     };
   }
 })();
