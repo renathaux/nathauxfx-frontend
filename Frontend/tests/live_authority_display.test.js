@@ -67,3 +67,26 @@ assert.ok(grid.children.some(x=>x.textContent==='ERROR'));
 assert.equal(grid.children.some(x=>/BOS|V3B/.test(x.textContent)),false);
 delete global.document;
 console.log('Rendered desktop dynamic condition and NONE authority passed');
+
+const homeSource=fs.readFileSync(path.join(frontend,'mobileDashboard.js'),'utf8');
+const homeNodes=new Map();
+const home={state:{symbol:'EURUSD'},window:context.window,$:id=>{if(!homeNodes.has(id))homeNodes.set(id,{textContent:'',innerHTML:'',dataset:{},classList:{add(){},remove(){}}});return homeNodes.get(id);},first:context.first,normalizeSignal:String,setMeter(){},allActive:()=>[],smcIntel:()=>({}),structureText:String,readable:String,confirmations:()=>{throw Error('implicit legacy conditions')},chosenPosition:data=>data.position,normalizeSide:String,colorMoney(){},formatPrice:String};
+vm.createContext(home);
+for(const name of ['renderSignals','renderTrade','renderSmc']) {
+ const start=homeSource.indexOf('  function '+name+'(');
+ const end=homeSource.indexOf('\n  function ',start+10);
+ vm.runInContext(homeSource.slice(start,end),home);
+}
+const blocked={_meta:{live_strategy_display_by_symbol:{EURUSD:{execution_source:'NONE'},XAUUSD:{execution_source:'STRATEGY_STUDIO',strategy_name:'Saved Gold',signal:'WAIT',reason:'CONFIRMATION_PENDING',conditions}}},EURUSD:{signal:'SELL'},XAUUSD:{signal:'BUY'}};
+home.renderSignals(blocked);
+assert.equal(home.$('mEurSignal').textContent,'WAIT');
+assert.equal(home.$('mGoldSignal').textContent,'WAIT');
+home.renderSmc(blocked);
+assert.equal(home.$('mSmcStructure').textContent,'NO LIVE STRATEGY ASSIGNED');
+assert.match(home.$('mSmcTrigger').textContent,/NO_LIVE_STRATEGY_FOR_SYMBOL/);
+home.renderTrade({position:{symbol:'EURUSD',side:'BUY',management_paused:true}});
+assert.match(home.$('mTradeManagement').innerHTML,/MANUAL \/ LEGACY POSITION/);
+home.renderTrade({position:trade});
+assert.match(home.$('mTradeManagement').innerHTML,/Original Gold/);
+assert.match(home.$('mTradeManagement').innerHTML,/PARTIAL CLOSED/);
+console.log('Mobile home signals, conditions and ownership use shared authority');
