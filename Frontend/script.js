@@ -4844,13 +4844,10 @@ function getSignalSide(signal) {
 }
 
 function getVisibleSignal(data) {
-  const studioDisplay = data?.live_strategy_display;
-  if (
-    studioDisplay?.live_handoff_enabled === true
-    && String(studioDisplay?.execution_source || "").toUpperCase() === "STRATEGY_STUDIO"
-  ) {
-    if (studioDisplay?.enabled_for_symbol === false) return "WAIT";
-    const studioSignal = String(studioDisplay?.signal || "WAIT").trim().toUpperCase();
+  const studioDisplay = window.NathauxLiveAuthority.authorityDisplay(data);
+  if (studioDisplay) {
+    if (studioDisplay.execution_source !== "STRATEGY_STUDIO" || studioDisplay.enabled_for_symbol === false) return "WAIT";
+    const studioSignal = String(studioDisplay.signal || "WAIT").toUpperCase();
     return ["BUY", "SELL"].includes(studioSignal) ? studioSignal : "WAIT";
   }
 
@@ -5238,8 +5235,7 @@ function updateCard(symbol, data) {
     && window.FlowSignalHistory?.v3bFacts?.(data)?.currentEvent
   );
   const currentStudioDisplay = Boolean(
-    data?.live_strategy_display?.live_handoff_enabled === true
-    && String(data?.live_strategy_display?.execution_source || "").toUpperCase() === "STRATEGY_STUDIO"
+    window.NathauxLiveAuthority.authorityDisplay(data)
   );
   const currentStrategySetup = currentStudioDisplay || currentV3BSetup;
 
@@ -8128,6 +8124,7 @@ function isLiveBrokerTrade(trade) {
 }
 
 function hasConfirmedProfitProtection(trade) {
+  if (trade?.trade_management) return window.NathauxLiveAuthority.managementView(trade).confirmed;
   if (!trade?.profit_protected || trade?.protection_confirmed === false) return false;
 
   if (!isLiveBrokerTrade(trade)) return true;
@@ -8137,7 +8134,7 @@ function hasConfirmedProfitProtection(trade) {
 
 function getProfitProtectionLabel(trade) {
   return hasConfirmedProfitProtection(trade)
-    ? "Profit Protected (+40% toward TP2 locked)"
+    ? `Profit Protected${trade?.trade_management?.protection_secure_percent != null ? ` (${trade.trade_management.protection_secure_percent}% toward TP2 secured)` : ""}`
     : "";
 }
 
@@ -11293,9 +11290,9 @@ function renderLiveHistory() {
       const currentSl = getBrokerStopLossDisplay(trade);
       const tp1 = getTp1Display(trade);
       const tp2 = getBrokerTakeProfitDisplay(trade);
-      const protectedSl = trade.protected_sl_price || "--";
-      const tp1Hit = trade.hit_tp1 ? "Yes" : "No";
-      const profitProtected = trade.profit_protected ? "Yes" : "No";
+      const protectedSl = trade.trade_management?.target_protected_sl ?? trade.protected_sl_price ?? "--";
+      const tp1Hit = trade.trade_management ? window.NathauxLiveAuthority.managementView(trade).tp1_state : (trade.hit_tp1 ? "Yes" : "No");
+      const profitProtected = hasConfirmedProfitProtection(trade) ? "Yes" : "No";
       const tradeId = getLiveTradeId(trade);
       const brokerOrderId = trade.broker_order_id || trade.position_id || "--";
       const pips = trade.pips ?? "--";
@@ -11313,6 +11310,7 @@ function renderLiveHistory() {
           </summary>
 
           <div style="padding:0 8px 7px;color:#cbd5e1;font-size:10px;line-height:1.35;">
+            ${window.NathauxLiveAuthority.managementMarkup(trade)}
             ${protectionLabel ? `<div class="live-side" style="color:#86efac;">${protectionLabel}</div>` : ""}
             ${protectionWarning ? `<div class="live-side" style="color:#fbbf24;">${protectionWarning}</div>` : ""}
             ${targetWarning ? `<div class="live-side" style="color:#fbbf24;">${targetWarning}</div>` : ""}
@@ -11320,7 +11318,7 @@ function renderLiveHistory() {
             Entry: <b>${entry}</b><br>
             Original SL: <b>${originalSl}</b> • Current SL: <b>${currentSl}</b><br>
             <span class="live-target-prices">TP1: <b>${tp1}</b> • TP2: <b>${tp2}</b></span><br>
-            Protected SL: <b>${protectedSl}</b><br>
+            Target protected SL: <b>${protectedSl}</b><br>
             TP1 Hit: <b>${tp1Hit}</b> • Profit Protected: <b>${profitProtected}</b><br>
             Pips: <b>${pips}</b> • Result: <b>${result}</b><br>
             Reason: <b>${reason}</b><br>
@@ -11456,9 +11454,9 @@ function renderLiveActiveOrders() {
     const currentSl = getBrokerStopLossDisplay(trade);
     const tp1 = getTp1Display(trade);
     const tp2 = getBrokerTakeProfitDisplay(trade);
-    const protectedSl = trade.protected_sl_price || "--";
-    const tp1Hit = trade.hit_tp1 ? "Yes" : "No";
-    const profitProtected = trade.profit_protected ? "Yes" : "No";
+    const protectedSl = trade.trade_management?.target_protected_sl ?? trade.protected_sl_price ?? "--";
+    const tp1Hit = trade.trade_management ? window.NathauxLiveAuthority.managementView(trade).tp1_state : (trade.hit_tp1 ? "Yes" : "No");
+    const profitProtected = hasConfirmedProfitProtection(trade) ? "Yes" : "No";
     const pnl = getLiveTradePnl(trade);
     const pnlClass = pnl > 0 ? "positive" : pnl < 0 ? "negative" : "";
     const currentPrice = trade.current_price ?? trade.currentPrice ?? "--";
@@ -11491,6 +11489,7 @@ function renderLiveActiveOrders() {
           </div>
         </summary>
         <div class="live-expanded-body">
+          ${window.NathauxLiveAuthority.managementMarkup(trade)}
           <div class="live-detail-grid">
             <span>Trade ID <b>${tradeId}</b></span>
             <span>Status <b>${status}</b></span>
@@ -11501,7 +11500,7 @@ function renderLiveActiveOrders() {
             <span>Current SL <b>${currentSl}</b></span>
             <span>TP1 <b>${tp1}</b></span>
             <span>TP2 <b>${tp2}</b></span>
-            <span>Protected SL <b>${protectedSl}</b></span>
+            <span>Target protected SL <b>${protectedSl}</b></span>
             <span>TP1 Hit <b>${tp1Hit}</b></span>
             <span>Profit Protected <b>${profitProtected}</b></span>
             <span>Result <b>${displayResult}</b></span>
@@ -11624,8 +11623,8 @@ function renderMobileOpenTradeCard() {
   const greenFrom = isSell
     ? Math.max(percent(entryPrice), percent(livePrice))
     : Math.min(percent(entryPrice), percent(livePrice));
-  const tp1Hit = Boolean(trade.hit_tp1 || trade.tp1_hit || trade.profit_protected);
-  const protectedActive = Boolean(protectedSl || trade.profit_protected);
+  const tp1Hit = trade.trade_management ? ["HIT", "PARTIAL_CLOSED"].includes(trade.trade_management.tp1_state) : Boolean(trade.hit_tp1 || trade.tp1_hit);
+  const protectedActive = hasConfirmedProfitProtection(trade);
   const priceText = formatLivePrice(symbol, livePrice) || "--";
 
   card.classList.toggle("buy", !isSell);
@@ -11655,7 +11654,7 @@ function renderMobileOpenTradeCard() {
   pnlEl?.classList.toggle("positive", Number(pnl) > 0);
   pnlEl?.classList.toggle("negative", Number(pnl) < 0);
   protectionEl?.classList.toggle("hidden", !protectedActive);
-  protectedMarker?.classList.toggle("hidden", !protectedSl);
+  protectedMarker?.classList.toggle("hidden", !protectedActive);
 
   card.style.setProperty("--sl-pos", `${percent(sl)}%`);
   card.style.setProperty("--entry-pos", `${percent(entryPrice)}%`);
@@ -13047,9 +13046,9 @@ function drawTradeVisualLevels() {
   const levels = {
     symbol,
     ...chartLevels,
-    hit_tp1: Boolean(trade?.hit_tp1),
+    hit_tp1: trade?.trade_management ? ["HIT", "PARTIAL_CLOSED"].includes(trade.trade_management.tp1_state) : Boolean(trade?.hit_tp1),
     profit_protected: hasConfirmedProfitProtection(trade),
-    protected_sl_price: trade?.protected_sl_price,
+    protected_sl_price: trade?.trade_management?.broker_confirmed_sl ?? trade?.protected_sl_price,
   };
   const tradeId = getTradeChartIdentity(trade, symbol);
   const rememberedKey = `${symbol}:${tradeId}`;

@@ -8,7 +8,7 @@ const start = script.indexOf("function getVisibleSignal");
 const end = script.indexOf("function tMarketText", start);
 assert.ok(start > 0 && end > start, "visible-signal helper is extractable");
 
-const context = { window: { FlowSignalHistory: require(path.join(__dirname, "..", "history.js")) } };
+const context = { window: { NathauxLiveAuthority: require("../live-authority-display.js"), FlowSignalHistory: require(path.join(__dirname, "..", "history.js")) } };
 vm.runInNewContext(
   `${script.slice(start, end)}\nthis.getVisibleSignal = getVisibleSignal;`,
   context,
@@ -16,6 +16,7 @@ vm.runInNewContext(
 
 assert.equal(
   context.getVisibleSignal({
+    execution_authority: {source:"V3B"},
     strategy_decision: "SELL",
     display_signal: "BUY",
     execution_allowed: false,
@@ -26,6 +27,7 @@ assert.equal(
 );
 assert.equal(
   context.getVisibleSignal({
+    execution_authority: {source:"V3B"},
     strategy_decision: "BUY",
     signal: "WAIT",
     execution_allowed: false,
@@ -34,6 +36,7 @@ assert.equal(
 );
 assert.equal(
   context.getVisibleSignal({
+    execution_authority: {source:"V3B"},
     strategy_decision: "WAIT",
     signal: "BUY",
   }),
@@ -41,12 +44,14 @@ assert.equal(
   "a genuine strategy WAIT remains WAIT",
 );
 assert.equal(context.getVisibleSignal({
+    execution_authority: {source:"V3B"},
   live_strategy_model: "LIVE_V3B_M5_FROZEN",
   strategy_decision: "BUY",
   signal: "BUY",
 }), "WAIT", "legacy BUY without a canonical V3B candidate is not revived");
 const now = Date.now();
 assert.equal(context.getVisibleSignal({
+    execution_authority: {source:"V3B"},
   live_strategy_model: "LIVE_V3B_M5_FROZEN",
   live_v3b_checked_at: now,
   live_v3b_status: "BLOCKED",
