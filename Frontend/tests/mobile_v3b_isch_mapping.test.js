@@ -18,6 +18,11 @@ assert.match(renderSource, /Close stays beyond broken level/);
 assert.match(renderSource, /5m swing SL/);
 assert.doesNotMatch(renderSource, /15m BOS\/CHOCH|15m close|Swing break/);
 assert.match(renderSource, /NathauxMobileV3B/);
+assert.match(renderSource, /live_strategy_display_by_symbol/);
+assert.match(renderSource, /STRATEGY_STUDIO/);
+assert.match(renderSource, /LIVE CONDITIONS/);
+assert.match(renderSource, /studio\.conditions/);
+
 
 assert.ok(fs.existsSync(helperPath), "mobile V3B state helper should exist");
 const { mobileV3bFacts } = require(helperPath);
