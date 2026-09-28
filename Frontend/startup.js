@@ -12,14 +12,29 @@
   // by tab-role-session.js, so relying on its recovery routine creates a boot
   // race: the route gate redirects before that script can restore this tab.
   function recoverThisTabBeforeRouteGate() {
-    if (sessionStorage.getItem(USER_SESSION_KEY)) return;
-
     const current = String(window.name || '');
     const tabId = current.startsWith(TAB_WINDOW_PREFIX)
       ? current.slice(TAB_WINDOW_PREFIX.length)
       : '';
 
     if (tabId) {
+      // An explicit admin binding for this exact tab always wins. Safari can
+      // restore stale customer sessionStorage after navigation; allowing that
+      // stale token to win makes Strategy Studio query a different owner and
+      // makes saved strategies appear to disappear.
+      try {
+        const owner = JSON.parse(localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null');
+        if (owner?.token) {
+          sessionStorage.removeItem(USER_SESSION_KEY);
+          sessionStorage.removeItem(CSRF_KEY);
+          sessionStorage.setItem(TAB_ROLE_KEY, 'admin');
+          localStorage.setItem('flowsignal_session_token', String(owner.token));
+          sessionStorage.removeItem('flowsignal_public_home_mode');
+          sessionStorage.removeItem('flowsignal_tab_signed_out');
+          return;
+        }
+      } catch (_error) {}
+
       try {
         const customer = JSON.parse(localStorage.getItem(`flowsignal_tab_user_session:${tabId}`) || 'null');
         if (customer?.token) {
@@ -31,18 +46,9 @@
           return;
         }
       } catch (_error) {}
-
-      try {
-        const owner = JSON.parse(localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null');
-        if (owner?.token) {
-          sessionStorage.setItem(TAB_ROLE_KEY, 'admin');
-          localStorage.setItem('flowsignal_session_token', String(owner.token));
-          sessionStorage.removeItem('flowsignal_public_home_mode');
-          sessionStorage.removeItem('flowsignal_tab_signed_out');
-          return;
-        }
-      } catch (_error) {}
     }
+
+    if (sessionStorage.getItem(USER_SESSION_KEY)) return;
 
     try {
       const saved = JSON.parse(localStorage.getItem(PERSISTED_USER_SESSION_KEY) || 'null');
