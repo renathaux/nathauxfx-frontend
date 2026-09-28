@@ -139,7 +139,7 @@
       const sl = first(trade?.sl, trade?.stop_loss, trade?.stopLoss, "--");
       const tp1 = first(trade?.tp1, trade?.take_profit_1, trade?.takeProfit1, "--");
       const tp2 = first(trade?.tp2, trade?.take_profit, trade?.take_profit_2, trade?.takeProfit, "--");
-      return `<div class="paper-active-card"><strong>${esc(symbol)} · ${esc(side)}</strong><span>Entry ${esc(entry)} · SL ${esc(sl)}</span><small>TP1 ${esc(tp1)} · TP2 ${esc(tp2)}</small></div>`;
+      return `<div class="paper-active-card"><strong>${esc(symbol)} · ${esc(side)}</strong><span>Entry ${esc(entry)} · SL ${esc(sl)}</span><small>TP1 ${esc(tp1)} · TP2 ${esc(tp2)}</small>${window.NathauxLiveAuthority.managementMarkup(trade)}</div>`;
     }).join("")}</div>`;
   }
 

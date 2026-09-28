@@ -722,11 +722,9 @@
 
 
   function liveStrategyDisplay(status) {
-    const display = asObject(status?.live_strategy_display);
-    if (!display) return null;
-    if (String(display.execution_source || "").toUpperCase() !== "STRATEGY_STUDIO") return null;
-    if (display.live_handoff_enabled !== true) return null;
-    return display;
+    // live_strategy_display is the backend authority; absence cannot authorize V3B.
+    const helper = typeof window !== "undefined" ? window.NathauxLiveAuthority : require('./live-authority-display.js');
+    return helper.authorityDisplay(status);
   }
 
   function ownedElement(originalId) {
@@ -736,16 +734,17 @@
 
   function studioConditionText(state) {
     const value = String(state || "WAITING").toUpperCase();
-    if (["PASSED", "READY", "COMPLETE"].includes(value)) return "YES";
-    if (["BLOCKED", "FAILED", "INVALID"].includes(value)) return "NO";
-    if (value === "NOT_APPLICABLE") return "N/A";
+    if (["PASSED", "READY", "COMPLETE"].includes(value)) return "PASSED";
+    if (value === "ERROR") return "ERROR";
+    if (["BLOCKED", "FAILED", "INVALID"].includes(value)) return "BLOCKED";
+    if (value === "NOT_APPLICABLE") return "NOT_APPLICABLE";
     return "WAITING";
   }
 
   function studioConditionClass(state) {
     const text = studioConditionText(state);
-    if (text === "YES") return "check-pass";
-    if (text === "NO") return "check-fail";
+    if (text === "PASSED") return "check-pass";
+    if (["BLOCKED", "ERROR"].includes(text)) return "check-fail";
     return "check-waiting";
   }
 
@@ -798,9 +797,9 @@
     for (const item of items) {
       const li = document.createElement("li");
       const stateText = studioConditionText(item?.state);
-      li.className = stateText === "YES" ? "complete" : stateText === "NO" ? "missing" : "info";
+      li.className = stateText === "PASSED" ? "complete" : ["BLOCKED", "ERROR"].includes(stateText) ? "missing" : "info";
       const mark = document.createElement("b");
-      mark.textContent = stateText === "YES" ? "✓" : stateText === "NO" ? "✗" : "•";
+      mark.textContent = stateText === "PASSED" ? "✓" : ["BLOCKED", "ERROR"].includes(stateText) ? "✗" : "•";
       const label = document.createElement("span");
       label.textContent = item?.label || item?.key || "Condition";
       li.append(mark, label);
@@ -824,6 +823,7 @@
 
     const strategyName = firstText(display.strategy_name, "Strategy Studio");
     const details = document.querySelector("details.entry-strategy-debug");
+    if (details) details.dataset.executionAuthority = display.execution_source;
     const summary = details?.querySelector("summary");
     if (summary) summary.textContent = `${strategyName} · LIVE CONDITIONS`;
 
@@ -837,7 +837,7 @@
       value.textContent = stateText;
       value.classList.add(studioConditionClass(item?.state));
       const reason = firstText(item?.reason);
-      if (reason) value.title = reason;
+      value.title = [reason, item?.details ? JSON.stringify(item.details) : ""].filter(Boolean).join(" · ");
       grid.append(label, value);
     }
 
@@ -956,6 +956,8 @@
 
   function renderStrategyPresentation(status) {
     if (renderStudioPresentation(status)) return "STRATEGY_STUDIO";
+    const details = document.querySelector(".entry-strategy-debug");
+    if (details) details.dataset.executionAuthority = "V3B";
     restoreV3BGrid();
     renderV3BPresentation(status);
     return "V3B";
