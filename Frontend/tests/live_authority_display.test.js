@@ -53,7 +53,7 @@ assert.equal(context.getVisibleSignal({signal:'SELL',live_strategy_display:{exec
 assert.equal(context.getVisibleSignal({signal:'SELL'}),'WAIT');
 assert.equal(context.getVisibleSignal({live_strategy_display:{execution_source:'STRATEGY_STUDIO',signal:'BUY'}}),'BUY');
 console.log('Rendered mobile authority and dashboard signal precedence passed');
-function element(){return {children:[],style:{setProperty(){},removeProperty(){}},classList:{add(){},toggle(){},contains(){return false;}},append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this.children=nodes;},textContent:''};}
+function element(){return {dataset:{},children:[],style:{setProperty(){},removeProperty(){}},classList:{add(){},toggle(){},contains(){return false;}},append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this.children=nodes;},textContent:''};}
 const grid=element();const summary=element();const details=element();details.querySelector=()=>summary;
 global.document={getElementById:id=>id==='live-strategy-condition-grid'?grid:null,querySelector:q=>q==='details.entry-strategy-debug'?details:null,createElement:element};
 const history=require('../history.js');

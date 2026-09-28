@@ -170,6 +170,12 @@
 
   window.isAdminAccount = function () { return getTabRole() === 'admin'; };
 
+  function legacyStrategyPresentationOwnsPanel() {
+    // The authoritative presenter stamps ownership even when its signal is WAIT.
+    // No stamp means loading/unavailable, never permission for a legacy reset.
+    return document.querySelector('.entry-strategy-debug')?.dataset?.executionAuthority === 'V3B';
+  }
+
   function currentStrategyHasFreshSignal() {
     const signal = String(document.getElementById('main-signal')?.textContent || '').trim().toUpperCase();
     return signal === 'BUY' || signal === 'SELL';
@@ -289,7 +295,7 @@
   }
 
   function resetExpiredSmcPlan() {
-    if (!supportedDesktop || currentStrategyHasFreshSignal()) return;
+    if (!supportedDesktop || !legacyStrategyPresentationOwnsPanel() || currentStrategyHasFreshSignal()) return;
 
     const waitReason = currentWaitReason();
     ['main-plan-type', 'main-bias', 'main-entry', 'main-sl', 'main-tp1', 'main-tp2'].forEach((id) => setText(id, '--'));
@@ -309,7 +315,7 @@
   }
 
   function clearExpiredEntryChecks() {
-    if (!supportedDesktop || currentStrategyHasFreshSignal()) return;
+    if (!supportedDesktop || !legacyStrategyPresentationOwnsPanel() || currentStrategyHasFreshSignal()) return;
     keepAnalysisCardsVisible();
     ['strategy-debug-smc', 'strategy-debug-swing-break', 'strategy-debug-15m-close', 'strategy-debug-5m-confirm', 'strategy-debug-swing-sl'].forEach((id) => setText(id, 'NO'));
     setText('strategy-debug-decision', 'WAIT');
@@ -321,7 +327,7 @@
     keepAnalysisCardsVisible();
     ensureDesktopAnalysisLayout();
     applyChromeReadability();
-    if (!currentStrategyHasFreshSignal()) {
+    if (legacyStrategyPresentationOwnsPanel() && !currentStrategyHasFreshSignal()) {
       clearExpiredEntryChecks();
       resetExpiredSmcPlan();
     }
@@ -337,11 +343,11 @@
 
     let scheduled = false;
     const sync = () => {
-      if (scheduled) return;
+      if (scheduled || !legacyStrategyPresentationOwnsPanel()) return;
       scheduled = true;
       queueMicrotask(() => {
         scheduled = false;
-        if (!currentStrategyHasFreshSignal()) {
+        if (legacyStrategyPresentationOwnsPanel() && !currentStrategyHasFreshSignal()) {
           clearExpiredEntryChecks();
           resetExpiredSmcPlan();
         }

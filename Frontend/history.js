@@ -823,6 +823,7 @@
 
     const strategyName = firstText(display.strategy_name, "Strategy Studio");
     const details = document.querySelector("details.entry-strategy-debug");
+    if (details) details.dataset.executionAuthority = display.execution_source;
     const summary = details?.querySelector("summary");
     if (summary) summary.textContent = `${strategyName} · LIVE CONDITIONS`;
 
@@ -955,6 +956,8 @@
 
   function renderStrategyPresentation(status) {
     if (renderStudioPresentation(status)) return "STRATEGY_STUDIO";
+    const details = document.querySelector(".entry-strategy-debug");
+    if (details) details.dataset.executionAuthority = "V3B";
     restoreV3BGrid();
     renderV3BPresentation(status);
     return "V3B";

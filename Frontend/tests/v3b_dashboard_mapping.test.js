@@ -5,7 +5,7 @@ const path = require("node:path");
 const historyPath = path.join(__dirname, "..", "history.js");
 const historySource = fs.readFileSync(historyPath, "utf8");
 const appHtml = fs.readFileSync(path.join(__dirname, "..", "app.html"), "utf8");
-assert.match(appHtml, /history\.js\?v=7/, "dashboard loads the strategy-aware LIVE presenter");
+assert.match(appHtml, /history\.js\?v=8/, "dashboard loads the strategy-aware LIVE presenter");
 assert.match(appHtml, /script\.js\?v=140/, "dashboard loads the strategy-aware LIVE wiring");
 const { v3bFacts, renderV3BPresentation, v3bPanelBlocker } = require(historyPath);
 
