@@ -523,4 +523,12 @@ for (const legacyId of ids) {
   assert.equal(sink.style.getPropertyValue("display"), "none");
 }
 
+
+assert.match(historySource, /function renderStudioPresentation\(status\)/);
+assert.match(historySource, /function renderStrategyPresentation\(status\)/);
+assert.match(historySource, /live_strategy_display/);
+assert.match(historySource, /LIVE CONDITIONS/);
+assert.match(historySource, /strategyPanelBlocker/);
+assert.match(historySource, /item\?\.label/);
+
 console.log("canonical V3B dashboard mapping tests: PASS");
