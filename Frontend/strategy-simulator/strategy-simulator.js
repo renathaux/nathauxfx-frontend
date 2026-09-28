@@ -229,7 +229,7 @@
     $('runProgress').classList.toggle('hidden', !state.busy);
     $('fastRunBtn').textContent = state.busy ? 'Running…' : 'Fast Backtest';
     $('testStatus').textContent = state.busy ? 'Running…' : state.strategy ? 'Ready to test' : 'Choose a strategy';
-    for (const id of ['strategySelect','symbolSelect','startDate','endDate','startYear','endYear','rangePreset','fiveYearRangeBtn','riskOverrideEnabled','riskMethod','riskValue']) $(id).disabled = state.busy;
+    for (const id of ['strategySelect','symbolSelect','startDate','endDate','startYear','endYear','rangePreset','fiveYearRangeBtn','riskOverrideEnabled','riskMethod','riskValue','maxConcurrentPositions','maxCombinedOpenRisk']) $(id).disabled = state.busy;
     if (!state.busy) { $('progressBar').value = 0; $('progressLabel').textContent = ''; }
   }
 
@@ -238,6 +238,21 @@
     const value = Number($('riskValue').value);
     if (!Number.isFinite(value) || value <= 0) throw new Error('Risk override must be greater than zero.');
     return { method: $('riskMethod').value, value };
+  }
+
+  function concurrencyOptions() {
+    const maxPositions = Number($('maxConcurrentPositions').value || 1);
+    const combinedRisk = Number($('maxCombinedOpenRisk').value);
+    if (!Number.isInteger(maxPositions) || maxPositions < 1 || maxPositions > 3) {
+      throw new Error('Concurrent positions must be 1, 2, or 3.');
+    }
+    if (!Number.isFinite(combinedRisk) || combinedRisk <= 0 || combinedRisk > 10) {
+      throw new Error('Max combined open risk must be greater than 0% and no more than 10%.');
+    }
+    return {
+      maxConcurrentPositions: maxPositions,
+      maxCombinedOpenRiskPercent: combinedRisk,
+    };
   }
 
   function renderMetrics(metrics = {}) {
@@ -295,6 +310,7 @@
     STOP_LOSS_UNAVAILABLE: 'Stop loss could not be built',
     TP2_OPPOSITE_SWING_UNAVAILABLE: 'Opposite-swing TP2 was unavailable',
     RISK_BUDGET_INVALID: 'Risk budget was invalid',
+    MAX_COMBINED_OPEN_RISK: 'Combined open-risk cap blocked this signal',
     NO_VALID_ENTRY: 'Setup never reached a valid entry',
   };
 
@@ -408,7 +424,14 @@
 
   function renderAssumptions(assumptions = {}) {
     const rows = [['Spread','spread'],['Commission','commission'],['Slippage','slippage'],['Ambiguous intrabar','ambiguous_intrabar_excluded']];
-    $('assumptionList').innerHTML=rows.map(([label,key])=>`<div><dt>${label}</dt><dd>${!(key in assumptions)?'Not reported':key==='ambiguous_intrabar_excluded'?(assumptions[key]?'Excluded':'Included'):(assumptions[key]?'Modeled':'Not modeled')}</dd></div>`).join('');
+    let html=rows.map(([label,key])=>`<div><dt>${label}</dt><dd>${!(key in assumptions)?'Not reported':key==='ambiguous_intrabar_excluded'?(assumptions[key]?'Excluded':'Included'):(assumptions[key]?'Modeled':'Not modeled')}</dd></div>`).join('');
+    if ('max_concurrent_positions' in assumptions) {
+      html += `<div><dt>Concurrent positions / symbol</dt><dd>${escapeHtml(assumptions.max_concurrent_positions)}</dd></div>`;
+    }
+    if (assumptions.max_combined_open_risk_percent != null) {
+      html += `<div><dt>Combined open risk cap</dt><dd>${escapeHtml(assumptions.max_combined_open_risk_percent)}%</dd></div>`;
+    }
+    $('assumptionList').innerHTML=html;
   }
 
   function renderReplay() {
@@ -477,6 +500,7 @@
       const start = inputToIso('startDate');
       const end = inputToIso('endDate');
       if (new Date(end) <= new Date(start)) throw new Error('End must be after start.');
+      const concurrency = concurrencyOptions();
       const payload = Model.buildRunPayload({
         strategyId: state.strategy.strategy_id,
         strategyName: state.strategy.name || null,
@@ -484,8 +508,18 @@
         symbol: $('symbolSelect').value,
         start, end, mode,
         riskOverride: riskOverride(),
+        maxConcurrentPositions: concurrency.maxConcurrentPositions,
+        maxCombinedOpenRiskPercent: concurrency.maxCombinedOpenRiskPercent,
       });
-      const context = { name: state.strategy.name, symbol: payload.symbol, start, end, riskOverride: payload.risk_override };
+      const context = {
+        name: state.strategy.name,
+        symbol: payload.symbol,
+        start,
+        end,
+        riskOverride: payload.risk_override,
+        maxConcurrentPositions: payload.max_concurrent_positions,
+        maxCombinedOpenRiskPercent: payload.max_combined_open_risk_percent,
+      };
       syncUrl();
       setBusy(true, mode === 'REPLAY' ? 'Building replay…' : 'Running backtest…');
       const response = await Api.runSimulation(payload, {
@@ -557,9 +591,12 @@
   function signClass(value) { return Number(value)>0?'positive':Number(value)<0?'negative':''; }
   function renderAnalysis(result) {
     const m=result.metrics||{}, c=state.resultContext;
-    $('resultContext').textContent=`${c.name} · ${c.symbol} · ${coverageDate(c.start)} → ${coverageDate(c.end)}${c.riskOverride?' · Temporary risk override':''}`;
+    const concurrencyText = c.maxConcurrentPositions > 1
+      ? ` · Max ${c.maxConcurrentPositions} concurrent · Risk cap ${c.maxCombinedOpenRiskPercent}%`
+      : ' · Single position';
+    $('resultContext').textContent=`${c.name} · ${c.symbol} · ${coverageDate(c.start)} → ${coverageDate(c.end)}${c.riskOverride?' · Temporary risk override':''}${concurrencyText}`;
     const fmt=Model.formatMetric;
-    const rows=[['Start balance',fmt(m.starting_balance ?? result.starting_balance,'money')],['Ending balance',fmt(m.ending_balance,'money')],['Return',Number(m.starting_balance ?? result.starting_balance)>0?fmt(Number(m.net_pl)/(m.starting_balance ?? result.starting_balance)*100,'percent'):'—'],['Max drawdown',fmt(m.max_drawdown_dollars,'money')],['Profit factor',fmt(m.profit_factor)],['Total trades',String((result.trades||[]).length)],['Win rate',fmt(m.win_rate,'percent')],['Average R',fmt(m.average_r,'r')]];
+    const rows=[['Start balance',fmt(m.starting_balance ?? result.starting_balance,'money')],['Ending balance',fmt(m.ending_balance,'money')],['Return',Number(m.starting_balance ?? result.starting_balance)>0?fmt(Number(m.net_pl)/(m.starting_balance ?? result.starting_balance)*100,'percent'):'—'],['Max drawdown',fmt(m.max_drawdown_dollars,'money')],['Profit factor',fmt(m.profit_factor)],['Total trades',String((result.trades||[]).length)],['Win rate',fmt(m.win_rate,'percent')],['Average R',fmt(m.average_r,'r')],['Max simultaneous positions',String(result.diagnostics?.max_simultaneous_positions ?? '—')],['Max open risk',fmt(result.diagnostics?.max_open_risk_dollars,'money')]];
     $('runSummary').innerHTML=rows.map(([label,value])=>`<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')+`<div class="summary-context"><dt>Backtest period · Strategy · Symbol</dt><dd>${escapeHtml($('resultContext').textContent)}</dd></div>`;
     const groups=Presentation.breakdowns(result.trades);
     for(const [id,data] of [['yearlyBody',groups.years],['directionBody',groups.directions]]) {

@@ -13,6 +13,7 @@ test('simulator page exposes fast run, replay, metrics, trades, and replay chart
     'tradeTableBody', 'equityChart', 'replayChart', 'replayPrevBtn', 'replayNextBtn',
     'diagnosticSummary', 'diagCandles', 'diagSetups', 'diagSignals', 'diagTradesOpened',
     'diagnosticFunnel', 'diagnosticReasons', 'fiveYearRangeBtn', 'historyCoverage',
+    'maxConcurrentPositions', 'maxCombinedOpenRisk',
   ]) {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
@@ -85,4 +86,16 @@ test('year jump clamps to the valid five-year coverage window', () => {
   assert.match(source, /if \(start < fiveYearsBeforeEnd\) start = fiveYearsBeforeEnd/);
   assert.doesNotMatch(source, /if \(mode === 'FAST'\) clampSimulationRange\(\)/);
   assert.match(source, /coverageLatest\.getTime\(\) \+ 5 \* 60 \* 1000/);
+});
+
+
+test('simulator exposes concurrent-position execution controls without changing LIVE', () => {
+  const html = read('strategy-simulator.html');
+  const source = read('strategy-simulator/strategy-simulator.js');
+  assert.match(html, /Concurrent Positions \/ Symbol/);
+  assert.match(html, /Max Combined Open Risk/);
+  assert.match(html, /Simulator only/);
+  assert.match(source, /function concurrencyOptions/);
+  assert.match(source, /maxConcurrentPositions/);
+  assert.match(source, /maxCombinedOpenRiskPercent/);
 });
