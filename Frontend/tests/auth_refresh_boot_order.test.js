@@ -27,6 +27,6 @@ assert.match(userAuth, /sessionStorage\.removeItem\(USER_SESSION_KEY\)[\s\S]*ses
 assert.match(userAuth, /if\(tabRole\(\)==='admin'&&Boolean\(adminToken\(\)\)\)return true;/, 'owner role remains authoritative even when a customer cookie marker exists');
 assert.match(tabRole, /currentTabAdminToken\(\)/, 'tab role recovery recognizes the explicit admin tab binding');
 assert.doesNotMatch(startup, /localStorage\.getItem\(['"]flowsignal_user_session_token/, 'shared customer identity is not read from localStorage');
-assert.match(app, /startup\.js\?v=4/, 'production HTML cache-busts the corrected startup gate');
+assert.match(app, /startup\.js\?v=25/, 'production HTML cache-busts the corrected startup gate');
 
 console.log('auth refresh boot-order regression test passed');
