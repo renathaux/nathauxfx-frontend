@@ -16,8 +16,38 @@
     return origin ? `${origin}/api/proxy` : DIRECT_BACKEND;
   }
 
+  function explicitTabAdminToken() {
+    if (!root || !root.sessionStorage || !root.localStorage) return '';
+    const prefix = 'flowsignal-tab:';
+    const windowName = String(root.name || '');
+    if (!windowName.startsWith(prefix)) return '';
+    const tabId = windowName.slice(prefix.length);
+    if (!tabId) return '';
+    try {
+      const saved = JSON.parse(
+        root.localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null'
+      );
+      const token = String(saved?.token || '').trim();
+      if (!token) return '';
+
+      // The tab-scoped owner binding is authoritative. A stale customer
+      // session can survive Safari/navigation and must never switch Strategy
+      // Studio to a different owner namespace.
+      root.sessionStorage.setItem('flowsignal_tab_role', 'admin');
+      root.sessionStorage.removeItem('flowsignal_user_session_token');
+      root.sessionStorage.removeItem('flowsignal_csrf_token');
+      root.localStorage.setItem('flowsignal_session_token', token);
+      return token;
+    } catch (_error) {
+      return '';
+    }
+  }
+
   function ownerToken() {
     if (!root || !root.sessionStorage || !root.localStorage) return '';
+
+    const tabToken = explicitTabAdminToken();
+    if (tabToken) return tabToken;
 
     const role = String(
       root.sessionStorage.getItem('flowsignal_tab_role')
@@ -29,28 +59,10 @@
     ).trim();
     if (role === 'user' && userToken) return '';
 
-    const prefix = 'flowsignal-tab:';
-    const windowName = String(root.name || '');
-    if (windowName.startsWith(prefix)) {
-      const tabId = windowName.slice(prefix.length);
-      if (tabId) {
-        try {
-          const saved = JSON.parse(
-            root.localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null'
-          );
-          const tabToken = String(saved?.token || '').trim();
-          if (tabToken) {
-            root.localStorage.setItem('flowsignal_session_token', tabToken);
-            return tabToken;
-          }
-        } catch (_error) {}
-      }
-    }
-
     const persisted = String(
       root.localStorage.getItem('flowsignal_session_token') || ''
     ).trim();
-    if (persisted) return persisted;
+    if (role === 'admin' && persisted) return persisted;
 
     // Safari/navigation can lose window.name while sessionStorage still says
     // this is the admin tab. Recover any persisted admin-tab owner token and
