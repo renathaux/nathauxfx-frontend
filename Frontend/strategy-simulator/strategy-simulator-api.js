@@ -27,8 +27,39 @@
     return origin ? `${origin}/api/proxy` : DIRECT_BACKEND;
   }
 
+  function explicitTabAdminToken() {
+    if (!root?.sessionStorage || !root?.localStorage) return '';
+    const prefix = 'flowsignal-tab:';
+    const windowName = String(root.name || '');
+    if (!windowName.startsWith(prefix)) return '';
+    const tabId = windowName.slice(prefix.length);
+    if (!tabId) return '';
+    try {
+      const saved = JSON.parse(
+        root.localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null'
+      );
+      const token = String(saved?.token || '').trim();
+      if (!token) return '';
+
+      // Simulator must use the exact same owner namespace as Strategy Studio.
+      // A stale customer session in Safari previously made a valid saved
+      // strategy look missing/unsaved when Simulator fetched it.
+      root.sessionStorage.setItem('flowsignal_tab_role', 'admin');
+      root.sessionStorage.removeItem('flowsignal_user_session_token');
+      root.sessionStorage.removeItem('flowsignal_csrf_token');
+      root.localStorage.setItem('flowsignal_session_token', token);
+      return token;
+    } catch (_error) {
+      return '';
+    }
+  }
+
   function ownerToken() {
     if (!root?.sessionStorage || !root?.localStorage) return '';
+
+    const tabToken = explicitTabAdminToken();
+    if (tabToken) return tabToken;
+
     const role = String(
       root.sessionStorage.getItem('flowsignal_tab_role')
       || root.localStorage.getItem('flowsignal_role')
@@ -39,24 +70,8 @@
     ).trim();
     if (role === 'user' && userToken) return '';
 
-    const prefix = 'flowsignal-tab:';
-    const windowName = String(root.name || '');
-    if (windowName.startsWith(prefix)) {
-      const tabId = windowName.slice(prefix.length);
-      if (tabId) {
-        try {
-          const saved = JSON.parse(root.localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null');
-          const token = String(saved?.token || '').trim();
-          if (token) {
-            root.localStorage.setItem('flowsignal_session_token', token);
-            return token;
-          }
-        } catch (_error) {}
-      }
-    }
-
     const persisted = String(root.localStorage.getItem('flowsignal_session_token') || '').trim();
-    if (persisted) return persisted;
+    if (role === 'admin' && persisted) return persisted;
 
     if (role === 'admin') {
       for (let index = 0; index < root.localStorage.length; index += 1) {

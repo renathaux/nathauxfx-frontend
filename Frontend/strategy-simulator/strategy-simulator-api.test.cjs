@@ -61,3 +61,68 @@ test('multi-year Fast Backtest carries continuation between chunks', () => {
   assert.match(source, /batch_results: results/);
   assert.match(source, /Bar Replay is limited/);
 });
+
+
+test('Simulator uses tab-scoped admin owner over stale customer session', async () => {
+  const old = {
+    sessionStorage: globalThis.sessionStorage,
+    localStorage: globalThis.localStorage,
+    name: globalThis.name,
+    location: globalThis.location,
+    fetch: globalThis.fetch,
+    api: globalThis.StrategySimulatorApi,
+  };
+  const calls = [];
+  const sessionValues = new Map([
+    ['flowsignal_tab_role', 'user'],
+    ['flowsignal_user_session_token', 'stale-user-token'],
+    ['flowsignal_csrf_token', 'stale-csrf'],
+  ]);
+  const localValues = new Map([
+    ['flowsignal_role', 'user'],
+    ['flowsignal_tab_admin_session:sim-owner-tab', JSON.stringify({ token: 'owner-secret-token' })],
+  ]);
+
+  globalThis.name = 'flowsignal-tab:sim-owner-tab';
+  globalThis.location = { hostname: 'www.nathauxfx.com', origin: 'https://www.nathauxfx.com' };
+  globalThis.sessionStorage = {
+    getItem(key) { return sessionValues.get(key) || null; },
+    setItem(key, value) { sessionValues.set(key, String(value)); },
+    removeItem(key) { sessionValues.delete(key); },
+  };
+  globalThis.localStorage = {
+    getItem(key) { return localValues.get(key) || null; },
+    setItem(key, value) { localValues.set(key, String(value)); },
+    removeItem(key) { localValues.delete(key); },
+    key(index) { return Array.from(localValues.keys())[index] || null; },
+    get length() { return localValues.size; },
+  };
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, strategy: { strategy_id: 'strat_test' } }),
+    };
+  };
+
+  const modulePath = require.resolve('./strategy-simulator-api.js');
+  delete require.cache[modulePath];
+  try {
+    const api = require(modulePath);
+    await api.getStrategy('strat_test');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].init.headers.Authorization, 'Bearer owner-secret-token');
+    assert.equal(sessionValues.get('flowsignal_tab_role'), 'admin');
+    assert.equal(sessionValues.has('flowsignal_user_session_token'), false);
+    assert.equal(sessionValues.has('flowsignal_csrf_token'), false);
+  } finally {
+    delete require.cache[modulePath];
+    globalThis.sessionStorage = old.sessionStorage;
+    globalThis.localStorage = old.localStorage;
+    globalThis.name = old.name;
+    globalThis.location = old.location;
+    globalThis.fetch = old.fetch;
+    globalThis.StrategySimulatorApi = old.api;
+  }
+});
