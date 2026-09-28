@@ -19,6 +19,16 @@
   function ownerToken() {
     if (!root || !root.sessionStorage || !root.localStorage) return '';
 
+    const role = String(
+      root.sessionStorage.getItem('flowsignal_tab_role')
+      || root.localStorage.getItem('flowsignal_role')
+      || ''
+    ).toLowerCase();
+    const userToken = String(
+      root.sessionStorage.getItem('flowsignal_user_session_token') || ''
+    ).trim();
+    if (role === 'user' && userToken) return '';
+
     const prefix = 'flowsignal-tab:';
     const windowName = String(root.name || '');
     if (windowName.startsWith(prefix)) {
@@ -29,15 +39,38 @@
             root.localStorage.getItem(`flowsignal_tab_admin_session:${tabId}`) || 'null'
           );
           const tabToken = String(saved?.token || '').trim();
-          if (tabToken) return tabToken;
+          if (tabToken) {
+            root.localStorage.setItem('flowsignal_session_token', tabToken);
+            return tabToken;
+          }
         } catch (_error) {}
       }
     }
 
-    // Always forward the persisted legacy session token when present.
-    // The backend decides whether it is an admin owner session. This avoids
-    // losing admin scope when the separate role flag is missing on Studio.
-    return String(root.localStorage.getItem('flowsignal_session_token') || '').trim();
+    const persisted = String(
+      root.localStorage.getItem('flowsignal_session_token') || ''
+    ).trim();
+    if (persisted) return persisted;
+
+    // Safari/navigation can lose window.name while sessionStorage still says
+    // this is the admin tab. Recover any persisted admin-tab owner token and
+    // repopulate the canonical key instead of silently falling back to a
+    // customer/cookie scope and showing an empty strategy library.
+    if (role === 'admin') {
+      for (let index = 0; index < root.localStorage.length; index += 1) {
+        const key = root.localStorage.key(index);
+        if (!key || !key.startsWith('flowsignal_tab_admin_session:')) continue;
+        try {
+          const saved = JSON.parse(root.localStorage.getItem(key) || 'null');
+          const token = String(saved?.token || '').trim();
+          if (token) {
+            root.localStorage.setItem('flowsignal_session_token', token);
+            return token;
+          }
+        } catch (_error) {}
+      }
+    }
+    return '';
   }
 
   function authHeaders(method = 'GET') {
