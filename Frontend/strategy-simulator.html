@@ -289,30 +289,10 @@
                 type="number"
                 value="1"
             /></label>
-            <label>
-              <span>Concurrent Positions / Symbol</span>
-              <select id="maxConcurrentPositions">
-                <option value="1" selected>1 position</option>
-                <option value="2">2 positions</option>
-                <option value="3">3 positions</option>
-              </select>
-            </label>
-            <label>
-              <span>Max Combined Open Risk (%)</span>
-              <input
-                id="maxCombinedOpenRisk"
-                min="0.01"
-                max="10"
-                step="0.01"
-                type="number"
-                value="2"
-              />
-            </label>
           </div>
           <p class="muted">
-            Simulator only. Concurrent positions do not change your saved
-            strategy or LIVE trading. The combined-risk cap limits total
-            initial risk across simultaneously open positions.
+            Risk override applies to this test only. Position stacking comes
+            from the saved Strategy Studio risk rules.
           </p>
         </details>
       </section>
@@ -572,9 +552,9 @@
         </section>
       </div>
     </main>
-    <script src="/strategy-simulator/strategy-simulator-model.js?v=4"></script>
+    <script src="/strategy-simulator/strategy-simulator-model.js?v=5"></script>
     <script src="/strategy-simulator/strategy-simulator-api.js?v=20260928-owner-precedence"></script>
     <script src="/strategy-simulator/strategy-simulator-presentation.js?v=1"></script>
-    <script src="/strategy-simulator/strategy-simulator.js?v=14"></script>
+    <script src="/strategy-simulator/strategy-simulator.js?v=15"></script>
   </body>
 </html>
