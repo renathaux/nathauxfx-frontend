@@ -102,6 +102,7 @@
     let combinedRiskBlockedSignals = 0;
     let maxSimultaneousPositions = 0;
     let maxOpenRiskDollars = 0;
+    let overlappingEntriesOpened = 0;
 
     (results || []).forEach((result, resultIndex) => {
       const diagnostics = result?.diagnostics || {};
@@ -119,6 +120,7 @@
         maxOpenRiskDollars,
         Number(diagnostics.max_open_risk_dollars || 0)
       );
+      overlappingEntriesOpened += Number(diagnostics.overlapping_entries_opened || 0);
       if (resultIndex === 0) {
         warmupCandles = Number(diagnostics.warmup_candles || 0);
         historyStart = diagnostics.history_start || null;
@@ -180,6 +182,7 @@
       combined_risk_blocked_signals: combinedRiskBlockedSignals,
       max_simultaneous_positions: maxSimultaneousPositions,
       max_open_risk_dollars: maxOpenRiskDollars,
+      overlapping_entries_opened: overlappingEntriesOpened,
       stage_pass_counts: stagePassCounts,
       rejection_reasons: rejectionReasons,
       no_setup_reasons: noSetupReasons,
