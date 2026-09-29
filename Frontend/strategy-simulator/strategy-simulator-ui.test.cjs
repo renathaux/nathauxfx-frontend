@@ -13,7 +13,6 @@ test('simulator page exposes fast run, replay, metrics, trades, and replay chart
     'tradeTableBody', 'equityChart', 'replayChart', 'replayPrevBtn', 'replayNextBtn',
     'diagnosticSummary', 'diagCandles', 'diagSetups', 'diagSignals', 'diagTradesOpened',
     'diagnosticFunnel', 'diagnosticReasons', 'fiveYearRangeBtn', 'historyCoverage',
-    'maxConcurrentPositions', 'maxCombinedOpenRisk',
   ]) {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
@@ -89,13 +88,14 @@ test('year jump clamps to the valid five-year coverage window', () => {
 });
 
 
-test('simulator exposes concurrent-position execution controls without changing LIVE', () => {
+test('simulator reads position stacking from the saved strategy instead of local controls', () => {
   const html = read('strategy-simulator.html');
   const source = read('strategy-simulator/strategy-simulator.js');
-  assert.match(html, /Concurrent Positions \/ Symbol/);
-  assert.match(html, /Max Combined Open Risk/);
-  assert.match(html, /Simulator only/);
-  assert.match(source, /function concurrencyOptions/);
-  assert.match(source, /maxConcurrentPositions/);
-  assert.match(source, /maxCombinedOpenRiskPercent/);
+  assert.equal(html.includes('id="maxConcurrentPositions"'), false);
+  assert.equal(html.includes('id="maxCombinedOpenRisk"'), false);
+  assert.match(html, /Position stacking comes\s+from the saved Strategy Studio risk rules/i);
+  assert.equal(source.includes('function concurrencyOptions'), false);
+  assert.match(source, /risk\.max_concurrent_positions/);
+  assert.match(source, /risk\.max_combined_open_risk_percent/);
+  assert.match(source, /overlapping_entries_opened/);
 });

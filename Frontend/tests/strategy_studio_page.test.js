@@ -109,3 +109,15 @@ test('builder exposes remember BOS and LIVE off controls', () => {
   assert.match(source, /Api\.setLiveHandoff\(current\.strategy_id, false\)/);
   assert.match(source, /does not close an existing broker position/);
 });
+
+
+test('risk section owns concurrent-position and combined-risk settings', () => {
+  const html = fs.readFileSync(htmlPath, 'utf8').replace(/\s+/g, ' ');
+  const source = fs.readFileSync(controllerPath, 'utf8');
+  assert.match(html, /id="riskMaxConcurrentPositions"/);
+  assert.match(html, /Concurrent Positions \/ Symbol/);
+  assert.match(html, /id="riskMaxCombinedOpenRisk"/);
+  assert.match(html, /Max Combined Open Risk/);
+  assert.match(source, /draft\.risk\.max_concurrent_positions/);
+  assert.match(source, /draft\.risk\.max_combined_open_risk_percent/);
+});

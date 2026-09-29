@@ -18,25 +18,12 @@
     end,
     mode = 'FAST',
     riskOverride = null,
-    maxConcurrentPositions = 1,
-    maxCombinedOpenRiskPercent = null,
   }) {
     if (!strategyId) throw new Error('Saved strategy is required');
     if (!symbol) throw new Error('Symbol is required');
     if (!start || !end) throw new Error('Start and end are required');
     const normalizedMode = String(mode || 'FAST').toUpperCase();
     if (!['FAST', 'REPLAY'].includes(normalizedMode)) throw new Error('Unsupported simulator mode');
-    const maxPositions = Number(maxConcurrentPositions);
-    if (!Number.isInteger(maxPositions) || maxPositions < 1 || maxPositions > 3) {
-      throw new Error('Max concurrent positions must be 1, 2, or 3');
-    }
-    let combinedRisk = null;
-    if (maxCombinedOpenRiskPercent != null && maxCombinedOpenRiskPercent !== '') {
-      combinedRisk = Number(maxCombinedOpenRiskPercent);
-      if (!Number.isFinite(combinedRisk) || combinedRisk <= 0 || combinedRisk > 10) {
-        throw new Error('Max combined open risk must be greater than 0% and no more than 10%');
-      }
-    }
     const payload = {
       strategy_id: String(strategyId),
       symbol: String(symbol).toUpperCase(),
@@ -44,8 +31,6 @@
       end: String(end),
       mode: normalizedMode,
       risk_override: riskOverride ? copy(riskOverride) : null,
-      max_concurrent_positions: maxPositions,
-      max_combined_open_risk_percent: combinedRisk,
     };
     if (strategyName != null) payload.strategy_name = String(strategyName);
     if (strategyDefinition) payload.strategy_definition = copy(strategyDefinition);
@@ -117,6 +102,7 @@
     let combinedRiskBlockedSignals = 0;
     let maxSimultaneousPositions = 0;
     let maxOpenRiskDollars = 0;
+    let overlappingEntriesOpened = 0;
 
     (results || []).forEach((result, resultIndex) => {
       const diagnostics = result?.diagnostics || {};
@@ -134,6 +120,7 @@
         maxOpenRiskDollars,
         Number(diagnostics.max_open_risk_dollars || 0)
       );
+      overlappingEntriesOpened += Number(diagnostics.overlapping_entries_opened || 0);
       if (resultIndex === 0) {
         warmupCandles = Number(diagnostics.warmup_candles || 0);
         historyStart = diagnostics.history_start || null;
@@ -195,6 +182,7 @@
       combined_risk_blocked_signals: combinedRiskBlockedSignals,
       max_simultaneous_positions: maxSimultaneousPositions,
       max_open_risk_dollars: maxOpenRiskDollars,
+      overlapping_entries_opened: overlappingEntriesOpened,
       stage_pass_counts: stagePassCounts,
       rejection_reasons: rejectionReasons,
       no_setup_reasons: noSetupReasons,

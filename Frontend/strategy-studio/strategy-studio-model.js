@@ -39,7 +39,12 @@
         protection_steps: [],
       },
       tp2: { method: null, value: null },
-      risk: { method: null, value: null },
+      risk: {
+        method: null,
+        value: null,
+        max_concurrent_positions: 1,
+        max_combined_open_risk_percent: null,
+      },
       fundamentals: { mode: 'BLOCK_OPPOSITE' },
       session_filter: {
         enabled: false,
@@ -151,6 +156,19 @@
     if (value.confirmation) {
       const rules = value.confirmation.rules || [];
       if (!rules.includes('MIN_BODY_PERCENT')) value.confirmation.minimum_body_percent = null;
+    }
+
+    if (!value.risk) value.risk = blankStrategy().risk;
+    value.risk.max_concurrent_positions = Number.isInteger(Number(value.risk.max_concurrent_positions))
+      ? Number(value.risk.max_concurrent_positions)
+      : 1;
+    if (
+      value.risk.max_combined_open_risk_percent == null
+      || value.risk.max_combined_open_risk_percent === ''
+    ) {
+      value.risk.max_combined_open_risk_percent = null;
+    } else {
+      value.risk.max_combined_open_risk_percent = Number(value.risk.max_combined_open_risk_percent);
     }
 
     if (!value.fundamentals || !['BLOCK_OPPOSITE', 'REQUIRE_ALIGNMENT'].includes(value.fundamentals.mode)) {
@@ -342,6 +360,20 @@
     } else if (!positive(risk.value)) {
       errors['risk.value'] = 'Enter a risk value greater than 0';
     }
+    if (!Number.isInteger(risk.max_concurrent_positions) || risk.max_concurrent_positions < 1 || risk.max_concurrent_positions > 3) {
+      errors['risk.max_concurrent_positions'] = 'Choose 1, 2, or 3 concurrent positions';
+    }
+    if (risk.max_concurrent_positions > 1) {
+      if (!positive(risk.max_combined_open_risk_percent) || risk.max_combined_open_risk_percent > 10) {
+        errors['risk.max_combined_open_risk_percent'] = 'Enter a combined open-risk cap from 0 to 10%';
+      } else if (
+        risk.method === 'PERCENT_BALANCE'
+        && positive(risk.value)
+        && risk.max_combined_open_risk_percent < risk.value
+      ) {
+        errors['risk.max_combined_open_risk_percent'] = 'Combined open risk must be at least the per-trade risk';
+      }
+    }
 
     const fundamentalMode = value.fundamentals && value.fundamentals.mode;
     if (!['BLOCK_OPPOSITE', 'REQUIRE_ALIGNMENT'].includes(fundamentalMode)) {
@@ -515,6 +547,12 @@
     const risk = value.risk || {};
     if (risk.method === 'PERCENT_BALANCE') parts.push(risk.value == null ? 'risk % balance' : `risk ${fmt(risk.value)}% balance`);
     if (risk.method === 'FIXED_DOLLARS') parts.push(risk.value == null ? 'fixed $ risk' : `risk ${fmt(risk.value)}`);
+    if (Number(risk.max_concurrent_positions || 1) > 1) {
+      parts.push(`max ${risk.max_concurrent_positions} concurrent positions`);
+      if (risk.max_combined_open_risk_percent != null) {
+        parts.push(`combined open risk ≤ ${fmt(risk.max_combined_open_risk_percent)}%`);
+      }
+    }
 
     const fundamentalMode = value.fundamentals?.mode || 'BLOCK_OPPOSITE';
     parts.push(fundamentalMode === 'REQUIRE_ALIGNMENT'
