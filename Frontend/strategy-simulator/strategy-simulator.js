@@ -229,7 +229,7 @@
     $('runProgress').classList.toggle('hidden', !state.busy);
     $('fastRunBtn').textContent = state.busy ? 'Running…' : 'Fast Backtest';
     $('testStatus').textContent = state.busy ? 'Running…' : state.strategy ? 'Ready to test' : 'Choose a strategy';
-    for (const id of ['strategySelect','symbolSelect','startDate','endDate','startYear','endYear','rangePreset','fiveYearRangeBtn','riskOverrideEnabled','riskMethod','riskValue','maxConcurrentPositions','maxCombinedOpenRisk']) $(id).disabled = state.busy;
+    for (const id of ['strategySelect','symbolSelect','startDate','endDate','startYear','endYear','rangePreset','fiveYearRangeBtn','riskOverrideEnabled','riskMethod','riskValue']) $(id).disabled = state.busy;
     if (!state.busy) { $('progressBar').value = 0; $('progressLabel').textContent = ''; }
   }
 
@@ -240,20 +240,6 @@
     return { method: $('riskMethod').value, value };
   }
 
-  function concurrencyOptions() {
-    const maxPositions = Number($('maxConcurrentPositions').value || 1);
-    const combinedRisk = Number($('maxCombinedOpenRisk').value);
-    if (!Number.isInteger(maxPositions) || maxPositions < 1 || maxPositions > 3) {
-      throw new Error('Concurrent positions must be 1, 2, or 3.');
-    }
-    if (!Number.isFinite(combinedRisk) || combinedRisk <= 0 || combinedRisk > 10) {
-      throw new Error('Max combined open risk must be greater than 0% and no more than 10%.');
-    }
-    return {
-      maxConcurrentPositions: maxPositions,
-      maxCombinedOpenRiskPercent: combinedRisk,
-    };
-  }
 
   function renderMetrics(metrics = {}) {
     $('metricNetPl').textContent = Model.formatMetric(metrics.net_pl, 'money');
@@ -500,7 +486,6 @@
       const start = inputToIso('startDate');
       const end = inputToIso('endDate');
       if (new Date(end) <= new Date(start)) throw new Error('End must be after start.');
-      const concurrency = concurrencyOptions();
       const payload = Model.buildRunPayload({
         strategyId: state.strategy.strategy_id,
         strategyName: state.strategy.name || null,
@@ -508,17 +493,16 @@
         symbol: $('symbolSelect').value,
         start, end, mode,
         riskOverride: riskOverride(),
-        maxConcurrentPositions: concurrency.maxConcurrentPositions,
-        maxCombinedOpenRiskPercent: concurrency.maxCombinedOpenRiskPercent,
       });
+      const savedRisk = state.strategy.definition?.risk || {};
       const context = {
         name: state.strategy.name,
         symbol: payload.symbol,
         start,
         end,
         riskOverride: payload.risk_override,
-        maxConcurrentPositions: payload.max_concurrent_positions,
-        maxCombinedOpenRiskPercent: payload.max_combined_open_risk_percent,
+        maxConcurrentPositions: Number(savedRisk.max_concurrent_positions || 1),
+        maxCombinedOpenRiskPercent: savedRisk.max_combined_open_risk_percent,
       };
       syncUrl();
       setBusy(true, mode === 'REPLAY' ? 'Building replay…' : 'Running backtest…');
@@ -608,6 +592,13 @@
     const riskText=risk.method==='PERCENT_BALANCE'?`${risk.value}%`:`$${risk.value}`;
     $('savedRisk').textContent=`Risk ${riskText}`;
     const chips=[$('symbolSelect').value,`${d.trading_timeframe} Entry`,`${d.structure_timeframe||d.trading_timeframe} Structure`,`${riskText} Risk`, `SL: ${d.stop_loss?.method==='LAST_SWING'?'Last Swing':`${d.stop_loss?.fixed_distance} pips`}`,`TP2: ${d.tp2?.method==='FIXED_R'?`${d.tp2.value}R`:d.tp2?.method==='FIXED_DISTANCE'?`${d.tp2.value} pips`:'Opposite Swing'}`];
+    const maxPositions = Number(risk.max_concurrent_positions || 1);
+    if (maxPositions > 1) {
+      chips.push(`Max positions: ${maxPositions}`);
+      if (risk.max_combined_open_risk_percent != null) {
+        chips.push(`Open risk cap: ${risk.max_combined_open_risk_percent}%`);
+      }
+    }
     if(filter?.enabled)chips.push(`SL Filter: ${filter.minimum}–${filter.maximum}${filter.mode==='PERCENT_ENTRY'?'%':' pips'}`);
     const session=d.session_filter;
     if(session?.enabled)chips.push(`No entries: ${session.blocked_start}–${session.blocked_end} UTC`);
