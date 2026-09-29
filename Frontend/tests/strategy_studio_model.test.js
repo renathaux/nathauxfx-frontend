@@ -9,6 +9,8 @@ test('new strategy is blank except fixed structural scaffolding', () => {
   assert.equal(value.structure.trigger, 'BOS_CHOCH');
   assert.equal(value.entry.method, null);
   assert.equal(value.risk.method, null);
+  assert.equal(value.risk.max_concurrent_positions, 1);
+  assert.equal(value.risk.max_combined_open_risk_percent, null);
   assert.equal(value.fundamentals.mode, 'BLOCK_OPPOSITE');
 });
 
@@ -242,4 +244,31 @@ test('canonical filter and freshness are preserved in API payload and validated'
   assert.ok(errors['stop_loss.distance_filter.maximum']);
   assert.ok(errors['confirmation.max_setup_age_bars']);
   assert.ok(errors.structure_timeframe);
+});
+
+
+test('legacy risk defaults to one position and no combined cap', () => {
+  const value = validDraft();
+  const normalized = StudioModel.normalizeForApi(value);
+  assert.equal(normalized.risk.max_concurrent_positions, 1);
+  assert.equal(normalized.risk.max_combined_open_risk_percent, null);
+});
+
+test('position stacking is validated and summarized from saved risk rules', () => {
+  const value = validDraft();
+  value.risk.max_concurrent_positions = 3;
+  value.risk.max_combined_open_risk_percent = 3;
+  assert.deepEqual(StudioModel.clientValidation(value), {});
+  const summary = StudioModel.buildSummary(value);
+  assert.match(summary, /max 3 concurrent positions/);
+  assert.match(summary, /combined open risk ≤ 3%/);
+});
+
+test('multiple positions require a valid combined open risk cap', () => {
+  const value = validDraft();
+  value.risk.max_concurrent_positions = 2;
+  value.risk.max_combined_open_risk_percent = null;
+  assert.ok(StudioModel.clientValidation(value)['risk.max_combined_open_risk_percent']);
+  value.risk.max_combined_open_risk_percent = 11;
+  assert.ok(StudioModel.clientValidation(value)['risk.max_combined_open_risk_percent']);
 });
