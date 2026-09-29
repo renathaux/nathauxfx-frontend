@@ -338,6 +338,16 @@
     if (warmup > 0) {
       $('diagnosticSummary').innerHTML += ` <span class="muted">Indicators were warmed with ${warmup.toLocaleString()} earlier candles.</span>`;
     }
+    const savedMaxPositions = Number(state.strategy?.definition?.risk?.max_concurrent_positions || 1);
+    if (savedMaxPositions > 1) {
+      const overlapping = Number(diagnostics.overlapping_entries_opened || 0);
+      const maxSeen = Number(diagnostics.max_simultaneous_positions || 0);
+      if (overlapping > 0) {
+        $('diagnosticSummary').innerHTML += ` <span class="diagnostic-good">${overlapping.toLocaleString()} overlapping entr${overlapping === 1 ? 'y was' : 'ies were'} actually opened; max simultaneous positions: ${maxSeen}.</span>`;
+      } else {
+        $('diagnosticSummary').innerHTML += ' <span class="muted">Position stacking was enabled, but this run found no second valid entry while another trade was open. Matching single-position P/L is expected in that case.</span>';
+      }
+    }
 
     const passed = diagnostics.stage_pass_counts || {};
     const denominator = Math.max(setups, 1);
@@ -580,7 +590,7 @@
       : ' · Single position';
     $('resultContext').textContent=`${c.name} · ${c.symbol} · ${coverageDate(c.start)} → ${coverageDate(c.end)}${c.riskOverride?' · Temporary risk override':''}${concurrencyText}`;
     const fmt=Model.formatMetric;
-    const rows=[['Start balance',fmt(m.starting_balance ?? result.starting_balance,'money')],['Ending balance',fmt(m.ending_balance,'money')],['Return',Number(m.starting_balance ?? result.starting_balance)>0?fmt(Number(m.net_pl)/(m.starting_balance ?? result.starting_balance)*100,'percent'):'—'],['Max drawdown',fmt(m.max_drawdown_dollars,'money')],['Profit factor',fmt(m.profit_factor)],['Total trades',String((result.trades||[]).length)],['Win rate',fmt(m.win_rate,'percent')],['Average R',fmt(m.average_r,'r')],['Max simultaneous positions',String(result.diagnostics?.max_simultaneous_positions ?? '—')],['Max open risk',fmt(result.diagnostics?.max_open_risk_dollars,'money')]];
+    const rows=[['Start balance',fmt(m.starting_balance ?? result.starting_balance,'money')],['Ending balance',fmt(m.ending_balance,'money')],['Return',Number(m.starting_balance ?? result.starting_balance)>0?fmt(Number(m.net_pl)/(m.starting_balance ?? result.starting_balance)*100,'percent'):'—'],['Max drawdown',fmt(m.max_drawdown_dollars,'money')],['Profit factor',fmt(m.profit_factor)],['Total trades',String((result.trades||[]).length)],['Win rate',fmt(m.win_rate,'percent')],['Average R',fmt(m.average_r,'r')],['Max simultaneous positions',String(result.diagnostics?.max_simultaneous_positions ?? '—')],['Overlapping entries',String(result.diagnostics?.overlapping_entries_opened ?? '—')],['Max open risk',fmt(result.diagnostics?.max_open_risk_dollars,'money')]];
     $('runSummary').innerHTML=rows.map(([label,value])=>`<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')+`<div class="summary-context"><dt>Backtest period · Strategy · Symbol</dt><dd>${escapeHtml($('resultContext').textContent)}</dd></div>`;
     const groups=Presentation.breakdowns(result.trades);
     for(const [id,data] of [['yearlyBody',groups.years],['directionBody',groups.directions]]) {
