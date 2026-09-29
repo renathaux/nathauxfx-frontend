@@ -296,6 +296,18 @@
     if (!stackedPositions) {
       $('riskMaxCombinedOpenRisk').value = '';
       state.draft.risk.max_combined_open_risk_percent = null;
+    } else if (
+      $('riskMaxCombinedOpenRisk').value === ''
+      && state.draft.risk?.method === 'PERCENT_BALANCE'
+      && Number.isFinite(Number(state.draft.risk?.value))
+      && Number(state.draft.risk.value) > 0
+    ) {
+      const suggestedCap = Math.min(
+        10,
+        Number(state.draft.risk.value) * Number(state.draft.risk.max_concurrent_positions)
+      );
+      $('riskMaxCombinedOpenRisk').value = String(suggestedCap);
+      state.draft.risk.max_combined_open_risk_percent = suggestedCap;
     }
 
     const tp1Basis = state.draft.tp1?.target_basis || 'SL_DISTANCE';
