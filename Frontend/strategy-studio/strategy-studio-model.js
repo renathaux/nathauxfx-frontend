@@ -162,9 +162,12 @@
     value.risk.max_concurrent_positions = Number.isInteger(Number(value.risk.max_concurrent_positions))
       ? Number(value.risk.max_concurrent_positions)
       : 1;
-    if (value.risk.max_combined_open_risk_percent === '') {
+    if (
+      value.risk.max_combined_open_risk_percent == null
+      || value.risk.max_combined_open_risk_percent === ''
+    ) {
       value.risk.max_combined_open_risk_percent = null;
-    } else if (value.risk.max_combined_open_risk_percent != null) {
+    } else {
       value.risk.max_combined_open_risk_percent = Number(value.risk.max_combined_open_risk_percent);
     }
 
