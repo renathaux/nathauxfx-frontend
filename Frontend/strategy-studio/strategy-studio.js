@@ -172,6 +172,10 @@
     draft.tp2.value = toNumber('tp2Value');
     draft.risk.method = $('riskMethod').value || null;
     draft.risk.value = toNumber('riskValue');
+    draft.risk.max_concurrent_positions = Number($('riskMaxConcurrentPositions').value || 1);
+    draft.risk.max_combined_open_risk_percent = draft.risk.max_concurrent_positions > 1
+      ? toNumber('riskMaxCombinedOpenRisk')
+      : null;
     if (!draft.fundamentals) draft.fundamentals = {};
     draft.fundamentals.mode = $('fundamentalMode').value || 'BLOCK_OPPOSITE';
     draft.session_filter = {
@@ -240,6 +244,8 @@
     $('tp2Value').value = value.tp2.value ?? '';
     $('riskMethod').value = value.risk.method || '';
     $('riskValue').value = value.risk.value ?? '';
+    $('riskMaxConcurrentPositions').value = String(value.risk.max_concurrent_positions || 1);
+    $('riskMaxCombinedOpenRisk').value = value.risk.max_combined_open_risk_percent ?? '';
     $('fundamentalMode').value = value.fundamentals?.mode || 'BLOCK_OPPOSITE';
     $('sessionFilterEnabled').checked = Boolean(value.session_filter?.enabled);
     $('sessionBlockedStart').value = value.session_filter?.blocked_start || '17:00';
@@ -285,6 +291,12 @@
     $('tp2ValueField').classList.toggle('hidden', !visible.tp2Value);
     $('riskValueField').classList.toggle('hidden', !visible.riskValue);
     $('riskValueLabel').textContent = state.draft.risk.method === 'FIXED_DOLLARS' ? 'Fixed $ Risk' : 'Risk % of Balance';
+    const stackedPositions = Number(state.draft.risk?.max_concurrent_positions || 1) > 1;
+    $('riskMaxCombinedOpenRiskField').classList.toggle('hidden', !stackedPositions);
+    if (!stackedPositions) {
+      $('riskMaxCombinedOpenRisk').value = '';
+      state.draft.risk.max_combined_open_risk_percent = null;
+    }
 
     const tp1Basis = state.draft.tp1?.target_basis || 'SL_DISTANCE';
     const stepOption = Array.from($('tp1ProtectionMode').options).find((option) => option.value === 'TP2_STEPS');
@@ -799,8 +811,8 @@
       }
       collectDraft();
     });
-    ['structureTimeframe', 'slDistanceMode', 'slDistanceEnabled', 'setupFreshnessEnabled', 'sessionFilterEnabled', 'sessionBlockedStart', 'sessionBlockedEnd', 'seasonalFilterEnabled', 'seasonalBlockedStart', 'seasonalBlockedEnd', 'entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp1ProtectionTriggerMethod', 'tp2Method', 'riskMethod', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
-    ['setupMaxAge', 'slDistanceMin', 'slDistanceMax', 'breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp1Step1Trigger', 'tp1Step1Secure', 'tp1Step2Trigger', 'tp1Step2Secure', 'tp1Step3Trigger', 'tp1Step3Secure', 'tp2Value', 'riskValue'].forEach((id) => $(id).addEventListener('input', collectDraft));
+    ['structureTimeframe', 'slDistanceMode', 'slDistanceEnabled', 'setupFreshnessEnabled', 'sessionFilterEnabled', 'sessionBlockedStart', 'sessionBlockedEnd', 'seasonalFilterEnabled', 'seasonalBlockedStart', 'seasonalBlockedEnd', 'entryMethod', 'stopMethod', 'tp1TargetBasis', 'tp1ProtectionMode', 'tp1ProtectionTriggerMethod', 'tp2Method', 'riskMethod', 'riskMaxConcurrentPositions', 'fundamentalMode'].forEach((id) => $(id).addEventListener('change', collectDraft));
+    ['setupMaxAge', 'slDistanceMin', 'slDistanceMax', 'breakBody', 'breakDistance', 'confirmationBody', 'stopBuffer', 'fixedStopDistance', 'tp1Target', 'tp1Close', 'tp1Protection', 'tp1Step1Trigger', 'tp1Step1Secure', 'tp1Step2Trigger', 'tp1Step2Secure', 'tp1Step3Trigger', 'tp1Step3Secure', 'tp2Value', 'riskValue', 'riskMaxCombinedOpenRisk'].forEach((id) => $(id).addEventListener('input', collectDraft));
     $('tp1Enabled').addEventListener('change', collectDraft);
     $('rememberBosEntry').addEventListener('change', collectDraft);
   }
