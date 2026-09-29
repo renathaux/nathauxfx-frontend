@@ -1175,6 +1175,37 @@
                       data-error-for="risk.value"
                     ></small
                   ></label>
+                  <label class="field"
+                    ><span>Concurrent Positions / Symbol</span
+                    ><select id="riskMaxConcurrentPositions">
+                      <option value="1">1 position</option>
+                      <option value="2">2 positions</option>
+                      <option value="3">3 positions</option>
+                    </select>
+                    <small class="field-hint"
+                      >How many independent trades this strategy may hold on the same symbol.</small
+                    ><small
+                      class="field-error"
+                      data-error-for="risk.max_concurrent_positions"
+                    ></small
+                  ></label>
+                  <label class="field conditional hidden" id="riskMaxCombinedOpenRiskField"
+                    ><span>Max Combined Open Risk (%)</span
+                    ><input
+                      id="riskMaxCombinedOpenRisk"
+                      min="0.01"
+                      max="10"
+                      placeholder="2"
+                      step="0.01"
+                      type="number"
+                    />
+                    <small class="field-hint"
+                      >Caps the sum of initial risk across all open trades for this symbol.</small
+                    ><small
+                      class="field-error"
+                      data-error-for="risk.max_combined_open_risk_percent"
+                    ></small
+                  ></label>
                 </div>
               </div>
             </details>
@@ -1529,7 +1560,7 @@
       <option value="2"></option>
     </datalist>
     <script src="/apiClient.js?v=20260927-owner-recovery"></script>
-    <script src="/strategy-studio/strategy-studio-model.js?v=20260927-protection-trigger"></script>
+    <script src="/strategy-studio/strategy-studio-model.js?v=20260929-position-stacking"></script>
     <script src="/strategy-studio/strategy-studio-api.js?v=20260928-owner-precedence"></script>
 
     <script src="/strategy-studio/strategy-studio-settings.js?v=20260924-flow"></script>
