@@ -73,9 +73,9 @@
         "last_timestamp": "2026-08-31T23:55:00.000Z"
       },
       "2026-09": {
-        "count": 5765,
+        "count": 6046,
         "first_timestamp": "2026-09-01T00:00:00.000Z",
-        "last_timestamp": "2026-09-29T02:30:00.000Z"
+        "last_timestamp": "2026-09-30T02:05:00.000Z"
       },
       "2021-09": {
         "count": 6314,
@@ -443,9 +443,9 @@
         "last_timestamp": "2026-08-31T23:55:00.000Z"
       },
       "2026-09": {
-        "count": 5518,
+        "count": 5786,
         "first_timestamp": "2026-09-01T00:00:00.000Z",
-        "last_timestamp": "2026-09-29T02:30:00.000Z"
+        "last_timestamp": "2026-09-30T02:05:00.000Z"
       },
       "2021-09": {
         "count": 6024,
@@ -878,6 +878,6 @@
     "failures": [],
     "earliest_available": "2021-09-01T00:00:00.000Z"
   },
-  "last_refresh_at": "2026-09-29T02:36:23.453Z",
+  "last_refresh_at": "2026-09-30T02:11:02.086Z",
   "last_refresh_mode": "daily"
 }
