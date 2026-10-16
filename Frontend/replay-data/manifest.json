@@ -374,9 +374,9 @@
         "last_timestamp": "2026-07-31T20:25:00.000Z"
       },
       "2026-10": {
-        "count": 2322,
+        "count": 3142,
         "first_timestamp": "2026-10-01T00:00:00.000Z",
-        "last_timestamp": "2026-10-13T03:30:00.000Z"
+        "last_timestamp": "2026-10-16T01:20:00.000Z"
       }
     },
     "XAUUSD": {
@@ -750,9 +750,9 @@
         "last_timestamp": "2026-07-31T20:55:00.000Z"
       },
       "2026-10": {
-        "count": 2251,
+        "count": 3053,
         "first_timestamp": "2026-10-01T00:00:00.000Z",
-        "last_timestamp": "2026-10-13T03:30:00.000Z"
+        "last_timestamp": "2026-10-16T01:20:00.000Z"
       }
     }
   },
@@ -890,6 +890,6 @@
     "failures": [],
     "earliest_available": "2021-09-01T00:00:00.000Z"
   },
-  "last_refresh_at": "2026-10-13T03:38:30.436Z",
+  "last_refresh_at": "2026-10-16T01:29:31.214Z",
   "last_refresh_mode": "daily"
 }
